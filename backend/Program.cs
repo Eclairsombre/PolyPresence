@@ -1,43 +1,51 @@
-public class Startup
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
+using Microsoft.AspNetCore.Http;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Ajouter la prise en charge des sessions
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
 {
-    public void ConfigureServices(IServiceCollection services)
-    {
-        services.AddDistributedMemoryCache(); // Cache pour la session
-        services.AddSession(options =>
-        {
-            options.IdleTimeout = TimeSpan.FromMinutes(30); // Durée de la session
-            options.Cookie.HttpOnly = true;
-            options.Cookie.IsEssential = true;
-        });
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
-        services.AddControllersWithViews();
-        services.AddRazorPages();
-    }
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection")));
 
-    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
-    {
-        if (env.IsDevelopment())
-        {
-            app.UseDeveloperExceptionPage();
-        }
-        else
-        {
-            app.UseExceptionHandler("/Home/Error");
-            app.UseHsts();
-        }
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowVue",
+        policy => policy.WithOrigins("http://localhost:5173") // Port de Vite
+                        .AllowAnyMethod()
+                        .AllowAnyHeader());
+});
 
-        app.UseHttpsRedirection();
-        app.UseStaticFiles();
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
 
-        app.UseRouting();
-        app.UseAuthorization();
-        app.UseSession(); // Active la gestion des sessions
+var app = builder.Build();
 
-        app.UseEndpoints(endpoints =>
-        {
-            endpoints.MapControllerRoute(
-                name: "default",
-                pattern: "{controller=Home}/{action=Index}/{id?}");
-        });
-    }
+// Configure middleware
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
 }
+
+// Activer CORS
+app.UseCors("AllowVue");
+
+// Activer la session avant UseRouting
+app.UseSession();
+
+app.UseRouting();
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+// Vos autres configurations...
+
+app.Run();
