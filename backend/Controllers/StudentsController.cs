@@ -21,10 +21,10 @@ namespace backend.Controllers
         {
             return await _context.Students.ToListAsync();
         }
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Student>> GetStudent(int id)
+        [HttpGet("{studentNumber}")]
+        public async Task<ActionResult<Student>> GetStudentByStudentNumber(string studentNumber)
         {
-            var student = await _context.Students.FindAsync(id);
+            var student = await _context.Students.FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
 
             if (student == null)
             {
@@ -33,13 +33,14 @@ namespace backend.Controllers
 
             return student;
         }
+
         [HttpPost]
         public async Task<ActionResult<Student>> PostStudent(Student student)
         {
             _context.Students.Add(student);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetStudent), new { id = student.Id }, student);
+            return CreatedAtAction("GetStudent", new { id = student.Id }, student);
         }
         [HttpPut("{id}")]
         public async Task<IActionResult> PutStudent(int id, Student student)
@@ -82,6 +83,13 @@ namespace backend.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        [HttpGet("search/{studentId}")]
+        public async Task<IActionResult> SearchByStudentId(string studentId)
+        {
+            var exists = await _context.Students.AnyAsync(s => s.StudentNumber == studentId);
+            return Ok(new { exists });
         }
         private bool StudentExists(int id)
         {

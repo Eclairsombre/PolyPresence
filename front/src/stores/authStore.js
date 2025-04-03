@@ -106,5 +106,26 @@ export const useAuthStore = defineStore("auth", {
         }
       }
     },
+    async checkIfUserExists() {
+      if (!this.user || !this.user.studentId) return false;
+
+      try {
+        const response = await axios.get(
+          `http://localhost:5020/api/Students/search/${this.user.studentId}`
+        );
+
+        this.user.existsInDb = response.data.exists;
+        return response.data;
+      } catch (error) {
+        console.error(
+          "Erreur lors de la vérification de l'utilisateur:",
+          error
+        );
+        if (error.response && error.response.status === 404) {
+          this.user.existsInDb = false;
+        }
+        return false;
+      }
+    },
   },
 });
