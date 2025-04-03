@@ -10,7 +10,6 @@ namespace backend.Data
         {
         }
 
-        public DbSet<User> Users { get; set; } = null!;
         public DbSet<Student> Students { get; set; } = null!;
 
     }
