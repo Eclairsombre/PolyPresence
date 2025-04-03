@@ -1,129 +1,87 @@
 <template>
-  <div>
-    <div v-if="!user">
-      <p>Veuillez vous connecter via CAS.</p>
-      <button @click="login">Se connecter</button>
-    </div>
-    <div v-else>
-      <p>Bienvenue, {{ user.studentId }}!</p>
-      <button @click="logout">Se déconnecter</button>
-      
-      <div v-if="debugData" class="debug-section">
-        <h3>Données de débogage:</h3>
-        <pre>{{ JSON.stringify(debugData, null, 2) }}</pre>
-      </div>
-    </div>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>PolyPresence</h1>
+    </header>
+    <main class="app-content">
+      <Auth />
+    </main>
+    <footer class="app-footer">
+      <p>&copy; 2025 PolyPresence</p>
+    </footer>
   </div>
 </template>
   
 <script>
-import axios from 'axios';
+import Auth from './components/Auth.vue';
 
 export default {
-  data() {
-    return {
-      user: null, 
-      debugData: null, 
-    };
-  },
-  created() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const ticket = urlParams.get('ticket');
-    
-    if (ticket) {
-      this.processTicket(ticket);
-    } else {
-      this.checkSession();
-    }
-  },
-  methods: {
-    login() {
-      window.location.href = "http://localhost:5020/login";
-    },
-    
-    logout() {
-      this.user = null;
-      this.debugData = null;
-      localStorage.removeItem('user');
-      window.location.href = "http://localhost:5020/logout";
-    },
-    
-    async processTicket(ticket) {
-      try {
-        const response = await axios.get(`http://localhost:5020/callback?ticket=${ticket}`);
-        
-        this.debugData = response.data;
-        
-        if (response.data.success) {
-          if (response.data.rawResponse) {
-            const data = this.parseRawData(response.data.rawResponse);
-            console.log("Données brutes:", data);
-            this.user = {
-              studentId: data.user,
-              firstname: data.firstname || 'N/A',
-              lastname: data.lastname || 'N/A',
-              email: data.email || 'N/A',
-            };
-          }
-          
-          localStorage.setItem('user', JSON.stringify(this.user));
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } else {
-          console.error("Échec de l'authentification:", response.data.message);
-        }
-      } catch (error) {
-        console.error("Erreur lors du traitement du ticket:", error);
-        this.debugData = {
-          error: error.message,
-          response: error.response?.data
-        };
-      }
-    },
-
-    parseRawData(rawData) {
-      if (!rawData) return { user: null, firstname: 'N/A', lastname: 'N/A', email: 'N/A' };
-      
-      const lines = rawData.split("\n");
-      const data = {};
-
-      lines.forEach(line => {
-        const match = line.match(/<cas:(\w+)>(.*?)<\/cas:\1>/);
-        if (match) {
-          const key = match[1];
-          const value = match[2];
-          data[key] = value;
-        }
-      });
-
-      return {
-        user: data["user"] || null,
-        firstname: data["firstname"] || "N/A",
-        lastname: data["name"] || "N/A",
-        email: data["email"] || "N/A",
-      };
-    },
-    
-    checkSession() {
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        try {
-          this.user = JSON.parse(savedUser);
-        } catch (e) {
-          console.error("Erreur lors de la récupération de l'utilisateur depuis localStorage:", e);
-          localStorage.removeItem('user');
-        }
-      }
-    },
-  },
+  components: {
+    Auth
+  }
 };
 </script>
 
-<style scoped>
+<style>
+/* Style global */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f7fa;
+}
+
+/* Styles spécifiques à l'application */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  background-color: #2c3e50;
+  color: white;
+  padding: 15px 20px;
+  text-align: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.app-content {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin-top: 20px;
+}
+
+.app-footer {
+  background-color: #2c3e50;
+  color: white;
+  text-align: center;
+  padding: 15px;
+  font-size: 0.9rem;
+  margin-top: auto;
+}
+
+/* Style des débogages réutilisable */
 .debug-section {
   margin-top: 30px;
   padding: 15px;
-  background-color: #f5f5f5;
+  background-color: #f8f9fa;
   border-radius: 5px;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
 }
 
 pre {
@@ -131,5 +89,20 @@ pre {
   word-break: break-all;
   max-height: 300px;
   overflow: auto;
+  background-color: #eee;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+/* Media queries pour la responsivité */
+@media (max-width: 768px) {
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .app-content {
+    padding: 15px;
+  }
 }
 </style>
