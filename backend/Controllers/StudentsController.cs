@@ -37,11 +37,18 @@ namespace backend.Controllers
         [HttpPost]
         public async Task<ActionResult<Student>> PostStudent(Student student)
         {
+            var existingStudent = await _context.Students.FirstOrDefaultAsync(s => s.StudentNumber == student.StudentNumber);
+            if (existingStudent != null)
+            {
+                return Conflict(new { message = "A student with this student number already exists." });
+            }
+
             _context.Students.Add(student);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetStudent", new { id = student.Id }, student);
+            return CreatedAtAction(nameof(GetStudentByStudentNumber), new { studentNumber = student.StudentNumber }, student);
         }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> PutStudent(int id, Student student)
         {

@@ -43,7 +43,6 @@
     created() {
       this.userStore.initialize();
     },
-    // Vérifier si l'utilisateur existe après l'initialisation
     async mounted() {
     if (this.userStore.user) {
       try {
@@ -55,7 +54,6 @@
       }
     }
   },
-    // Surveiller les changements d'utilisateur pour vérifier son existence
     watch: {
       'userStore.user'(newUser) {
         if (newUser) {

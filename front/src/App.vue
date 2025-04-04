@@ -5,6 +5,7 @@
     </header>
     <main class="app-content">
       <Auth />
+      <ImportStudent />
     </main>
     <footer class="app-footer">
       <p>&copy; 2025 PolyPresence</p>
@@ -14,10 +15,12 @@
   
 <script>
 import Auth from './components/Auth.vue';
+import ImportStudent from './components/ImportStudent.vue';
 
 export default {
   components: {
-    Auth
+    Auth,
+    ImportStudent
   }
 };
 </script>
