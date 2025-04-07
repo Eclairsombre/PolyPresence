@@ -2,10 +2,13 @@
   <div class="app-container">
     <header class="app-header">
       <h1>PolyPresence</h1>
+      <nav class="app-nav">
+        <router-link to="/">Accueil</router-link>
+        <router-link to="/students">Étudiants</router-link>
+      </nav>
     </header>
     <main class="app-content">
-      <Auth />
-      <ImportStudent />
+      <router-view />
     </main>
     <footer class="app-footer">
       <p>&copy; 2025 PolyPresence</p>
@@ -14,14 +17,8 @@
 </template>
   
 <script>
-import Auth from './components/Auth.vue';
-import ImportStudent from './components/ImportStudent.vue';
-
 export default {
-  components: {
-    Auth,
-    ImportStudent
-  }
+  name: 'App'
 };
 </script>
 
@@ -51,7 +48,9 @@ body {
   background-color: #2c3e50;
   color: white;
   padding: 15px 20px;
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
@@ -60,12 +59,28 @@ body {
   font-weight: 500;
 }
 
+.app-nav {
+  display: flex;
+  gap: 20px;
+}
+
+.app-nav a {
+  color: white;
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.app-nav a:hover, .app-nav a.router-link-active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 .app-content {
   flex: 1;
   padding: 20px;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
   margin-top: 20px;
 }
 
