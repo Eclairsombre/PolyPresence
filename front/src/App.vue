@@ -3,10 +3,15 @@
     <header class="app-header">
       <h1>PolyPresence</h1>
       <nav class="app-nav">
-        <router-link to="/">Accueil</router-link>
-        <router-link to="/students">Étudiants</router-link>
-        <router-link to="/sessions">Sessions</router-link>
-        <router-link to="/test">Présences</router-link>
+        <div>
+          <router-link to="/">Accueil</router-link>
+        </div>
+        <div  v-if="user && user.isAdmin !== false">
+          <router-link to="/students">Étudiants</router-link>
+          <router-link to="/sessions">Sessions</router-link>
+          <router-link to="/test">Présences</router-link>
+        </div>
+        
       </nav>
     </header>
     <main class="app-content">
@@ -18,10 +23,10 @@
   </div>
 </template>
   
-<script>
-export default {
-  name: 'App'
-};
+<script setup>
+import {useAuthStore} from './stores/authStore';
+const authStore = useAuthStore();
+const user = authStore.user;
 </script>
 
 <style>

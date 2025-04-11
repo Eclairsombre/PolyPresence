@@ -2,26 +2,33 @@
   <div class="home-page">
     <h1>Bienvenue sur PolyPresence</h1>
     <div class="home-content">
-      <p>Système de gestion de présence pour Polytech</p>
-      <div class="actions">
+      <div v-if="user && user.isAdmin !== false" class="actions">
         <router-link to="/students" class="btn-primary">Voir la liste des étudiants</router-link>
       </div>
-    </div>
-    <div class="modules">
-      <Auth />
+      <div v-if="user && user.isAdmin === false" class="student-dashboard">
+        <Auth />
+        <div class="attendance-section">
+          <StudentsAttendanceSheetPage />
+        </div>
+      </div>
+      <div v-if="!user" class="login-prompt">
+        <Auth />
+      </div>
     </div>
   </div>
 </template>
 
-<script>
+<script setup>
+import { computed } from 'vue';
 import Auth from '../Auth.vue';
+import StudentsAttendanceSheetPage from './StudentsAttendanceSheetPage.vue';
+import { useAuthStore } from '../../stores/authStore';
 
-export default {
-  name: 'HomePage',
-  components: {
-    Auth,
-  }
-}
+const authStore = useAuthStore();
+const user = computed(() => authStore.user);
+
+console.log("User in HomePage:", user.value);
+console.log("isAdmin in HomePage:", user.value?.isAdmin);
 </script>
 
 <style scoped>
@@ -62,5 +69,39 @@ export default {
   justify-content: center;
   gap: 20px;
   margin-top: 40px;
+}
+
+/* Styles pour les utilisateurs non-admin */
+.student-dashboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  padding: 20px 0;
+}
+
+.attendance-section {
+  width: 100%;
+  max-width: 800px;
+  margin-top: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.login-prompt {
+  margin: 40px auto;
+  max-width: 500px;
+}
+
+@media (max-width: 768px) {
+  .student-dashboard {
+    gap: 20px;
+  }
+  
+  .attendance-section {
+    padding: 15px;
+  }
 }
 </style>

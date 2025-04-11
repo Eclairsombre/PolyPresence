@@ -47,6 +47,7 @@ export const useAuthStore = defineStore("auth", {
               firstname: data.firstname || "N/A",
               lastname: data.lastname || "N/A",
               email: data.email || "N/A",
+              isAdmin: false,
             };
           }
 
@@ -124,6 +125,25 @@ export const useAuthStore = defineStore("auth", {
         if (error.response && error.response.status === 404) {
           this.user.existsInDb = false;
         }
+        return false;
+      }
+    },
+    async isAdmin() {
+      if (!this.user || !this.user.studentId) return false;
+
+      try {
+        const response = await axios.get(
+          `http://localhost:5020/api/Admin/IsUserAdmin/${this.user.studentId}`
+        );
+
+        this.user.isAdmin = response.data.isAdmin;
+        console.log("isAdmin:", this.user.isAdmin);
+        return response.data.isAdmin;
+      } catch (error) {
+        console.error(
+          "Erreur lors de la vérification de l'utilisateur:",
+          error
+        );
         return false;
       }
     },

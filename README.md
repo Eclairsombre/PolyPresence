@@ -1,1 +1,9 @@
--
+- Faire affichage complet de la fiche (signature ?)
+- Trier par ordre alphbéthique sur l'affichage des éleves
+- Trouver comment faire signer au prof
+- Gestion du code de session -> a qui l'envoyer ?
+- Envoi de la fiche en pdf à la fin de la journée -> tout les jours ? -> choix du jour
+- acces au différentes fiches de présence
+- téléchargement de toute les fiches pour une période de temps
+- Stocker data au cas de bug de la bd
+- refactor code 

@@ -14,6 +14,8 @@ namespace backend.Data
         public DbSet<Session> Sessions { get; set; } = null!;
         public DbSet<Attendance> Attendances { get; set; } = null!;
 
+        public DbSet<Admin> Admins { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
