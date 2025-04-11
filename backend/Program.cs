@@ -3,7 +3,8 @@ using backend.Data;
 using Microsoft.AspNetCore.Http;
 
 var builder = WebApplication.CreateBuilder(args);
-
+// Ajouter avant de construire l'application
+builder.Logging.AddConsole();
 // Ajouter la prise en charge des sessions
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>

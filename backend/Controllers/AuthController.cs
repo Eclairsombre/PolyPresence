@@ -60,13 +60,13 @@ public class AuthController : Controller
 
             // Utiliser le gestionnaire lors de la sélection du nœud
             var userNode = xmlDoc.SelectSingleNode("//cas:user", nsManager);
-            return userNode?.InnerText;
+            return userNode?.InnerText ?? string.Empty;
         }
         catch (Exception ex)
         {
             // Journaliser l'exception pour le débogage
             Console.WriteLine($"Erreur lors du parsing XML: {ex.Message}");
-            return null;
+            return string.Empty;
         }
     }
 

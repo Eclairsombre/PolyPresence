@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace backend.Controllers
 {
@@ -16,15 +19,18 @@ namespace backend.Controllers
             _context = context;
         }
 
+        // GET: api/Students
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Student>>> GetStudents()
         {
             return await _context.Students.ToListAsync();
         }
-        [HttpGet("{studentNumber}")]
-        public async Task<ActionResult<Student>> GetStudentByStudentNumber(string studentNumber)
+
+        // GET: api/Students/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Student>> GetStudent(int id)
         {
-            var student = await _context.Students.FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+            var student = await _context.Students.FindAsync(id);
 
             if (student == null)
             {
@@ -34,36 +40,57 @@ namespace backend.Controllers
             return student;
         }
 
+        // GET: api/Students/year/3A
+        [HttpGet("year/{year}")]
+        public async Task<ActionResult<IEnumerable<Student>>> GetStudentsByYear(string year)
+        {
+            var students = await _context.Students
+                .Where(s => s.Year == year)
+                .ToListAsync();
+
+            if (students == null || !students.Any())
+            {
+                return NotFound(new { message = $"Aucun étudiant trouvé pour l'année {year}" });
+            }
+
+            return students;
+        }
+
+        // GET: api/Students/search/{studentNumber}
+        [HttpGet("search/{studentNumber}")]
+        public async Task<ActionResult<object>> SearchStudentByNumber(string studentNumber)
+        {
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+
+            if (student == null)
+            {
+                return NotFound(new { exists = false });
+            }
+
+            return new { exists = true, student };
+        }
+
+        // POST: api/Students
         [HttpPost]
         public async Task<ActionResult<Student>> PostStudent(Student student)
         {
-            var existingStudent = await _context.Students.FirstOrDefaultAsync(s => s.StudentNumber == student.StudentNumber);
-            if (existingStudent != null)
-            {
-                return Conflict(new { message = "A student with this student number already exists." });
-            }
-
             _context.Students.Add(student);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetStudentByStudentNumber), new { studentNumber = student.StudentNumber }, student);
+            return CreatedAtAction(nameof(GetStudent), new { id = student.Id }, student);
         }
 
-        [HttpPut("{studentNumber}")]
-        public async Task<IActionResult> PutStudent(string studentNumber, Student student)
+        // PUT: api/Students/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutStudent(int id, Student student)
         {
-            if (studentNumber != student.StudentNumber)
+            if (id != student.Id)
             {
                 return BadRequest();
             }
 
-            var existingStudent = await _context.Students.FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
-            if (existingStudent == null)
-            {
-                return NotFound();
-            }
-
-            _context.Entry(existingStudent).CurrentValues.SetValues(student);
+            _context.Entry(student).State = EntityState.Modified;
 
             try
             {
@@ -71,7 +98,7 @@ namespace backend.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!StudentExistsByStudentNumber(studentNumber))
+                if (!StudentExists(id))
                 {
                     return NotFound();
                 }
@@ -84,14 +111,11 @@ namespace backend.Controllers
             return NoContent();
         }
 
-        private bool StudentExistsByStudentNumber(string studentNumber)
+        // DELETE: api/Students/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteStudent(int id)
         {
-            return _context.Students.Any(e => e.StudentNumber == studentNumber);
-        }
-        [HttpDelete("{studentNumber}")]
-        public async Task<IActionResult> DeleteStudentByStudentNumber(string studentNumber)
-        {
-            var student = await _context.Students.FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+            var student = await _context.Students.FindAsync(id);
             if (student == null)
             {
                 return NotFound();
@@ -103,26 +127,9 @@ namespace backend.Controllers
             return NoContent();
         }
 
-        [HttpGet("search/{studentNumber}")]
-        public async Task<IActionResult> SearchByStudentNumber(string studentNumber)
-        {
-            var exists = await _context.Students.AnyAsync(s => s.StudentNumber == studentNumber);
-            return Ok(new { exists });
-        }
         private bool StudentExists(int id)
         {
             return _context.Students.Any(e => e.Id == id);
-        }
-
-        [HttpGet("fetch/{year}")]
-        public async Task<ActionResult<IEnumerable<Student>>> GetStudentsByYear(string year)
-        {
-            var students = await _context.Students.Where(s => s.Year == year).ToListAsync();
-            if (students == null || students.Count == 0)
-            {
-                return NotFound(new { message = "No students found for the specified year." });
-            }
-            return students;
         }
     }
 }

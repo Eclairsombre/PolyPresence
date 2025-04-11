@@ -5,6 +5,8 @@
       <nav class="app-nav">
         <router-link to="/">Accueil</router-link>
         <router-link to="/students">Étudiants</router-link>
+        <router-link to="/sessions">Sessions</router-link>
+        <router-link to="/test">Présences</router-link>
       </nav>
     </header>
     <main class="app-content">

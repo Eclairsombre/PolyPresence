@@ -31,7 +31,7 @@ export const useStudentsStore = defineStore("students", {
     },
     async fetchStudents(year: string): Promise<Student[]> {
       try {
-        const response = await axios.get(`http://localhost:5020/api/Students/fetch/${year}`);
+        const response = await axios.get(`http://localhost:5020/api/Students/year/${year}`);
         if (response.status !== 200) {
           throw new Error("Erreur lors de la récupération des étudiants.");
         }
@@ -39,6 +39,7 @@ export const useStudentsStore = defineStore("students", {
         if (!Array.isArray(response.data)) {
           throw new Error("Données invalides reçues.");
         }
+        console.log("Réponse de l'API:", response.data);
  
         this.students = response.data.map((student: any) => ({
           name: student.name,
@@ -47,6 +48,7 @@ export const useStudentsStore = defineStore("students", {
           email: student.email,
           year: student.year
         }));
+        console.log("Etudiants récupérés:", this.students);
         return this.students; 
       } catch (error) {
         console.error("Erreur lors de la récupération des étudiants:", error);
@@ -79,5 +81,19 @@ export const useStudentsStore = defineStore("students", {
         return false;
       }
     },
+    async getStudent(studentNumber: string): Promise<Student | null> {
+      try {
+        const response = await axios.get(`http://localhost:5020/api/Students/search/${encodeURIComponent(studentNumber)}`);
+        if (response.status === 200) {
+          return response.data;
+        } else {
+          console.error("Erreur lors de la récupération de l'étudiant:", response.statusText);
+          return null;
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération de l'étudiant:", error);
+        return null;
+      }
+    }
   }
 });

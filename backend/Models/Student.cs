@@ -8,5 +8,8 @@ namespace backend.Models
         public string StudentNumber { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Year { get; set; } = string.Empty;
+
+        public List<Attendance> Attendances { get; set; } = new List<Attendance>();
+
     }
 }
