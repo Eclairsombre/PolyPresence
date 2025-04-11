@@ -162,12 +162,17 @@ export default defineComponent({
         return;
       }
       
+      let validationCode ='';
+      for (let i = 0; i < 4; i++) {
+        validationCode += Math.floor(Math.random() * 10).toString();
+      }
       // Formater les données pour l'API
       const sessionData = {
         date: newSession.date,
         startTime: newSession.startTime,
         endTime: newSession.endTime,
-        year: newSession.year
+        year: newSession.year,
+        validationCode: validationCode
       };
       
       try {

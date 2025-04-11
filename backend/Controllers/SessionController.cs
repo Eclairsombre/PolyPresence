@@ -175,6 +175,68 @@ namespace backend.Controllers
             return Ok(new { message = "Étudiant ajouté à la session avec succès." });
         }
 
+        [HttpPost("{sessionId}/validate/{studentNumber}")]
+        public async Task<IActionResult> ValidateSession(int sessionId, string studentNumber)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
+            }
+
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+
+            if (student == null)
+            {
+                return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
+            }
+
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == student.Id);
+
+            if (attendance == null)
+            {
+                return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
+            }
+
+            attendance.Status = AttendanceStatus.Present;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Présence validée avec succès." });
+        }
+
+        [HttpGet("{sessionId}/attendance/{studentNumber}")]
+
+        public async Task<IActionResult> GetAttendance(int sessionId, string studentNumber)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
+            }
+
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+
+            if (student == null)
+            {
+                return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
+            }
+
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == student.Id);
+
+            if (attendance == null)
+            {
+                return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
+            }
+
+            return Ok(attendance);
+        }
+
 
         private bool SessionExists(int id)
         {

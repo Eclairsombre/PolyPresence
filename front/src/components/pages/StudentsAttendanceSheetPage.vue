@@ -8,6 +8,11 @@
                 <h2>Session du {{ formatDate(currentSession.date) }}</h2>
                 <p><strong>Horaires:</strong> {{ formatTime(currentSession.startTime) }} - {{ formatTime(currentSession.endTime) }}</p>
                 <p><strong>Année:</strong> {{ currentSession.year }}</p>
+                <p><strong>Code de validation:</strong> {{ currentSession.validationCode }}</p>
+                <p><strong>Présence:</strong> {{ attendance.status !== 1 ? 'Présent' : 'Absent' }}</p>
+            </div>
+            <div v-if="attendance.status === 1" class="validate-presence">
+                <ValidatePresence @presence-validated="loadData" />
             </div>
         </div>
         <div v-else>
@@ -22,11 +27,14 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 
+import ValidatePresence from '../buttons/ValidatePresence.vue';
+
 // Initialiser les variables réactives
 const loading = ref(true);
 const error = ref(null);
 const currentSession = ref(null);
 const studentYear = ref(null);
+const attendance = ref(null);
 
 // Initialiser les stores
 const sessionStore = useSessionStore();
@@ -57,15 +65,18 @@ const loadData = async () => {
         console.log("ID de l'étudiant connecté:", authStore.user.studentId);
         // Récupérer l'année de l'étudiant connecté
         const studentData = await studentsStore.getStudent(authStore.user.studentId);
-        console.log("Données de l'étudiant:", studentData);
+        console.log("Données de l'étudiant:", studentData.student);
         
         if (studentData) {
-            studentYear.value = studentData.year;
-            
+            studentYear.value = studentData.student.year;
+            console.log("Année de l'étudiant:", studentYear.value);
             // Récupérer la session actuelle pour l'année de l'étudiant
             const session = await sessionStore.getCurrentSession(studentYear.value);
             currentSession.value = session;
-            
+            console.log("Session actuelle:", currentSession.value);
+
+            const at = await sessionStore.getAttendance(authStore.user.studentId, currentSession.value.id);
+            attendance.value = at;
             if (!currentSession.value) {
                 error.value = "Aucune session en cours pour votre année.";
             }
@@ -102,5 +113,9 @@ onMounted(loadData);
 .session-info h2 {
     margin-top: 0;
     color: #2c3e50;
+}
+
+.validate-presence {
+    margin-top: 30px;
 }
 </style>

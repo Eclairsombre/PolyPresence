@@ -294,6 +294,42 @@ export const useSessionStore = defineStore("session", {
         this.loading = false;
       }
     },
+    async validatePresence(studentNumber, sessionId) {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const response = await axios.post(
+          `http://localhost:5020/api/Session/${sessionId}/validate/${studentNumber}`
+        );
+        return response.data;
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors de la validation de la présence";
+        console.error("Erreur lors de la validation de la présence:", error);
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
+    async getAttendance(studentNumber, sessionId) {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const response = await axios.get(
+          `http://localhost:5020/api/Session/${sessionId}/attendance/${studentNumber}`
+        );
+        return response.data;
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors de la récupération de la présence";
+        console.error("Erreur lors de la récupération de la présence:", error);
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
 
     // Réinitialiser le store
     resetStore() {

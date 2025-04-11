@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 namespace backend.Models
 {
     public enum AttendanceStatus
@@ -13,7 +14,12 @@ namespace backend.Models
         public int SessionId { get; set; }
         public int StudentId { get; set; }
         public AttendanceStatus Status { get; set; }
+
+        [JsonIgnore]
+
         public Session Session { get; set; } = null!;
+        [JsonIgnore]
+
         public Student Student { get; set; } = null!;
     }
 }
