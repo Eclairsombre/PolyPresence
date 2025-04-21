@@ -100,7 +100,6 @@ export default {
         await studentsStore.addStudent(student.value);
         successMessage.value = 'Étudiant ajouté avec succès!';
         
-        // Réinitialiser le formulaire après 1 seconde
         setTimeout(() => {
           emit('student-added');
           emit('close');

@@ -18,6 +18,13 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 
+const props = defineProps({
+    hasSignature: {
+        type: Boolean,
+        required: true,
+    },
+});
+
 const emit = defineEmits(['presenceValidated']);
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
@@ -26,23 +33,24 @@ const validationCode = ref('');
 
 const validatePresence = async () => {
 
-    // Vérifier si l'utilisateur est connecté
     if (!authStore.user || !authStore.user.studentId) {
         alert("Veuillez vous connecter pour accéder à cette fonctionnalité.");
         return;
     }
 
-    // Vérifier si le code de validation est valide
+    if(!props.hasSignature) {
+        alert("Vous devez d'abord définir votre signature.");
+        return;
+    }
+
     if (validationCode.value !== sessionStore.currentSession.validationCode) {
         alert("Le code de validation est incorrect.");
         return;
     }
 
-    // Valider la présence de l'étudiant
     try {
         await sessionStore.validatePresence(authStore.user.studentId, sessionStore.currentSession.id);
-        alert("Présence validée avec succès !");
-        emit('presenceValidated'); // Émettre l'événement pour indiquer que la présence a été validée
+        emit('presenceValidated'); 
     } catch (error) {
         console.error("Erreur lors de la validation de la présence:", error);
         alert("Une erreur s'est produite lors de la validation de la présence.");

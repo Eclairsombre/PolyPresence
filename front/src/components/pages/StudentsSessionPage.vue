@@ -15,7 +15,6 @@
       </button>
     </div>
     
-    <!-- Formulaire de création de session -->
     <div v-if="showCreateSessionForm" class="session-form-container">
       <h2>Nouvelle Session</h2>
       <form @submit.prevent="createNewSession" class="session-form">
@@ -62,12 +61,10 @@
       </form>
     </div>
     
-    <!-- Message de création réussie -->
     <div v-if="showSuccessMessage" class="success-message">
       Session créée avec succès!
     </div>
     
-    <!-- Sessions existantes -->
     <div v-if="sessionStore.loading" class="loading-state">
       Chargement des sessions...
     </div>
@@ -119,7 +116,6 @@ export default defineComponent({
     const studentLoading = ref(false);
     const students = ref([]);
     
-    // Initialiser le nouvel objet session
     const newSession = reactive({
       date: '',
       startTime: '',
@@ -139,7 +135,6 @@ export default defineComponent({
       }
     };
     
-    // Charger les étudiants par année
     const loadStudentsByYear = async () => {
       if (!newSession.year) {
         students.value = [];
@@ -161,7 +156,6 @@ export default defineComponent({
 
     };
     
-    // Créer une nouvelle session
     const createNewSession = async () => {
       if (!newSession.date || !newSession.startTime || !newSession.endTime || !newSession.year) {
         return;
@@ -171,7 +165,6 @@ export default defineComponent({
       for (let i = 0; i < 4; i++) {
         validationCode += Math.floor(Math.random() * 10).toString();
       }
-      // Formater les données pour l'API
       const sessionData = {
         date: newSession.date,
         startTime: newSession.startTime,
@@ -181,21 +174,17 @@ export default defineComponent({
       };
       
       try {
-        // Créer la session
         const createdSession = await sessionStore.createSession(sessionData);
         
-                // Si des étudiants existent, les ajouter à la session
         if (createdSession && students.value.length > 0) {
           console.log('Ajout des étudiants à la session:', createdSession.id, students.value);
           try {
-            // Modifier la façon dont nous préparons les données des étudiants pour l'API
             await sessionStore.addStudentsToSessionByNumber(createdSession.id, students.value);
           } catch (error) {
             console.error("Erreur lors de l'ajout des étudiants à la session:", error);
           }
         }
         
-        // Réinitialiser le formulaire
         newSession.date = '';
         newSession.startTime = '';
         newSession.endTime = '';
@@ -203,13 +192,11 @@ export default defineComponent({
         students.value = [];
         showCreateSessionForm.value = false;
         
-        // Afficher le message de succès et le cacher après 3 secondes
         showSuccessMessage.value = true;
         setTimeout(() => {
           showSuccessMessage.value = false;
         }, 3000);
         
-        // Recharger les sessions
         loadSessions();
         
       } catch (error) {

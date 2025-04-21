@@ -32,11 +32,11 @@
                 </div>
             </div>
             <div v-if="attendance && attendance.status === 1" class="validate-presence">
-                <ValidatePresence @presence-validated="loadData" />
+                <ValidatePresence @presence-validated="loadData" :hasSignature="hasSignature" />
             </div>
             <div v-if="!hasSignature" class="signature-display">
                 <p>Votre signature:</p>
-                <SignatureCreator />
+                <SignatureCreator @signatureSaved="validateSignature" />
             </div>
             
         </div>
@@ -55,7 +55,6 @@ import { useStudentsStore } from '../../stores/studentsStore';
 import ValidatePresence from '../buttons/ValidatePresence.vue';
 import SignatureCreator from '../signature/SignatureCreator.vue';
 
-// Initialiser les variables réactives
 const loading = ref(true);
 const error = ref(null);
 const currentSession = ref(null);
@@ -66,6 +65,7 @@ const hasSignature = ref(false);
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
+
 
 const formatDate = (dateString) => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -90,7 +90,7 @@ const loadData = async () => {
         console.log("Données de l'étudiant:", studentData.student);
         
         if (studentData) {
-            if (studentData.student.signature) {
+            if (studentData.student.signature && studentData.student.signature !== " ") {
                 hasSignature.value = true;
             }
             console.log("Signature de l'étudiant:", hasSignature.value);
@@ -121,6 +121,10 @@ const loadData = async () => {
     }
 };
 
+const validateSignature =  () => {
+    hasSignature.value = true;
+};
+
 onMounted(loadData);
 </script>
 
@@ -138,7 +142,6 @@ onMounted(loadData);
     font-size: 1.8rem;
 }
 
-/* États de chargement et d'erreur */
 .loading-state, .error-state, .no-session {
     display: flex;
     flex-direction: column;

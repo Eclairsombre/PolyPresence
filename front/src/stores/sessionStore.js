@@ -340,7 +340,7 @@ export const useSessionStore = defineStore("session", {
           `http://localhost:5020/api/Session/signature/${studentNumber}`,
           { signature: signatureData }
         );
-        return response.data;
+        return response;
       } catch (error) {
         this.error =
           error.message || "Erreur lors de l'enregistrement de la signature";

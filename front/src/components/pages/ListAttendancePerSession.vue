@@ -100,7 +100,7 @@ export default defineComponent({
               name: student.item1.name,
               firstname: student.item1.firstname,
               status: student.item2 === 0 ? 'Present' : 'Absent',
-              signature: student.item1.signature || '' // Ajoutez la signature s'il y en a une
+              signature: student.item1.signature || '' 
             });
           }
         }
@@ -112,10 +112,8 @@ export default defineComponent({
       }
     };
     
-    // Gérer la sauvegarde des signatures
     const handleSignatureSaved = async ({ studentId, sessionId, signatureData }) => {
       try {
-        // Récupérer le numéro étudiant à partir de l'ID
         const studentData = await studentsStore.getStudentById(studentId);
         if (!studentData) {
           console.error("Impossible de trouver l'étudiant");
@@ -124,7 +122,6 @@ export default defineComponent({
 
         await sessionStore.saveSignature(studentData.studentNumber, sessionId, signatureData);
         
-        // Mettre à jour la signature dans la liste locale
         const studentIndex = students.value.findIndex(s => s.id === studentId);
         if (studentIndex !== -1) {
           students.value[studentIndex].signature = signatureData;
@@ -162,7 +159,7 @@ export default defineComponent({
       formatDate,
       formatTime,
       handleSignatureSaved,
-      route // Exposez la route pour accéder au paramètre ID dans le template
+      route 
     };
   }
 });

@@ -26,7 +26,6 @@
       const sessionStore = useSessionStore();
       const authStore = useAuthStore();
       
-      // Initialisation du pad de signature
       const initSignaturePad = () => {
         if (!signaturePad.value) return;
         
@@ -35,7 +34,6 @@
           penColor: 'rgb(0, 0, 0)'
         });
         
-        // Surveiller les changements pour mettre à jour l'état vide/non-vide
         signaturePadInstance.value.addEventListener('endStroke', () => {
           isEmpty.value = signaturePadInstance.value.isEmpty();
         });
@@ -56,22 +54,12 @@
   
         try {
           const signatureData = signaturePadInstance.value.toDataURL();
-          
-          // Utiliser le studentNumber de l'utilisateur connecté
           const studentNumber = authStore.user.studentId;
           
+          const response = await sessionStore.saveSignature(studentNumber, signatureData);
+          console.log("Réponse de la sauvegarde de la signature:", response);
           
-          
-        const response = await sessionStore.saveSignature(studentNumber, signatureData);
-           
-        console.log("Réponse de la sauvegarde de la signature:", response);
-          if (response.status === 200) {
-            alert("Signature sauvegardée avec succès.");
-            emit('signatureSaved', signatureData); // Émettre un événement pour signaler que la signature a été sauvegardée
-          } else {
-            alert("Erreur lors de la sauvegarde de la signature.");
-          }
-
+          emit('signatureSaved'); 
           
         } catch (err) {
           console.error("Erreur lors de la sauvegarde de la signature:", err);
@@ -79,7 +67,6 @@
         }
       };
   
-      // Adapter la taille du canvas à son conteneur
       const resizeCanvas = () => {
         if (!signaturePad.value || !signaturePadInstance.value) return;
         
@@ -88,7 +75,6 @@
         signaturePad.value.height = signaturePad.value.offsetHeight * ratio;
         signaturePad.value.getContext("2d").scale(ratio, ratio);
         
-        // Préserver la signature existante lors du redimensionnement
         const data = signaturePadInstance.value.toData();
         signaturePadInstance.value.clear();
         if (data && data.length) {
@@ -99,13 +85,11 @@
         }
       };
   
-      // Initialisation au montage du composant
       onMounted(() => {
         initSignaturePad();
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
         
-        // Nettoyage lors du démontage
         return () => {
           window.removeEventListener('resize', resizeCanvas);
         };
