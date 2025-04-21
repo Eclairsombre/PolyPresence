@@ -354,6 +354,25 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    async getSignature(studentNumber) {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const response = await axios.get(
+          `http://localhost:5020/api/Session/signature/${studentNumber}`
+        );
+        return response.data;
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors de la récupération de la signature";
+        console.error("Erreur lors de la récupération de la signature:", error);
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     // Réinitialiser le store
     resetStore() {
       this.sessions = [];

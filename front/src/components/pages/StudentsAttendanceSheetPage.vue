@@ -34,11 +34,6 @@
             <div v-if="attendance && attendance.status === 1" class="validate-presence">
                 <ValidatePresence @presence-validated="loadData" :hasSignature="hasSignature" />
             </div>
-            <div v-if="!hasSignature" class="signature-display">
-                <p>Votre signature:</p>
-                <SignatureCreator @signatureSaved="validateSignature" />
-            </div>
-            
         </div>
         <div v-else class="no-session">
             <p>Aucune session en cours.</p>
@@ -257,6 +252,22 @@ onMounted(loadData);
     font-size: 1.1rem;
     color: #2c3e50;
     letter-spacing: 1px;
+}
+
+.signature-section {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.signature-link {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.signature-link:hover {
+    text-decoration: underline;
 }
 
 /* Zone de validation de présence */

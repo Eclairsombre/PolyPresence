@@ -9,6 +9,11 @@
       <div v-else class="no-signature-placeholder">
         Aucune signature
       </div>
+      <div v-if="showEditButton" class="signature-actions">
+        <router-link to="/signature" class="edit-button">
+          <span>Modifier</span>
+        </router-link>
+      </div>
     </div>
   </template>
   
@@ -22,6 +27,10 @@
         type: String,
         default: ''
       },
+      showEditButton: {
+        type: Boolean,
+        default: false
+      }
     },
   });
   </script>
@@ -72,6 +81,7 @@
     display: flex;
     align-items: center;
     gap: 5px;
+    text-decoration: none;
   }
   
   .edit-button:hover {

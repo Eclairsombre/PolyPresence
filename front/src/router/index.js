@@ -4,6 +4,7 @@ import HomePage from "../components/pages/HomePage.vue";
 import StudentsSessionPage from "../components/pages/StudentsSessionPage.vue";
 import StudentsAttendanceSheetPage from "../components/pages/StudentsAttendanceSheetPage.vue";
 import ListAttendancePerSession from "../components/pages/ListAttendancePerSession.vue";
+import SignaturePage from "../components/pages/SignaturePage.vue";
 
 const routes = [
   {
@@ -30,6 +31,11 @@ const routes = [
     path: "/sessions/:id",
     name: "SessionAttendance",
     component: ListAttendancePerSession,
+  },
+  {
+    path: "/signature",
+    name: "signature",
+    component: SignaturePage,
   },
 ];
 

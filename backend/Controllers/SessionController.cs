@@ -302,6 +302,20 @@ namespace backend.Controllers
             return Ok(new { message = "Signature enregistrée avec succès." });
         }
 
+        [HttpGet("signature/{studentNumber}")]
+        public async Task<IActionResult> GetSignature(string studentNumber)
+        {
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+
+            if (student == null)
+            {
+                return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
+            }
+
+            return Ok(new { signature = student.Signature });
+        }
+
         public class SignatureModel
         {
             public string Signature { get; set; } = string.Empty;

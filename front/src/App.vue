@@ -5,6 +5,7 @@
       <nav class="app-nav">
         <div>
           <router-link to="/">Accueil</router-link>
+          <router-link to="/signature">Ma signature</router-link>
         </div>
         <div  v-if="user && user.isAdmin !== false">
           <router-link to="/students">Étudiants</router-link>
