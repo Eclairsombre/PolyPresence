@@ -1,6 +1,5 @@
 <template>
     <div class="attendance-sheet">
-        <h1>Ma Présence</h1>
         <div v-if="loading" class="loading-state">
             <div class="spinner"></div>
             <p>Chargement des données...</p>

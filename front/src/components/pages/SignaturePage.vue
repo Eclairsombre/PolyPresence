@@ -2,7 +2,6 @@
   <div class="signature-page">
     <div class="signature-header">
       <h1>Ma signature</h1>
-      <button class="back-button" @click="goBack">Retour</button>
     </div>
     
     <div class="signature-container">
@@ -78,9 +77,6 @@ const onSignatureSaved = async () => {
   await loadSignature();
 };
 
-const goBack = () => {
-  router.back();
-};
 
 onMounted(loadSignature);
 </script>
