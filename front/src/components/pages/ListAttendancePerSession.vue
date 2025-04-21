@@ -16,7 +16,11 @@
         </div>
         <div class="actions">
           <button class="back-button" @click="goBack">Retour aux sessions</button>
+          <button class="export-button" @click="exportToPDF" :disabled="exporting">
+            {{ exporting ? 'Génération PDF...' : 'Exporter en PDF' }}
+          </button>
         </div>
+        
       </div>
       
       <div class="attendance-table-wrapper">
@@ -62,6 +66,7 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 import axios from 'axios';
 import SignatureDisplay from '../signature/SignatureDisplay.vue';
+import html2pdf from 'html2pdf.js';
 
 
 export default defineComponent({
@@ -80,6 +85,7 @@ export default defineComponent({
     const students = ref([]);
     const loading = ref(true);
     const error = ref(null);
+    const exporting = ref(false);
     
     const loadSessionData = async () => {
       loading.value = true;
@@ -144,6 +150,41 @@ export default defineComponent({
       if (!timeString) return '';
       return timeString.substring(0, 5);
     };
+
+    const exportToPDF = async () => {
+      if (!session.value) return;
+      
+      exporting.value = true;
+      
+      try {
+        const element = document.querySelector('.attendance-table-wrapper');
+        
+        if (!element) {
+          throw new Error("Élément non trouvé pour l'exportation");
+        }
+        
+        const options = {
+          margin: 10,
+          filename: `presence_${session.value.year}_${formatDateForFilename(session.value.date)}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        await html2pdf().from(element).set(options).save();
+      } catch (err) {
+        console.error("Erreur lors de l'export PDF:", err);
+        error.value = "Impossible d'exporter le PDF.";
+      } finally {
+        exporting.value = false;
+      }
+    };
+
+    const formatDateForFilename = (dateString) => {
+      if (!dateString) return 'unknown-date';
+      const date = new Date(dateString);
+      return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+    };
     
     onMounted(() => {
       loadSessionData();
@@ -154,12 +195,14 @@ export default defineComponent({
       students,
       loading,
       error,
+      exporting,
       loadSessionData,
       goBack,
       formatDate,
       formatTime,
       handleSignatureSaved,
-      route 
+      exportToPDF,
+      route
     };
   }
 });

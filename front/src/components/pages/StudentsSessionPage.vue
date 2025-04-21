@@ -13,6 +13,8 @@
       <button @click="showCreateSessionForm = !showCreateSessionForm" class="create-button">
         {{ showCreateSessionForm ? 'Annuler' : 'Créer une session' }}
       </button>
+      <ExportSessionsPdf :sessions="sessions" :selectedYear="selectedYear" />
+
     </div>
     
     <div v-if="showCreateSessionForm" class="session-form-container">
@@ -78,18 +80,21 @@
       <p>Aucune session trouvée.</p>
     </div>
     
-    <div v-else class="sessions-list">
-      <div v-for="session in sessions" :key="session.id" class="session-card">
-        <div class="session-header">
-          <h3>Session du {{ formatDate(session.date) }}</h3>
-          <span class="session-year">{{ session.year }}</span>
-        </div>
-        <div class="session-details">
-          <p><strong>Horaires:</strong> {{ formatTime(session.startTime) }} - {{ formatTime(session.endTime) }}</p>
-          <div class="session-actions">
-            <router-link :to="`/sessions/${session.id}`" class="view-attendance-btn">
-              Voir les présences
-            </router-link>
+    <div v-else>
+      
+      <div class="sessions-list">
+        <div v-for="session in sessions" :key="session.id" class="session-card">
+          <div class="session-header">
+            <h3>Session du {{ formatDate(session.date) }}</h3>
+            <span class="session-year">{{ session.year }}</span>
+          </div>
+          <div class="session-details">
+            <p><strong>Horaires:</strong> {{ formatTime(session.startTime) }} - {{ formatTime(session.endTime) }}</p>
+            <div class="session-actions">
+              <router-link :to="`/sessions/${session.id}`" class="view-attendance-btn">
+                Voir les présences
+              </router-link>
+            </div>
           </div>
         </div>
       </div>
@@ -103,9 +108,13 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 import { useAuthStore } from '../../stores/authStore';
 import axios from 'axios';
+import ExportSessionsPdf from '../exports/ExportSessionsPdf.vue';
 
 export default defineComponent({
   name: 'StudentsSessionPage',
+  components: {
+    ExportSessionsPdf
+  },
   setup() {
     const sessionStore = useSessionStore();
     const authStore = useAuthStore();
@@ -457,5 +466,14 @@ export default defineComponent({
   .sessions-list {
     grid-template-columns: 1fr;
   }
+}
+
+/* Ajout des styles pour la section d'export */
+.export-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
 }
 </style>

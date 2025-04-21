@@ -21,7 +21,7 @@
 <script setup>
 import { computed } from 'vue';
 import Auth from '../Auth.vue';
-import StudentsAttendanceSheetPage from './StudentsAttendanceSheetPage.vue';
+import StudentsAttendanceSheetPage from '../Holder/SessionHolder.vue';
 import { useAuthStore } from '../../stores/authStore';
 
 const authStore = useAuthStore();

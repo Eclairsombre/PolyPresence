@@ -373,6 +373,43 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    // Nouvelle action pour récupérer toutes les informations d'une session pour l'export PDF
+    async getSessionExportData(sessionId) {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        // Récupérer les données de la session
+        const sessionResponse = await axios.get(
+          `http://localhost:5020/api/Session/${sessionId}`
+        );
+        const sessionData = sessionResponse.data;
+
+        // Récupérer les données de présence pour cette session
+        const attendanceResponse = await axios.get(
+          `http://localhost:5020/api/Session/${sessionId}/attendances`
+        );
+
+        const exportData = {
+          session: sessionData,
+          attendances: attendanceResponse.data || [],
+        };
+
+        return exportData;
+      } catch (error) {
+        this.error =
+          error.message ||
+          `Erreur lors de la récupération des données d'export`;
+        console.error(
+          `Erreur lors de la récupération des données d'export:`,
+          error
+        );
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     // Réinitialiser le store
     resetStore() {
       this.sessions = [];

@@ -47,7 +47,6 @@ import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 
 import ValidatePresence from '../buttons/ValidatePresence.vue';
-import SignatureCreator from '../signature/SignatureCreator.vue';
 
 const loading = ref(true);
 const error = ref(null);
@@ -113,10 +112,6 @@ const loadData = async () => {
     } finally {
         loading.value = false;
     }
-};
-
-const validateSignature =  () => {
-    hasSignature.value = true;
 };
 
 onMounted(loadData);

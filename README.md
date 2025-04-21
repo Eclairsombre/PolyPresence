@@ -1,4 +1,5 @@
-- Faire affichage complet de la fiche (signature ?)
+- Faire affichage complet de la fiche (signature ?) -> FAIT
+- Faire export PDF
 - Trier par ordre alphbéthique sur l'affichage des éleves
 - prendre en compte si il n'y a pas de session en cours
 - check si c'est un admin sur chaque page
