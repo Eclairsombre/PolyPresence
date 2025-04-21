@@ -6,7 +6,6 @@
             <p>Chargement des données...</p>
         </div>
         <div v-else-if="error" class="error-state">
-            <i class="error-icon">⚠️</i>
             <p>{{ error }}</p>
         </div>
         <div v-else-if="currentSession" class="session-content">
@@ -35,9 +34,13 @@
             <div v-if="attendance && attendance.status === 1" class="validate-presence">
                 <ValidatePresence @presence-validated="loadData" />
             </div>
+            <div v-if="!hasSignature" class="signature-display">
+                <p>Votre signature:</p>
+                <SignatureCreator />
+            </div>
+            
         </div>
         <div v-else class="no-session">
-            <i class="info-icon">ℹ️</i>
             <p>Aucune session en cours.</p>
         </div>
     </div>
@@ -50,6 +53,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 
 import ValidatePresence from '../buttons/ValidatePresence.vue';
+import SignatureCreator from '../signature/SignatureCreator.vue';
 
 // Initialiser les variables réactives
 const loading = ref(true);
@@ -57,13 +61,12 @@ const error = ref(null);
 const currentSession = ref(null);
 const studentYear = ref(null);
 const attendance = ref(null);
+const hasSignature = ref(false);
 
-// Initialiser les stores
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
 
-// Fonctions pour formater les dates et heures
 const formatDate = (dateString) => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('fr-FR', options);
@@ -73,27 +76,30 @@ const formatTime = (timeString) => {
     return timeString.substring(0, 5);
 };
 
-// Fonction pour charger les données
 const loadData = async () => {
     loading.value = true;
     error.value = null;
     
     try {
-        // Vérifier si l'utilisateur est connecté
         if (!authStore.user || !authStore.user.studentId) {
             error.value = "Veuillez vous connecter pour accéder à cette page.";
             return;
         }
         console.log("ID de l'étudiant connecté:", authStore.user.studentId);
-        // Récupérer l'année de l'étudiant connecté
         const studentData = await studentsStore.getStudent(authStore.user.studentId);
         console.log("Données de l'étudiant:", studentData.student);
         
         if (studentData) {
+            if (studentData.student.signature) {
+                hasSignature.value = true;
+            }
+            console.log("Signature de l'étudiant:", hasSignature.value);
             studentYear.value = studentData.student.year;
             console.log("Année de l'étudiant:", studentYear.value);
-            // Récupérer la session actuelle pour l'année de l'étudiant
             const session = await sessionStore.getCurrentSession(studentYear.value);
+            if (!session) {
+                return;
+            }
             currentSession.value = session;
             console.log("Session actuelle:", currentSession.value);
 
@@ -107,13 +113,14 @@ const loadData = async () => {
         }
     } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
-        error.value = "Une erreur est survenue lors du chargement des données.";
+        if(err.response && err.response.status !== 404) {
+            error.value = "Une erreur est survenue lors du chargement des données.";
+        } 
     } finally {
         loading.value = false;
     }
 };
 
-// Charger les données au montage du composant
 onMounted(loadData);
 </script>
 

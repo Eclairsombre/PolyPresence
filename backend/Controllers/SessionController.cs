@@ -237,6 +237,75 @@ namespace backend.Controllers
             return Ok(attendance);
         }
 
+        [HttpGet("{sessionId}/attendances")]
+        public async Task<IActionResult> GetSessionAttendances(int sessionId)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
+            }
+
+            var attendances = await _context.Attendances
+                .Where(a => a.SessionId == sessionId)
+                .Include(a => a.Student)
+                .ToListAsync();
+
+            if (attendances == null || attendances.Count == 0)
+            {
+                return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session." });
+            }
+
+            var result = new List<dynamic>();
+
+            foreach (var attendance in attendances)
+            {
+                var student = await _context.Students.FindAsync(attendance.StudentId);
+                if (student != null)
+                {
+                    result.Add(new
+                    {
+                        item1 = new
+                        {
+                            id = student.Id,
+                            name = student.Name,
+                            firstname = student.Firstname,
+                            studentNumber = student.StudentNumber,
+                            signature = student.Signature
+                        },
+                        item2 = attendance.Status
+                    });
+                }
+            }
+
+            if (result.Count == 0)
+            {
+                return NotFound(new { error = true, message = "Aucun étudiant trouvé pour cette session." });
+            }
+            return Ok(result);
+        }
+
+        [HttpPost("signature/{studentNumber}")]
+        public async Task<IActionResult> SaveSignature(string studentNumber, [FromBody] SignatureModel signatureData)
+        {
+
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+            if (student == null)
+            {
+                return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
+            }
+            student.Signature = signatureData.Signature;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Signature enregistrée avec succès." });
+        }
+
+        public class SignatureModel
+        {
+            public string Signature { get; set; } = string.Empty;
+        }
 
         private bool SessionExists(int id)
         {

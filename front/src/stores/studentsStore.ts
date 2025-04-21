@@ -94,6 +94,15 @@ export const useStudentsStore = defineStore("students", {
         console.error("Erreur lors de la récupération de l'étudiant:", error);
         return null;
       }
+    },
+    async getStudentById(id : string): Promise<Student | null> {
+      try {
+        const response = await axios.get(`http://localhost:5020/api/Students/${id}`);
+        return response.data;
+      } catch (error) {
+        console.error("Erreur lors de la récupération de l'étudiant:", error);
+        return null;
+      }
     }
   }
 });

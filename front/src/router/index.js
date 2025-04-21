@@ -3,6 +3,7 @@ import StudentsListPage from "../components/pages/StudentsListPage.vue";
 import HomePage from "../components/pages/HomePage.vue";
 import StudentsSessionPage from "../components/pages/StudentsSessionPage.vue";
 import StudentsAttendanceSheetPage from "../components/pages/StudentsAttendanceSheetPage.vue";
+import ListAttendancePerSession from "../components/pages/ListAttendancePerSession.vue";
 
 const routes = [
   {
@@ -24,6 +25,11 @@ const routes = [
     path: "/test",
     name: "test",
     component: StudentsAttendanceSheetPage,
+  },
+  {
+    path: "/sessions/:id",
+    name: "SessionAttendance",
+    component: ListAttendancePerSession,
   },
 ];
 

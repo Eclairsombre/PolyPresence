@@ -89,6 +89,11 @@
         </div>
         <div class="session-details">
           <p><strong>Horaires:</strong> {{ formatTime(session.startTime) }} - {{ formatTime(session.endTime) }}</p>
+          <div class="session-actions">
+            <router-link :to="`/sessions/${session.id}`" class="view-attendance-btn">
+              Voir les présences
+            </router-link>
+          </div>
         </div>
       </div>
     </div>
@@ -342,6 +347,23 @@ export default defineComponent({
 
 .session-details p {
   margin: 10px 0;
+}
+
+.session-actions {
+  margin-top: 10px;
+}
+
+.view-attendance-btn {
+  background-color: #3498db;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.3s;
+}
+
+.view-attendance-btn:hover {
+  background-color: #2980b9;
 }
 
 .create-button {

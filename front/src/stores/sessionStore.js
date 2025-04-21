@@ -331,6 +331,29 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    async saveSignature(studentNumber, signatureData) {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const response = await axios.post(
+          `http://localhost:5020/api/Session/signature/${studentNumber}`,
+          { signature: signatureData }
+        );
+        return response.data;
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors de l'enregistrement de la signature";
+        console.error(
+          "Erreur lors de l'enregistrement de la signature:",
+          error
+        );
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     // Réinitialiser le store
     resetStore() {
       this.sessions = [];

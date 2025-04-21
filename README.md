@@ -1,5 +1,7 @@
 - Faire affichage complet de la fiche (signature ?)
 - Trier par ordre alphbéthique sur l'affichage des éleves
+- prendre en compte si il n'y a pas de session en cours
+- check si c'est un admin sur chaque page
 - Envoi de la fiche en pdf à la fin de la journée -> tout les jours ? -> choix du jour
 - acces au différentes fiches de présence
 - Trouver comment faire signer au prof
