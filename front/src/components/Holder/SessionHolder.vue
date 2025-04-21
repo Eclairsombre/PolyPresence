@@ -17,7 +17,7 @@
                 </div>
                 <div class="session-details">
                     <div class="detail-item">
-                        <span class="detail-label">Horaires:</span>
+                        <span class="detail-label">Horaires: </span>
                         <span class="detail-value">{{ formatTime(currentSession.startTime) }} - {{ formatTime(currentSession.endTime) }}</span>
                     </div>
                     <div class="detail-item">

@@ -1,14 +1,15 @@
 - Faire affichage complet de la fiche (signature ?) -> FAIT
-- Faire export PDF
+- Faire export PDF -> FAIT
+- acces au différentes fiches de présence -> Fait
+- AJouter filtre sur la date
+- téléchargement de toute les fiches pour une période de temps -> Fait partiellement pas sur une ppériode donnée mais surement auto avec le filtre
 - Trier par ordre alphbéthique sur l'affichage des éleves
 - prendre en compte si il n'y a pas de session en cours
 - check si c'est un admin sur chaque page
 - Envoi de la fiche en pdf à la fin de la journée -> tout les jours ? -> choix du jour
-- acces au différentes fiches de présence
 - Trouver comment faire signer au prof
 - Gestion du code de session -> a qui l'envoyer ?
-- téléchargement de toute les fiches pour une période de temps
-- Stocker data au cas de bug de la bd
+- Stocker data au cas de bug de la bd -> Peut etre pas nécéssaire car envoi de mail auto ?
 - refactor code 
 - import edt pour création auto des sessions
 - Encrypter la data dans le localstorage

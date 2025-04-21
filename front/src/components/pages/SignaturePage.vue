@@ -15,7 +15,7 @@
         <button @click="loadSignature" class="retry-button">Réessayer</button>
       </div>
       
-      <div v-else class="signature-content">
+     <div v-else class="signature-content">
         <div class="current-signature">
           <h2>Ma signature actuelle</h2>
           <SignatureDisplay 
