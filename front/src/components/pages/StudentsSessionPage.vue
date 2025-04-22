@@ -3,12 +3,40 @@
     <h1>Mes Sessions</h1>
     
     <div class="filter-container">
-      <select v-model="selectedYear" @change="loadSessions" class="year-filter">
-        <option value="">Toutes les années</option>
-        <option value="3A">3A</option>
-        <option value="4A">4A</option>
-        <option value="5A">5A</option>
-      </select>
+      <div class="filter-group">
+        <select v-model="selectedYear" class="year-filter">
+          <option value="">Toutes les années</option>
+          <option value="3A">3A</option>
+          <option value="4A">4A</option>
+          <option value="5A">5A</option>
+        </select>
+        
+        <div class="date-filter">
+          <div class="date-input-group">
+            <label for="startDate">Du:</label>
+            <input 
+              type="date" 
+              id="startDate" 
+              v-model="filters.startDate" 
+              class="date-input"
+            >
+          </div>
+          
+          <div class="date-input-group">
+            <label for="endDate">Au:</label>
+            <input 
+              type="date" 
+              id="endDate" 
+              v-model="filters.endDate" 
+              class="date-input"
+              :min="filters.startDate"
+            >
+          </div>
+          
+          <button @click="applyFilters" class="filter-button">Filtrer</button>
+          <button @click="clearFilters" class="clear-filter-button">Réinitialiser</button>
+        </div>
+      </div>
       
       <button @click="showCreateSessionForm = !showCreateSessionForm" class="create-button">
         {{ showCreateSessionForm ? 'Annuler' : 'Créer une session' }}
@@ -124,6 +152,12 @@ export default defineComponent({
     const showSuccessMessage = ref(false);
     const studentLoading = ref(false);
     const students = ref([]);
+    const isFiltering = ref(false);
+    
+    const filters = reactive({
+      startDate: '',
+      endDate: '',
+    });
     
     const newSession = reactive({
       date: '',
@@ -137,11 +171,23 @@ export default defineComponent({
     });
     
     const loadSessions = async () => {
-      if (selectedYear.value) {
-        await sessionStore.fetchSessionsByYear(selectedYear.value);
-      } else {
-        await sessionStore.fetchAllSessions();
-      }
+      isFiltering.value = true;
+      await sessionStore.fetchSessionsByFilters({
+        year: selectedYear.value,
+        startDate: filters.startDate,
+        endDate: filters.endDate
+      });
+      isFiltering.value = false;
+    };
+    
+    const applyFilters = async () => {
+      await loadSessions();
+    };
+    
+    const clearFilters = () => {
+      filters.startDate = '';
+      filters.endDate = '';
+      loadSessions();
     };
     
     const loadStudentsByYear = async () => {
@@ -239,7 +285,11 @@ export default defineComponent({
       loadStudentsByYear,
       students,
       studentLoading,
-      showSuccessMessage
+      showSuccessMessage,
+      filters,
+      applyFilters,
+      clearFilters,
+      isFiltering
     };
   }
 });
@@ -257,9 +307,71 @@ export default defineComponent({
   margin: 20px 0;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-grow: 1;
+  max-width: 600px;
+}
+
+.date-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.date-input-group label {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.date-input {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.filter-button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  height: 37px;
+}
+
+.filter-button:hover {
+  background-color: #2980b9;
+}
+
+.clear-filter-button {
+  background-color: #f1f1f1;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  height: 37px;
+}
+
+.clear-filter-button:hover {
+  background-color: #e6e6e6;
 }
 
 .year-filter {

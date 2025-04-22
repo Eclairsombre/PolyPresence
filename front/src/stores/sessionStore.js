@@ -11,13 +11,11 @@ export const useSessionStore = defineStore("session", {
   }),
 
   getters: {
-    // Récupérer les sessions filtrées par année
     getSessionsByYear: (state) => (year) => {
       if (!year) return state.sessions;
       return state.sessions.filter((session) => session.year === year);
     },
 
-    // Récupérer les sessions à venir
     getUpcomingSessions: (state) => {
       const now = new Date();
       return state.sessions.filter((session) => {
@@ -26,7 +24,6 @@ export const useSessionStore = defineStore("session", {
       });
     },
 
-    // Récupérer les sessions passées
     getPastSessions: (state) => {
       const now = new Date();
       return state.sessions.filter((session) => {
@@ -34,10 +31,29 @@ export const useSessionStore = defineStore("session", {
         return sessionDate < now;
       });
     },
+
+    getSessionsByDateRange: (state) => (startDate, endDate) => {
+      if (!startDate && !endDate) return state.sessions;
+
+      return state.sessions.filter((session) => {
+        const sessionDate = new Date(session.date);
+        const start = startDate ? new Date(startDate) : null;
+        const end = endDate ? new Date(endDate) : null;
+
+        if (start && end) {
+          return sessionDate >= start && sessionDate <= end;
+        } else if (start) {
+          return sessionDate >= start;
+        } else if (end) {
+          return sessionDate <= end;
+        }
+
+        return true;
+      });
+    },
   },
 
   actions: {
-    // Récupérer toutes les sessions
     async fetchAllSessions() {
       this.loading = true;
       this.error = null;
@@ -56,7 +72,6 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // Récupérer les sessions par année
     async fetchSessionsByYear(year) {
       if (!year) return this.fetchAllSessions();
 
@@ -70,7 +85,6 @@ export const useSessionStore = defineStore("session", {
         this.sessions = response.data;
         return this.sessions;
       } catch (error) {
-        // Si c'est une erreur 404, on définit simplement un tableau vide
         if (error.response && error.response.status === 404) {
           this.sessions = [];
           return [];
@@ -89,7 +103,6 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // Créer une nouvelle session
     async createSession(sessionData) {
       this.loading = true;
       this.error = null;
@@ -100,7 +113,6 @@ export const useSessionStore = defineStore("session", {
           sessionData
         );
 
-        // Ajouter la nouvelle session à notre liste si nous avons déjà des sessions de cette année
         if (
           this.sessions.some((s) => s.year === sessionData.year) ||
           this.sessions.length === 0
@@ -119,7 +131,6 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // Récupérer une session spécifique par son ID
     async fetchSessionById(id) {
       this.loading = true;
       this.error = null;
@@ -140,7 +151,6 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // Mettre à jour une session
     async updateSession(sessionData) {
       this.loading = true;
       this.error = null;
@@ -151,7 +161,6 @@ export const useSessionStore = defineStore("session", {
           sessionData
         );
 
-        // Mettre à jour la session dans notre liste
         const index = this.sessions.findIndex((s) => s.id === sessionData.id);
         if (index !== -1) {
           this.sessions[index] = sessionData;
@@ -172,7 +181,6 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // Supprimer une session
     async deleteSession(id) {
       this.loading = true;
       this.error = null;
@@ -180,7 +188,6 @@ export const useSessionStore = defineStore("session", {
       try {
         await axios.delete(`http://localhost:5020/api/Session/${id}`);
 
-        // Supprimer la session de notre liste
         this.sessions = this.sessions.filter((s) => s.id !== id);
 
         return true;
@@ -197,7 +204,6 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // filepath: c:\Users\alext\OneDrive\Bureau\PolyPresence\front\src\stores\sessionStore.js
     async addStudentsToSessionByNumber(sessionId, students) {
       try {
         console.log("Données des étudiants reçues:", students);
@@ -209,7 +215,6 @@ export const useSessionStore = defineStore("session", {
           return;
         }
 
-        // Vérifier d'abord que la session existe
         const sessionExists = await this.fetchSessionById(sessionId);
         if (!sessionExists) {
           throw new Error(`La session avec l'ID ${sessionId} n'existe pas`);
@@ -228,7 +233,6 @@ export const useSessionStore = defineStore("session", {
 
           const studentNumber = student.studentNumber;
           try {
-            // Vérifier d'abord que l'étudiant existe
             const studentExists = await axios.get(
               `http://localhost:5020/api/Students/search/${studentNumber}`
             );
@@ -373,19 +377,16 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // Nouvelle action pour récupérer toutes les informations d'une session pour l'export PDF
     async getSessionExportData(sessionId) {
       this.loading = true;
       this.error = null;
 
       try {
-        // Récupérer les données de la session
         const sessionResponse = await axios.get(
           `http://localhost:5020/api/Session/${sessionId}`
         );
         const sessionData = sessionResponse.data;
 
-        // Récupérer les données de présence pour cette session
         const attendanceResponse = await axios.get(
           `http://localhost:5020/api/Session/${sessionId}/attendances`
         );
@@ -410,7 +411,32 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
-    // Réinitialiser le store
+    async fetchSessionsByFilters(filters = {}) {
+      const { year, startDate, endDate } = filters;
+      this.loading = true;
+      this.error = null;
+
+      try {
+        if (year) {
+          await this.fetchSessionsByYear(year);
+        } else {
+          await this.fetchAllSessions();
+        }
+
+        if (startDate || endDate) {
+          this.sessions = this.getSessionsByDateRange(startDate, endDate);
+        }
+
+        return this.sessions;
+      } catch (error) {
+        this.error = error.message || "Erreur lors du filtrage des sessions";
+        console.error("Erreur lors du filtrage des sessions:", error);
+        return [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
     resetStore() {
       this.sessions = [];
       this.currentSession = null;
