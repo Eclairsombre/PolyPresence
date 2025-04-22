@@ -187,6 +187,7 @@ export default defineComponent({
     const clearFilters = () => {
       filters.startDate = '';
       filters.endDate = '';
+      selectedYear.value = '';
       loadSessions();
     };
     
