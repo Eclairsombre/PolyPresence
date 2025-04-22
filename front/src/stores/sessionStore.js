@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export const useSessionStore = defineStore("session", {
   state: () => ({
     sessions: [],
@@ -59,7 +61,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get("http://localhost:5020/api/Session");
+        const response = await axios.get(`${API_URL}/Session`);
         this.sessions = response.data;
         return this.sessions;
       } catch (error) {
@@ -79,9 +81,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(
-          `http://localhost:5020/api/Session/year/${year}`
-        );
+        const response = await axios.get(`${API_URL}/Session/year/${year}`);
         this.sessions = response.data;
         return this.sessions;
       } catch (error) {
@@ -108,10 +108,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.post(
-          "http://localhost:5020/api/Session",
-          sessionData
-        );
+        const response = await axios.post(`${API_URL}/Session`, sessionData);
 
         if (
           this.sessions.some((s) => s.year === sessionData.year) ||
@@ -136,9 +133,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(
-          `http://localhost:5020/api/Session/${id}`
-        );
+        const response = await axios.get(`${API_URL}/Session/${id}`);
         this.currentSession = response.data;
         return this.currentSession;
       } catch (error) {
@@ -156,10 +151,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        await axios.put(
-          `http://localhost:5020/api/Session/${sessionData.id}`,
-          sessionData
-        );
+        await axios.put(`${API_URL}/Session/${sessionData.id}`, sessionData);
 
         const index = this.sessions.findIndex((s) => s.id === sessionData.id);
         if (index !== -1) {
@@ -186,7 +178,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        await axios.delete(`http://localhost:5020/api/Session/${id}`);
+        await axios.delete(`${API_URL}/Session/${id}`);
 
         this.sessions = this.sessions.filter((s) => s.id !== id);
 
@@ -234,7 +226,7 @@ export const useSessionStore = defineStore("session", {
           const studentNumber = student.studentNumber;
           try {
             const studentExists = await axios.get(
-              `http://localhost:5020/api/Students/search/${studentNumber}`
+              `${API_URL}/Students/search/${studentNumber}`
             );
             if (!studentExists.data) {
               console.error(`L'étudiant ${studentNumber} n'existe pas`);
@@ -246,7 +238,7 @@ export const useSessionStore = defineStore("session", {
             }
 
             const response = await axios.post(
-              `http://localhost:5020/api/Session/${sessionId}/student/${studentNumber}`
+              `${API_URL}/Session/${sessionId}/student/${studentNumber}`
             );
             results.success.push(studentNumber);
             console.log(
@@ -280,9 +272,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(
-          `http://localhost:5020/api/Session/current/${year}`
-        );
+        const response = await axios.get(`${API_URL}/Session/current/${year}`);
         this.currentSession = response.data;
         return this.currentSession;
       } catch (error) {
@@ -304,7 +294,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await axios.post(
-          `http://localhost:5020/api/Session/${sessionId}/validate/${studentNumber}`
+          `${API_URL}/Session/${sessionId}/validate/${studentNumber}`
         );
         return response.data;
       } catch (error) {
@@ -322,7 +312,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await axios.get(
-          `http://localhost:5020/api/Session/${sessionId}/attendance/${studentNumber}`
+          `${API_URL}/Session/${sessionId}/attendance/${studentNumber}`
         );
         return response.data;
       } catch (error) {
@@ -341,7 +331,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await axios.post(
-          `http://localhost:5020/api/Session/signature/${studentNumber}`,
+          `${API_URL}/Session/signature/${studentNumber}`,
           { signature: signatureData }
         );
         return response;
@@ -364,7 +354,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await axios.get(
-          `http://localhost:5020/api/Session/signature/${studentNumber}`
+          `${API_URL}/Session/signature/${studentNumber}`
         );
         return response.data;
       } catch (error) {
@@ -383,12 +373,12 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const sessionResponse = await axios.get(
-          `http://localhost:5020/api/Session/${sessionId}`
+          `${API_URL}/Session/${sessionId}`
         );
         const sessionData = sessionResponse.data;
 
         const attendanceResponse = await axios.get(
-          `http://localhost:5020/api/Session/${sessionId}/attendances`
+          `${API_URL}/Session/${sessionId}/attendances`
         );
 
         const exportData = {

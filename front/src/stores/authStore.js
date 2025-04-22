@@ -1,6 +1,9 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null,
@@ -20,20 +23,20 @@ export const useAuthStore = defineStore("auth", {
     },
 
     login() {
-      window.location.href = "http://localhost:5020/login";
+      window.location.href = `${BASE_URL}/login`;
     },
 
     logout() {
       this.user = null;
       this.debugData = null;
       localStorage.removeItem("user");
-      window.location.href = "http://localhost:5020/logout";
+      window.location.href = `${BASE_URL}/logout`;
     },
 
     async processTicket(ticket) {
       try {
         const response = await axios.get(
-          `http://localhost:5020/callback?ticket=${ticket}`
+          `${BASE_URL}/callback?ticket=${ticket}`
         );
 
         this.debugData = response.data;
@@ -112,7 +115,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `http://localhost:5020/api/Students/search/${this.user.studentId}`
+          `${API_URL}/Students/search/${this.user.studentId}`
         );
 
         this.user.existsInDb = response.data.exists;
@@ -133,7 +136,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `http://localhost:5020/api/Admin/IsUserAdmin/${this.user.studentId}`
+          `${API_URL}/Admin/IsUserAdmin/${this.user.studentId}`
         );
 
         this.user.isAdmin = response.data.isAdmin;
