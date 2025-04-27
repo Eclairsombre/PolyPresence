@@ -109,6 +109,7 @@ export default defineComponent({
               signature: student.item1.signature || '' 
             });
           }
+          students.value = students.value.sort((a, b) => a.name.localeCompare(b.name));
         }
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);

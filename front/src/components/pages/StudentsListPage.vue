@@ -77,6 +77,7 @@ onMounted(async () => {
 
 const refreshStudents = async () => {
     students.value = await studentsStore.fetchStudents(yearFilter.value);
+    students.value = students.value.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const filterYear = async (year) => {
