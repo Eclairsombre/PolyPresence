@@ -5,7 +5,7 @@
       <div v-if="user && user.isAdmin !== false" class="actions">
         <router-link to="/students" class="btn-primary">Voir la liste des étudiants</router-link>
       </div>
-      <div v-if="user && user.isAdmin === false" class="student-dashboard">
+      <div class="student-dashboard">
         <Auth />
         <div class="attendance-section">
           <StudentsAttendanceSheetPage />
@@ -14,21 +14,39 @@
       <div v-if="!user" class="login-prompt">
         <Auth />
       </div>
+      
+      <div v-if="user" class="admin-toggle">
+        <button @click="toggleAdminRole" class="toggle-button" :class="{ 'is-admin': user.isAdmin }">
+          Mode {{ user.isAdmin ? 'Administrateur' : 'Étudiant' }}
+          <span class="toggle-status">Cliquez pour basculer</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import Auth from '../Auth.vue';
 import StudentsAttendanceSheetPage from '../holder/SessionHolder.vue';
 import { useAuthStore } from '../../stores/authStore';
+import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
+const router = useRouter();
 const user = computed(() => authStore.user);
 
 console.log("User in HomePage:", user.value);
 console.log("isAdmin in HomePage:", user.value?.isAdmin);
+
+const toggleAdminRole = () => {
+  if (!user.value) return;
+  
+  authStore.user.isAdmin = !authStore.user.isAdmin;
+  authStore.updateUserLocalStorage(authStore.user);
+  
+  router.go(0);
+};
 </script>
 
 <style scoped>
@@ -103,5 +121,42 @@ console.log("isAdmin in HomePage:", user.value?.isAdmin);
   .attendance-section {
     padding: 15px;
   }
+}
+
+/* Style pour le bouton de bascule admin */
+.admin-toggle {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+}
+
+.toggle-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background-color: #f1f1f1;
+  color: #333;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.toggle-button.is-admin {
+  background-color: #4caf50;
+  color: white;
+}
+
+.toggle-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-status {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-top: 5px;
 }
 </style>

@@ -133,6 +133,7 @@ export const useAuthStore = defineStore("auth", {
     },
     async isAdmin() {
       if (!this.user || !this.user.studentId) return false;
+      if (this.user.isAdmin !== undefined) return this.user.isAdmin;
 
       try {
         const response = await axios.get(
@@ -149,6 +150,10 @@ export const useAuthStore = defineStore("auth", {
         );
         return false;
       }
+    },
+    async updateUserLocalStorage(user) {
+      this.user = user;
+      localStorage.setItem("user", JSON.stringify(this.user));
     },
   },
 });

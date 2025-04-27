@@ -7,12 +7,10 @@
           <router-link to="/">Accueil</router-link>
           <router-link to="/signature">Ma signature</router-link>
         </div>
-        <div  v-if="user && user.isAdmin !== false">
+        <div v-if="isAdmin">
           <router-link to="/students">Étudiants</router-link>
           <router-link to="/sessions">Sessions</router-link>
-          <router-link to="/test">Présences</router-link>
         </div>
-        
       </nav>
     </header>
     <main class="app-content">
@@ -25,9 +23,20 @@
 </template>
   
 <script setup>
-import {useAuthStore} from './stores/authStore';
+import { useAuthStore } from './stores/authStore';
+import { computed, onMounted } from 'vue';
+
 const authStore = useAuthStore();
-const user = authStore.user;
+
+const isAdmin = computed(() => {
+  return authStore.user && authStore.user.isAdmin === true;
+});
+
+onMounted(() => {
+  if (authStore.user) {
+    authStore.isAdmin();
+  }
+});
 </script>
 
 <style>

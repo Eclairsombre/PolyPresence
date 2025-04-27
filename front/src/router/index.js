@@ -4,6 +4,9 @@ import HomePage from "../components/pages/HomePage.vue";
 import StudentsSessionPage from "../components/pages/StudentsSessionPage.vue";
 import ListAttendancePerSession from "../components/pages/ListAttendancePerSession.vue";
 import SignaturePage from "../components/pages/SignaturePage.vue";
+import NotFoundPage from "../components/pages/errorPages/NotFoundPage.vue";
+import UnauthorizedPage from "../components/pages/errorPages/UnauthorizedPage.vue";
+import { requiresAdmin, requiresAuth } from "./middleware";
 
 const routes = [
   {
@@ -15,21 +18,41 @@ const routes = [
     path: "/students",
     name: "students",
     component: StudentsListPage,
+    beforeEnter: requiresAdmin,
   },
   {
     path: "/sessions",
     name: "sessions",
     component: StudentsSessionPage,
+    beforeEnter: requiresAdmin,
   },
   {
     path: "/sessions/:id",
     name: "SessionAttendance",
     component: ListAttendancePerSession,
+    beforeEnter: requiresAdmin,
   },
   {
     path: "/signature",
     name: "signature",
     component: SignaturePage,
+    beforeEnter: requiresAuth,
+  },
+  {
+    path: "/unauthorized",
+    name: "unauthorized",
+    component: UnauthorizedPage,
+  },
+  {
+    path: "/not-found",
+    name: "not-found",
+    component: NotFoundPage,
+  },
+  {
+    // Attrape toutes les routes non définies
+    path: "/:pathMatch(.*)*",
+    name: "catch-all",
+    component: NotFoundPage,
   },
 ];
 
