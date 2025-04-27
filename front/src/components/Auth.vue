@@ -31,7 +31,10 @@
 </template>
 
 <script>
+import { ref } from 'vue';
 import { useAuthStore } from '../stores/authStore';
+
+const initialized = ref(false);
 
 export default {
   setup() {
@@ -41,9 +44,12 @@ export default {
     };
   },
   created() {
+  if (!this.initialized) {
     this.userStore.initialize();
-    this.userStore.isAdmin();
-  },
+    this.initialized = true;
+  }
+  this.userStore.isAdmin();
+},
   async mounted() {
   if (this.userStore.user) {
     try {

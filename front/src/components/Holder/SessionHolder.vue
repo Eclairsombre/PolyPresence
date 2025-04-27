@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted,watch } from 'vue';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
@@ -78,23 +78,18 @@ const loadData = async () => {
             error.value = "Veuillez vous connecter pour accéder à cette page.";
             return;
         }
-        console.log("ID de l'étudiant connecté:", authStore.user.studentId);
         const studentData = await studentsStore.getStudent(authStore.user.studentId);
-        console.log("Données de l'étudiant:", studentData.student);
         
         if (studentData) {
             if (studentData.student.signature && studentData.student.signature !== " ") {
                 hasSignature.value = true;
             }
-            console.log("Signature de l'étudiant:", hasSignature.value);
             studentYear.value = studentData.student.year;
-            console.log("Année de l'étudiant:", studentYear.value);
             const session = await sessionStore.getCurrentSession(studentYear.value);
             if (!session) {
                 return;
             }
             currentSession.value = session;
-            console.log("Session actuelle:", currentSession.value);
 
             const at = await sessionStore.getAttendance(authStore.user.studentId, currentSession.value.id);
             attendance.value = at;
@@ -105,7 +100,6 @@ const loadData = async () => {
             error.value = "Impossible de récupérer vos données d'étudiant.";
         }
     } catch (err) {
-        console.error("Erreur lors du chargement des données:", err);
         if(err.response && err.response.status !== 404) {
             error.value = "Une erreur est survenue lors du chargement des données.";
         } 
@@ -115,6 +109,12 @@ const loadData = async () => {
 };
 
 onMounted(loadData);
+
+watch(() => authStore.user, (newUser, oldUser) => {
+    if (newUser !== oldUser) {
+        loadData();
+    }
+});
 </script>
 
 <style scoped>

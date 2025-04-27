@@ -59,7 +59,6 @@ const handleFileUpload = async (event: Event) => {
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 const rows: (string | undefined)[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                console.log(rows);
                 const addPromises = rows.slice(1).map(row => {
                     if (row.length < 4) {
                         console.error('Row does not contain enough data:', row);

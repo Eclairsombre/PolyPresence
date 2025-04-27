@@ -198,7 +198,6 @@ export const useSessionStore = defineStore("session", {
 
     async addStudentsToSessionByNumber(sessionId, students) {
       try {
-        console.log("Données des étudiants reçues:", students);
 
         if (!Array.isArray(students) || students.length === 0) {
           console.error(
@@ -241,9 +240,7 @@ export const useSessionStore = defineStore("session", {
               `${API_URL}/Session/${sessionId}/student/${studentNumber}`
             );
             results.success.push(studentNumber);
-            console.log(
-              `Étudiant ${studentNumber} ajouté à la session ${sessionId}`
-            );
+            
           } catch (err) {
             results.failed.push({
               studentNumber,
@@ -255,11 +252,6 @@ export const useSessionStore = defineStore("session", {
             );
           }
         }
-        console.log(
-          "Résultats de l'ajout des étudiants:",
-          results.success,
-          results.failed
-        );
         return results;
       } catch (error) {
         console.error(`Erreur globale lors de l'ajout des étudiants:`, error);

@@ -5,7 +5,7 @@
 - téléchargement de toute les fiches pour une période de temps -> Fait partiellement pas sur une ppériode donnée mais surement auto avec le filtre -> FAIT
 - Trier par ordre alphbéthique sur l'affichage des éleves -> FAIT
 - prendre en compte si il n'y a pas de session en cours -> FAIT
-- check si c'est un admin sur chaque page
+- check si c'est un admin sur chaque page -> FAIT
 - Envoi de la fiche en pdf à la fin de la journée -> tout les jours ? -> choix du jour
 - Trouver comment faire signer au prof
 - Gestion du code de session -> a qui l'envoyer ?

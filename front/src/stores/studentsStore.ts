@@ -37,11 +37,9 @@ export const useStudentsStore = defineStore("students", {
         if (response.status !== 200) {
           throw new Error("Erreur lors de la récupération des étudiants.");
         }
-        // Vérifiez si la réponse contient des données valides
         if (!Array.isArray(response.data)) {
           throw new Error("Données invalides reçues.");
         }
-        console.log("Réponse de l'API:", response.data);
  
         this.students = response.data.map((student: any) => ({
           name: student.name,
@@ -50,11 +48,10 @@ export const useStudentsStore = defineStore("students", {
           email: student.email,
           year: student.year
         }));
-        console.log("Etudiants récupérés:", this.students);
         return this.students; 
       } catch (error) {
         console.error("Erreur lors de la récupération des étudiants:", error);
-        return []; // Return an empty array in case of an error
+        return []; 
       }
     },
     async deleteStudent(studentNumber: string): Promise<boolean> {

@@ -198,7 +198,6 @@ export default defineComponent({
       }
       
       studentLoading.value = true;
-      console.log('Chargement des étudiants pour l\'année:', newSession.year);
       studentsStore.fetchStudents(newSession.year)
         .then(response => {
           students.value = response;
@@ -233,7 +232,6 @@ export default defineComponent({
         const createdSession = await sessionStore.createSession(sessionData);
         
         if (createdSession && students.value.length > 0) {
-          console.log('Ajout des étudiants à la session:', createdSession.id, students.value);
           try {
             await sessionStore.addStudentsToSessionByNumber(createdSession.id, students.value);
           } catch (error) {

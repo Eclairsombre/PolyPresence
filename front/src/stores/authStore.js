@@ -8,6 +8,7 @@ export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null,
     debugData: null,
+    processedTickets: null,
   }),
 
   actions: {
@@ -34,6 +35,16 @@ export const useAuthStore = defineStore("auth", {
     },
 
     async processTicket(ticket) {
+      if (this.processedTickets?.includes(ticket)) {
+        return;
+      }
+
+      if (!this.processedTickets) {
+        this.processedTickets = [];
+      }
+
+      this.processedTickets.push(ticket);
+
       try {
         const response = await axios.get(
           `${BASE_URL}/callback?ticket=${ticket}`
@@ -41,10 +52,9 @@ export const useAuthStore = defineStore("auth", {
 
         this.debugData = response.data;
 
-        if (response.data.success) {
+        if (response.data.success && response.data.user) {
           if (response.data.rawResponse) {
             const data = this.parseRawData(response.data.rawResponse);
-            console.log("Données brutes:", data);
             this.user = {
               studentId: data.user,
               firstname: data.firstname || "N/A",
@@ -61,14 +71,13 @@ export const useAuthStore = defineStore("auth", {
             window.location.pathname
           );
         } else {
-          console.error("Échec de l'authentification:", response.data.message);
+          console.error(
+            "Échec de l'authentification:",
+            response.data.message || "Utilisateur non trouvé"
+          );
         }
       } catch (error) {
         console.error("Erreur lors du traitement du ticket:", error);
-        this.debugData = {
-          error: error.message,
-          response: error.response?.data,
-        };
       }
     },
 
@@ -141,7 +150,6 @@ export const useAuthStore = defineStore("auth", {
         );
 
         this.user.isAdmin = response.data.isAdmin;
-        console.log("isAdmin:", this.user.isAdmin);
         return response.data.isAdmin;
       } catch (error) {
         console.error(

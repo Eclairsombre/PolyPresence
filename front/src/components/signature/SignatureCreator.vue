@@ -57,7 +57,6 @@
           const studentNumber = authStore.user.studentId;
           
           const response = await sessionStore.saveSignature(studentNumber, signatureData);
-          console.log("Réponse de la sauvegarde de la signature:", response);
           
           emit('signatureSaved'); 
           

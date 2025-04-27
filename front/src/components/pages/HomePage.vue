@@ -36,9 +36,6 @@ const authStore = useAuthStore();
 const router = useRouter();
 const user = computed(() => authStore.user);
 
-console.log("User in HomePage:", user.value);
-console.log("isAdmin in HomePage:", user.value?.isAdmin);
-
 const toggleAdminRole = () => {
   if (!user.value) return;
   

@@ -98,7 +98,6 @@ export default defineComponent({
         session.value = sessionData;
         
         const response = await axios.get(`http://localhost:5020/api/Session/${sessionId}/attendances`);
-        console.log("Données de présence:", response.data);
         if (response.data) {
           for (const student of response.data) {
             students.value.push({
