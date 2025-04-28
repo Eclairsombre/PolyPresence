@@ -10,5 +10,6 @@ namespace backend.Models
 
         public string ValidationCode { get; set; } = string.Empty;
         public List<Attendance> Attendances { get; set; } = new List<Attendance>();
+        public bool IsSent { get; set; } = false;
     }
 }

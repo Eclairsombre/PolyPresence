@@ -1,6 +1,6 @@
 namespace backend.Models
 {
-    public class Student
+    public class User
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
@@ -9,8 +9,8 @@ namespace backend.Models
         public string Email { get; set; } = string.Empty;
         public string Year { get; set; } = string.Empty;
         public string Signature { get; set; } = string.Empty;
+        public bool IsAdmin { get; set; } = false;
 
         public List<Attendance> Attendances { get; set; } = new List<Attendance>();
-
     }
 }

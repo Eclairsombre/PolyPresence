@@ -145,18 +145,18 @@ namespace backend.Controllers
             }
 
             _logger.LogDebug($"Session trouvée : {session.Id} - {session.Year}");
-            var student = await _context.Students
-                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
 
-            if (student == null)
+            if (user == null)
             {
-                return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
+                return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
             }
 
-            _logger.LogDebug($"Étudiant trouvé : {student.Id} - {student.StudentNumber}");
+            _logger.LogDebug($"Étudiant trouvé : {user.Id} - {user.StudentNumber}");
             // Vérifier si l'étudiant est déjà inscrit à cette session
             var existingAttendance = await _context.Attendances
-                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == student.Id);
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
 
             if (existingAttendance != null)
             {
@@ -166,7 +166,7 @@ namespace backend.Controllers
             var attendance = new Attendance
             {
                 SessionId = sessionId,
-                StudentId = student.Id,
+                StudentId = user.Id,
                 Status = AttendanceStatus.Absent,
             };
             _context.Attendances.Add(attendance);
@@ -185,16 +185,16 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
 
-            var student = await _context.Students
-                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
 
-            if (student == null)
+            if (user == null)
             {
-                return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
+                return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
             }
 
             var attendance = await _context.Attendances
-                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == student.Id);
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
 
             if (attendance == null)
             {
@@ -218,16 +218,16 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
 
-            var student = await _context.Students
-                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
 
-            if (student == null)
+            if (user == null)
             {
-                return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
+                return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
             }
 
             var attendance = await _context.Attendances
-                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == student.Id);
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
 
             if (attendance == null)
             {
@@ -249,7 +249,7 @@ namespace backend.Controllers
 
             var attendances = await _context.Attendances
                 .Where(a => a.SessionId == sessionId)
-                .Include(a => a.Student)
+                .Include(a => a.User)
                 .ToListAsync();
 
             if (attendances == null || attendances.Count == 0)
@@ -261,7 +261,7 @@ namespace backend.Controllers
 
             foreach (var attendance in attendances)
             {
-                var student = await _context.Students.FindAsync(attendance.StudentId);
+                var student = await _context.Users.FindAsync(attendance.StudentId);
                 if (student != null)
                 {
                     result.Add(new
@@ -290,7 +290,7 @@ namespace backend.Controllers
         public async Task<IActionResult> SaveSignature(string studentNumber, [FromBody] SignatureModel signatureData)
         {
 
-            var student = await _context.Students
+            var student = await _context.Users
                 .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
             if (student == null)
             {
@@ -305,7 +305,7 @@ namespace backend.Controllers
         [HttpGet("signature/{studentNumber}")]
         public async Task<IActionResult> GetSignature(string studentNumber)
         {
-            var student = await _context.Students
+            var student = await _context.Users
                 .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
 
             if (student == null)

@@ -10,27 +10,18 @@ namespace backend.Data
         {
         }
 
-        public DbSet<Student> Students { get; set; } = null!;
+        public DbSet<User> Users { get; set; } = null!;
         public DbSet<Session> Sessions { get; set; } = null!;
         public DbSet<Attendance> Attendances { get; set; } = null!;
-
-        public DbSet<Admin> Admins { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configurer la relation entre Session et Attendance
-            modelBuilder.Entity<Session>()
-                .HasMany(s => s.Attendances)
-                .WithOne(a => a.Session)
-                .HasForeignKey(a => a.SessionId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Configurer la relation entre Student et Attendance
-            modelBuilder.Entity<Student>()
-                .HasMany(s => s.Attendances)
-                .WithOne(a => a.Student)
+            // Configurer la relation entre User et Attendance
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Attendances)
+                .WithOne(a => a.User) // Utilisation correcte de la propriété User
                 .HasForeignKey(a => a.StudentId)
                 .OnDelete(DeleteBehavior.Cascade);
 

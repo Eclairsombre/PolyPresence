@@ -12,11 +12,9 @@ namespace backend.Models
     {
         public int Id { get; set; }
         public int SessionId { get; set; }
-        public int StudentId { get; set; }
-        public AttendanceStatus Status { get; set; }
-        [JsonIgnore]
         public Session Session { get; set; } = null!;
-        [JsonIgnore]
-        public Student Student { get; set; } = null!;
+        public int StudentId { get; set; }
+        public User User { get; set; } = null!; // Propriété de navigation ajoutée
+        public AttendanceStatus Status { get; set; }
     }
 }

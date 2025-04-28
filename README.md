@@ -13,4 +13,4 @@
 - refactor code 
 - import edt pour création auto des sessions
 - ajouter si travail perso -> pas de signature de prof
-- Encrypter la data dans le localstorage
+- Encrypter la data dans le localstorage + temps de session

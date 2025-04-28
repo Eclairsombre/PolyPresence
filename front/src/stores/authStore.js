@@ -124,7 +124,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/Students/search/${this.user.studentId}`
+          `${API_URL}/User/search/${this.user.studentId}`
         );
 
         this.user.existsInDb = response.data.exists;
@@ -146,11 +146,11 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/Admin/IsUserAdmin/${this.user.studentId}`
+          `${API_URL}/User/IsUserAdmin/${this.user.studentId}`
         );
 
-        this.user.isAdmin = response.data.isAdmin;
-        return response.data.isAdmin;
+        this.user.isAdmin = response.data.IsAdmin;
+        return response.data.IsAdmin;
       } catch (error) {
         console.error(
           "Erreur lors de la vérification de l'utilisateur:",

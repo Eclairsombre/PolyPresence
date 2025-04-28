@@ -198,7 +198,6 @@ export const useSessionStore = defineStore("session", {
 
     async addStudentsToSessionByNumber(sessionId, students) {
       try {
-
         if (!Array.isArray(students) || students.length === 0) {
           console.error(
             "Aucun étudiant à ajouter ou format de données invalide"
@@ -225,7 +224,7 @@ export const useSessionStore = defineStore("session", {
           const studentNumber = student.studentNumber;
           try {
             const studentExists = await axios.get(
-              `${API_URL}/Students/search/${studentNumber}`
+              `${API_URL}/User/search/${studentNumber}`
             );
             if (!studentExists.data) {
               console.error(`L'étudiant ${studentNumber} n'existe pas`);
@@ -240,7 +239,6 @@ export const useSessionStore = defineStore("session", {
               `${API_URL}/Session/${sessionId}/student/${studentNumber}`
             );
             results.success.push(studentNumber);
-            
           } catch (err) {
             results.failed.push({
               studentNumber,

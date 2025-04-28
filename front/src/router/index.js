@@ -49,7 +49,6 @@ const routes = [
     component: NotFoundPage,
   },
   {
-    // Attrape toutes les routes non définies
     path: "/:pathMatch(.*)*",
     name: "catch-all",
     component: NotFoundPage,

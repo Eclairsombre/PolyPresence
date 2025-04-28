@@ -13,7 +13,7 @@ export const useStudentsStore = defineStore("students", {
     async addStudent(student: Student): Promise<Student | boolean> {
       try {
         const response = await axios.post(
-          `${API_URL}/Students`,
+          `${API_URL}/User`,
           student
         );
         
@@ -33,7 +33,7 @@ export const useStudentsStore = defineStore("students", {
     },
     async fetchStudents(year: string): Promise<Student[]> {
       try {
-        const response = await axios.get(`${API_URL}/Students/year/${year}`);
+        const response = await axios.get(`${API_URL}/User/year/${year}`);
         if (response.status !== 200) {
           throw new Error("Erreur lors de la récupération des étudiants.");
         }
@@ -56,7 +56,7 @@ export const useStudentsStore = defineStore("students", {
     },
     async deleteStudent(studentNumber: string): Promise<boolean> {
       try {
-        const response = await axios.delete(`${API_URL}/Students/${encodeURIComponent(studentNumber)}`);
+        const response = await axios.delete(`${API_URL}/User/${encodeURIComponent(studentNumber)}`);
         // Le statut 204 (NoContent) est souvent renvoyé pour les suppressions réussies
         if (response.status === 204 || response.status === 200) {
           this.students = this.students.filter(student => student.studentNumber !== studentNumber);
@@ -82,7 +82,7 @@ export const useStudentsStore = defineStore("students", {
     },
     async getStudent(studentNumber: string): Promise<Student | null> {
       try {
-        const response = await axios.get(`${API_URL}/Students/search/${encodeURIComponent(studentNumber)}`);
+        const response = await axios.get(`${API_URL}/User/search/${encodeURIComponent(studentNumber)}`);
         if (response.status === 200) {
           return response.data;
         } else {
@@ -96,7 +96,7 @@ export const useStudentsStore = defineStore("students", {
     },
     async getStudentById(id : string): Promise<Student | null> {
       try {
-        const response = await axios.get(`${API_URL}/Students/${id}`);
+        const response = await axios.get(`${API_URL}/User/${id}`);
         return response.data;
       } catch (error) {
         console.error("Erreur lors de la récupération de l'étudiant:", error);
