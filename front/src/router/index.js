@@ -39,6 +39,12 @@ const routes = [
     beforeEnter: requiresAuth,
   },
   {
+    path: "/mail-preferences",
+    name: "MailPreferences",
+    component: () => import("../components/pages/MailPreferencesPage.vue"),
+    beforeEnter: requiresAdmin,
+  },
+  {
     path: "/unauthorized",
     name: "unauthorized",
     component: UnauthorizedPage,

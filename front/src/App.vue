@@ -10,6 +10,8 @@
         <div v-if="isAdmin">
           <router-link to="/students">Étudiants</router-link>
           <router-link to="/sessions">Sessions</router-link>
+          <router-link to="/mail-preferences">Préférences de Mail</router-link>
+
         </div>
       </nav>
     </header>

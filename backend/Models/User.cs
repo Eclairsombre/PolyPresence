@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Routing.Constraints;
+
 namespace backend.Models
 {
     public class User
@@ -11,6 +13,8 @@ namespace backend.Models
         public string Signature { get; set; } = string.Empty;
         public bool IsAdmin { get; set; } = false;
 
+        public int? MailPreferencesId { get; set; }
+        public MailPreferences? MailPreferences { get; set; }
         public List<Attendance> Attendances { get; set; } = new List<Attendance>();
     }
 }

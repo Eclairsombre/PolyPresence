@@ -163,5 +163,43 @@ export const useAuthStore = defineStore("auth", {
       this.user = user;
       localStorage.setItem("user", JSON.stringify(this.user));
     },
+    async getMailPreferences() {
+      if (!this.user || !this.user.studentId) {
+        console.error("Utilisateur non connecté ou ID manquant.");
+        return null;
+      }
+
+      try {
+        const response = await axios.get(
+          `${API_URL}/MailPreferences/${this.user.studentId}`
+        );
+        return response.data;
+      } catch (error) {
+        console.error(
+          "Erreur lors de la récupération des préférences de mail:",
+          error
+        );
+        return null;
+      }
+    },
+
+    async updateMailPreferences(preferences) {
+      if (!this.user || !this.user.studentId) {
+        console.error("Utilisateur non connecté ou ID manquant.");
+        return;
+      }
+
+      try {
+        await axios.put(
+          `${API_URL}/MailPreferences/${this.user.studentId}`,
+          preferences
+        );
+      } catch (error) {
+        console.error(
+          "Erreur lors de la mise à jour des préférences de mail:",
+          error
+        );
+      }
+    },
   },
 });
