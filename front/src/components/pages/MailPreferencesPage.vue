@@ -27,6 +27,7 @@
         </div>
         <button type="submit">Mettre à jour</button>
       </form>
+      <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
     </div>
     <div v-else>
       <p>Vous n'avez pas les droits pour accéder à cette page.</p>
@@ -35,7 +36,7 @@
 </template>
 
 <script>
-import { defineComponent, reactive, onMounted } from "vue";
+import { defineComponent, reactive, onMounted, ref } from "vue";
 import { useAuthStore } from "../../stores/authStore";
 
 export default defineComponent({
@@ -48,6 +49,7 @@ export default defineComponent({
       active: false,
     });
     const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+    const successMessage = ref("");
 
     const fetchPreferences = async () => {
       const data = await authStore.getMailPreferences();
@@ -56,7 +58,10 @@ export default defineComponent({
 
     const updatePreferences = async () => {
       await authStore.updateMailPreferences(preferences);
-      alert("Préférences mises à jour !");
+      successMessage.value = "Préférences mises à jour avec succès !";
+      setTimeout(() => {
+        successMessage.value = "";
+      }, 3000);
     };
 
     const toggleDay = (day) => {
@@ -71,7 +76,7 @@ export default defineComponent({
       fetchPreferences();
     });
 
-    return { authStore, preferences, days, updatePreferences, toggleDay };
+    return { authStore, preferences, days, updatePreferences, toggleDay, successMessage };
   },
 });
 </script>
@@ -138,5 +143,15 @@ button[type="submit"] {
 
 button[type="submit"]:hover {
   background-color: #45a049;
+}
+
+.success-message {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  text-align: center;
 }
 </style>
