@@ -201,5 +201,13 @@ export const useAuthStore = defineStore("auth", {
         );
       }
     },
+    async testMail(email) {
+      try {
+        await axios.post(`${API_URL}/MailPreferences/test/${email}`);
+      } catch (error) {
+        console.error("Erreur lors de l'envoi du mail de test:", error);
+        throw error;
+      }
+    },
   },
 });

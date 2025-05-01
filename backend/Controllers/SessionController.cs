@@ -316,6 +316,22 @@ namespace backend.Controllers
             return Ok(new { signature = student.Signature });
         }
 
+        [HttpGet("not-send")]
+
+        public async Task<IActionResult> GetNotSendSessions()
+        {
+            var sessions = await _context.Sessions
+                .Where(s =>  !s.IsSent)
+                .ToListAsync();
+
+            if (sessions == null || sessions.Count == 0)
+            {
+                return NotFound(new { message = "Aucune session trouvée." });
+            }
+
+            return Ok(sessions);
+        }
+
         public class SignatureModel
         {
             public string Signature { get; set; } = string.Empty;

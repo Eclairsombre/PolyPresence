@@ -1,2 +1,5 @@
 backend/bin/*
 backend/Migrations/*
+
+.env
+

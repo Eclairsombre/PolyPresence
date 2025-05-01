@@ -54,6 +54,7 @@ const routes = [
     name: "not-found",
     component: NotFoundPage,
   },
+
   {
     path: "/:pathMatch(.*)*",
     name: "catch-all",

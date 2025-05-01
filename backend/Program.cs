@@ -14,6 +14,9 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+DotNetEnv.Env.Load();
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection")));
 

@@ -28,6 +28,15 @@
         <button type="submit">Mettre à jour</button>
       </form>
       <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
+      <button class="test-mail-button" @click="testMail">Tester l'envoi de mail</button>
+      <p v-if="testMessage" class="test-message">{{ testMessage }}</p>
+
+      <!-- Nouveau compteur -->
+      <div class="mail-timer">
+        <p v-if="timerData">
+          Prochain envoi automatique : {{ timerData.nextExecutionTime }} (dans {{ timerData.remainingTime }})
+        </p>
+      </div>
     </div>
     <div v-else>
       <p>Vous n'avez pas les droits pour accéder à cette page.</p>
@@ -38,6 +47,7 @@
 <script>
 import { defineComponent, reactive, onMounted, ref } from "vue";
 import { useAuthStore } from "../../stores/authStore";
+import axios from "axios";
 
 export default defineComponent({
   name: "MailPreferencesPage",
@@ -50,6 +60,8 @@ export default defineComponent({
     });
     const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
     const successMessage = ref("");
+    const testMessage = ref("");
+    const timerData = ref(null);
 
     const fetchPreferences = async () => {
       const data = await authStore.getMailPreferences();
@@ -64,6 +76,18 @@ export default defineComponent({
       }, 3000);
     };
 
+    const testMail = async () => {
+      try {
+        await authStore.testMail(preferences.emailTo);
+        testMessage.value = "Mail de test envoyé avec succès !";
+      } catch (error) {
+        testMessage.value = "Échec de l'envoi du mail de test.";
+      }
+      setTimeout(() => {
+        testMessage.value = "";
+      }, 3000);
+    };
+
     const toggleDay = (day) => {
       if (preferences.days.includes(day)) {
         preferences.days = preferences.days.filter((d) => d !== day);
@@ -72,11 +96,32 @@ export default defineComponent({
       }
     };
 
+    const fetchTimer = async () => {
+      try {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/MailPreferences/timer`);
+        timerData.value = response.data;
+      } catch (error) {
+        console.error("Erreur lors de la récupération du timer :", error);
+      }
+    };
+
     onMounted(() => {
       fetchPreferences();
+      fetchTimer();
+      setInterval(fetchTimer, 1000); // Actualisation toutes les secondes
     });
 
-    return { authStore, preferences, days, updatePreferences, toggleDay, successMessage };
+    return {
+      authStore,
+      preferences,
+      days,
+      updatePreferences,
+      toggleDay,
+      successMessage,
+      testMail,
+      testMessage,
+      timerData,
+    };
   },
 });
 </script>
@@ -86,6 +131,13 @@ export default defineComponent({
   max-width: 600px;
   margin: 0 auto;
   padding: 20px;
+}
+
+.mail-timer {
+  margin-top: 20px;
+  font-size: 1rem;
+  color: #2c3e50;
+  font-weight: bold;
 }
 
 .form-group {
@@ -131,7 +183,8 @@ input[type="checkbox"] {
   background-color: #e0e0e0;
 }
 
-button[type="submit"] {
+button[type="submit"],
+.test-mail-button {
   padding: 10px 20px;
   background-color: #4caf50;
   color: white;
@@ -139,19 +192,31 @@ button[type="submit"] {
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  margin-top: 10px;
 }
 
-button[type="submit"]:hover {
+button[type="submit"]:hover,
+.test-mail-button:hover {
   background-color: #45a049;
 }
 
-.success-message {
+.success-message,
+.test-message {
   margin-top: 15px;
   padding: 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.success-message {
   background-color: #d4edda;
   color: #155724;
   border: 1px solid #c3e6cb;
-  border-radius: 4px;
-  text-align: center;
+}
+
+.test-message {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
 }
 </style>
