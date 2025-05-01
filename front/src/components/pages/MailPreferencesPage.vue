@@ -65,7 +65,20 @@ export default defineComponent({
 
     const fetchPreferences = async () => {
       const data = await authStore.getMailPreferences();
-      Object.assign(preferences, data);
+      console.log(data)
+      if (data) {
+        preferences.active = data.active;
+        preferences.emailTo = data.emailTo;
+        if (Array.isArray(data.days)) {
+          for (const elt of data.days) {
+            preferences.days.push(elt);
+          }
+        } else if (data.days && Array.isArray(data.days.$values)) {
+          preferences.days = [...data.days.$values];
+        } else {
+          console.warn("data.days is not an array or does not have $values:", data.days);
+        }
+      }
     };
 
     const updatePreferences = async () => {

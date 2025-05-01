@@ -45,7 +45,7 @@ namespace backend.Controllers
         private DateTime GetNextExecutionTime()
         {
             var now = DateTime.Now;
-            var target = new DateTime(now.Year, now.Month, now.Day, 23, 58, 0);
+            var target = new DateTime(now.Year, now.Month, now.Day, 0, 16, 0);
             if (now > target) target = target.AddDays(1);
             return target;
         }
@@ -111,8 +111,33 @@ namespace backend.Controllers
                             table.Cell().Element(CellStyle).Text(student.Name);
                             table.Cell().Element(CellStyle).Text(student.Firstname);
                             table.Cell().Element(CellStyle).Text(status == 0 ? "Présent" : "Absent");
-                            var sig = status == 0 && !string.IsNullOrEmpty(student.Signature) ? "[Signature]" : string.Empty;
-                            table.Cell().Element(CellStyle).Text(sig);
+
+                            if (status == 0 && !string.IsNullOrEmpty(student.Signature))
+                            {
+                                // Décoder le base64 (data URI) en bytes
+                                string base64 = student.Signature;
+                                if (base64.StartsWith("data:image"))
+                                {
+                                    var base64Data = base64.Substring(base64.IndexOf(",") + 1);
+                                    try
+                                    {
+                                        byte[] imageBytes = Convert.FromBase64String(base64Data);
+                                        table.Cell().Element(CellStyle).Image(imageBytes);
+                                    }
+                                    catch
+                                    {
+                                        table.Cell().Element(CellStyle).Text("Erreur image");
+                                    }
+                                }
+                                else
+                                {
+                                    table.Cell().Element(CellStyle).Text("Format inconnu");
+                                }
+                            }
+                            else
+                            {
+                                table.Cell().Element(CellStyle).Text(string.Empty);
+                            }
                             idx++;
                         }
                     });
