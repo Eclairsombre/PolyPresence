@@ -70,6 +70,7 @@ const handleFileUpload = async (event: Event) => {
                         studentNumber: row[2] ?? 'Unknown Student Number',
                         email: row[3] ?? 'Unknown Email',
                         year: props.year,
+                        signature:" "
                     };
                     return studentStore.addStudent(student)
                         .then(() => {

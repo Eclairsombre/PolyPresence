@@ -13,7 +13,12 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
-
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+        options.JsonSerializerOptions.MaxDepth = 64; // (optionnel, augmente la profondeur max)
+    });
 DotNetEnv.Env.Load();
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 

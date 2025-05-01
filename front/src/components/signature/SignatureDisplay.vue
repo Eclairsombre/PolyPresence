@@ -1,7 +1,7 @@
 <template>
     <div class="signature-display-container">
       <img 
-        v-if="signatureData" 
+        v-if="signatureData && signatureData != ' '" 
         :src="signatureData" 
         alt="Signature de l'étudiant" 
         class="signature-image" 

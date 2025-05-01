@@ -4,4 +4,5 @@ export interface Student {
     studentNumber: string;
     email: string;
     year: string;
+    signature: string;
 }

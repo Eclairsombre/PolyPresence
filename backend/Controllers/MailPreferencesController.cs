@@ -45,7 +45,7 @@ namespace backend.Controllers
         private DateTime GetNextExecutionTime()
         {
             var now = DateTime.Now;
-            var target = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute + 1, 0);
+            var target = new DateTime(now.Year, now.Month, now.Day, 23, 58, 0);
             if (now > target) target = target.AddDays(1);
             return target;
         }

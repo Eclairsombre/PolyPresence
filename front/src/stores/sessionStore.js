@@ -264,6 +264,7 @@ export const useSessionStore = defineStore("session", {
       try {
         const response = await axios.get(`${API_URL}/Session/current/${year}`);
         this.currentSession = response.data;
+        console.log("Session actuelle:", this.currentSession);
         return this.currentSession;
       } catch (error) {
         this.error =

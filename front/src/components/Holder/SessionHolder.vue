@@ -79,24 +79,28 @@ const loadData = async () => {
             return;
         }
         const studentData = await studentsStore.getStudent(authStore.user.studentId);
-        
-        if (studentData) {
-            if (studentData.student.signature && studentData.student.signature !== " ") {
+        if(studentData){
+            if (studentData.user.signature && studentData.user.signature !== " ") {
                 hasSignature.value = true;
             }
-            studentYear.value = studentData.student.year;
+            studentYear.value = studentData.user.year;
+            console.log(studentYear.value);
             const session = await sessionStore.getCurrentSession(studentYear.value);
             if (!session) {
                 return;
             }
+            
             currentSession.value = session;
 
             const at = await sessionStore.getAttendance(authStore.user.studentId, currentSession.value.id);
             attendance.value = at;
+            console.log(at)
             if (!currentSession.value) {
+                
                 error.value = "Aucune session en cours pour votre année.";
             }
-        } else {
+        }
+         else {
             error.value = "Impossible de récupérer vos données d'étudiant.";
         }
     } catch (err) {
