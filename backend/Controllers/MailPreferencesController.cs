@@ -45,7 +45,7 @@ namespace backend.Controllers
         private DateTime GetNextExecutionTime()
         {
             var now = DateTime.Now;
-            var target = new DateTime(now.Year, now.Month, now.Day, 0, 16, 0);
+            var target = new DateTime(now.Year, now.Month, now.Day, 19, now.Minute + 1, 0);
             if (now > target) target = target.AddDays(1);
             return target;
         }
@@ -170,76 +170,96 @@ namespace backend.Controllers
         {
             _logger.LogInformation("Début de la génération et de l'envoi du ZIP des feuilles de présence.");
 
-            var sessions = await _context.Sessions
-                .Where(s => !s.IsSent)
-                .ToListAsync();
+            var usersWithPrefs = _context.Users
+                .Include(u => u.MailPreferences)
+                .Where(u => u.MailPreferences != null && u.MailPreferences.Active)
+                .ToList();
 
-            if (!sessions.Any())
-                return;
+            _logger.LogInformation($"Nombre d'utilisateurs avec préférences de mail : {usersWithPrefs.Count}");
 
-            using var zipStream = new MemoryStream();
-            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+            foreach (var user in usersWithPrefs)
             {
-                foreach (var session in sessions)
+                var prefs = user.MailPreferences;
+                var today = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", new CultureInfo("fr-FR")));
+                _logger.LogInformation($"Préférences de mail pour l'utilisateur {user.StudentNumber} : {prefs.EmailTo}, jours : {string.Join(", ", prefs.Days)}");
+                _logger.LogInformation($"Jour d'aujourd'hui : {today}");
+                if (!prefs.Days.Contains(today)) continue;
+                _logger.LogInformation($"L'utilisateur {user.StudentNumber} a choisi de recevoir le mail aujourd'hui.");
+
+                var sessions = _context.Sessions
+                    .Where(s => !_context.SessionSentToUsers.Any(ssu => ssu.SessionId == s.Id && ssu.UserId == user.Id))
+                    .ToList();
+
+                if (!sessions.Any()) continue;
+
+                using var zipStream = new MemoryStream();
+                using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
                 {
-                    var attendances = await _context.Attendances
-                        .Where(a => a.SessionId == session.Id)
-                        .Include(a => a.User)
-                        .Select(a => new { a.User, a.Status })
-                        .ToListAsync();
+                    foreach (var session in sessions)
+                    {
+                        var attendances = await _context.Attendances
+                            .Where(a => a.SessionId == session.Id)
+                            .Include(a => a.User)
+                            .Select(a => new { a.User, a.Status })
+                            .ToListAsync();
 
-                    var attendanceList = attendances
-                        .Select(a => ((User)a.User, (int)a.Status))
-                        .ToList();
+                        var attendanceList = attendances
+                            .Select(a => ((User)a.User, (int)a.Status))
+                            .ToList();
 
-                    var pdfBytes = GenerateSessionPdf(session, attendanceList);
+                        var pdfBytes = GenerateSessionPdf(session, attendanceList);
 
-                    var folderPath = $"{session.Date:yyyy}/{session.Date:MM}/{session.Date:dd}";
-                    var entry = archive.CreateEntry($"{folderPath}/session_{session.Year}_{session.Date:yyyy-MM-dd}_{session.StartTime:hh\\-mm}.pdf");
-                    using var entryStream = entry.Open();
-                    entryStream.Write(pdfBytes, 0, pdfBytes.Length);
+                        var folderPath = $"{session.Date:yyyy}/{session.Date:MM}/{session.Date:dd}";
+                        var entry = archive.CreateEntry($"{folderPath}/session_{session.Year}_{session.Date:yyyy-MM-dd}_{session.StartTime:hh\\-mm}.pdf");
+                        using var entryStream = entry.Open();
+                        entryStream.Write(pdfBytes, 0, pdfBytes.Length);
+                    }
                 }
-            }
-            zipStream.Position = 0;
-
-            try
-            {
-                var smtpClient = new SmtpClient("smtpbv.univ-lyon1.fr", 587)
-                {
-                    EnableSsl = true,
-                    Credentials = new NetworkCredential(
-                        Environment.GetEnvironmentVariable("SMTP_USERNAME"),
-                        Environment.GetEnvironmentVariable("SMTP_PASSWORD")
-                    )
-                };
-
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
-                    Subject = "Feuilles de présence quotidiennes",
-                    Body = "Veuillez trouver ci-joint les feuilles de présence générées automatiquement.",
-                    IsBodyHtml = false
-                };
-
-                mailMessage.To.Add("alexandre.thouny@etu.univ-lyon1.fr");
-
                 zipStream.Position = 0;
-                var attachment = new Attachment(zipStream, $"sessions_{DateTime.Now:yyyy-MM-dd}.zip", "application/zip");
-                mailMessage.Attachments.Add(attachment);
-
-                await smtpClient.SendMailAsync(mailMessage);
-
-                _logger.LogInformation("Email envoyé avec succès avec le fichier ZIP en pièce jointe.");
-
-                foreach (var session in _context.Sessions)
+                _logger.LogInformation($"ZIP créé pour l'utilisateur {user.StudentNumber} ({prefs.EmailTo})");
+                try
                 {
-                    session.IsSent = true;
+                    var smtpClient = new SmtpClient("smtpbv.univ-lyon1.fr", 587)
+                    {
+                        EnableSsl = true,
+                        Credentials = new NetworkCredential(
+                            Environment.GetEnvironmentVariable("SMTP_USERNAME"),
+                            Environment.GetEnvironmentVariable("SMTP_PASSWORD")
+                        )
+                    };
+
+                    var mailMessage = new MailMessage
+                    {
+                        From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
+                        Subject = "Feuilles de présence quotidiennes",
+                        Body = "Veuillez trouver ci-joint les feuilles de présence générées automatiquement.",
+                        IsBodyHtml = false
+                    };
+
+                    mailMessage.To.Add(prefs.EmailTo);
+
+                    var attachment = new Attachment(zipStream, $"sessions_{DateTime.Now:yyyy-MM-dd}.zip", "application/zip");
+                    mailMessage.Attachments.Add(attachment);
+
+                    await smtpClient.SendMailAsync(mailMessage);
+
+                    _logger.LogInformation($"Mail envoyé à {prefs.EmailTo} avec le ZIP des feuilles de présence.");
+
+                    foreach (var session in sessions)
+                    {
+                        _context.SessionSentToUsers.Add(new SessionSentToUser
+                        {
+                            SessionId = session.Id,
+                            UserId = user.Id,
+                            SentAt = DateTime.Now
+                        });
+                    }
+                    await _context.SaveChangesAsync();
                 }
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Erreur lors de l'envoi de l'email : {ex.Message}");
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Erreur lors de l'envoi de l'email à {prefs.EmailTo} : {ex.Message}");
+                }
             }
         }
 

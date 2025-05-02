@@ -15,6 +15,9 @@ namespace backend.Data
         public DbSet<Attendance> Attendances { get; set; } = null!;
         public DbSet<MailPreferences> MailPreferences { get; set; }
 
+        public DbSet<SessionSentToUser> SessionSentToUsers { get; set; }
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
