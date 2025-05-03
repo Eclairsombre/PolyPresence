@@ -89,14 +89,12 @@ namespace backend.Controllers
                 return BadRequest();
             }
 
-            // Chercher l'utilisateur existant par StudentNumber
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
             if (existingUser == null)
             {
                 return NotFound();
             }
 
-            // Mettre à jour les champs
             existingUser.Name = user.Name;
             existingUser.Firstname = user.Firstname;
             existingUser.Email = user.Email;

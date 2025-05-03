@@ -154,7 +154,7 @@ namespace backend.Controllers
             }
 
             _logger.LogDebug($"Étudiant trouvé : {user.Id} - {user.StudentNumber}");
-            // Vérifier si l'étudiant est déjà inscrit à cette session
+
             var existingAttendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
 

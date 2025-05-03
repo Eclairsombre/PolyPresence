@@ -31,7 +31,6 @@ namespace backend.Controllers
             _context = context;
             _serviceScopeFactory = serviceScopeFactory;
 
-            // Configurer une tâche planifiée pour 22h15
             if (_dailyMailTimer == null)
             {
                 _nextExecutionTime = GetNextExecutionTime();
@@ -45,7 +44,7 @@ namespace backend.Controllers
         private DateTime GetNextExecutionTime()
         {
             var now = DateTime.Now;
-            var target = new DateTime(now.Year, now.Month, now.Day, 19, now.Minute + 1, 0);
+            var target = new DateTime(now.Year, now.Month, now.Day, 20, 0, 0);
             if (now > target) target = target.AddDays(1);
             return target;
         }
@@ -61,7 +60,6 @@ namespace backend.Controllers
             }
         }
 
-        // Générer le PDF d'une session
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status)> attendances)
         {
             using var ms = new MemoryStream();
@@ -114,7 +112,6 @@ namespace backend.Controllers
 
                             if (status == 0 && !string.IsNullOrEmpty(student.Signature))
                             {
-                                // Décoder le base64 (data URI) en bytes
                                 string base64 = student.Signature;
                                 if (base64.StartsWith("data:image"))
                                 {
@@ -151,7 +148,7 @@ namespace backend.Controllers
                 });
             });
 
-            document.GeneratePdf(ms); // Ensure you are using QuestPDF.Fluent namespace
+            document.GeneratePdf(ms);
             return ms.ToArray();
 
             static QuestPDF.Infrastructure.IContainer CellStyle(QuestPDF.Infrastructure.IContainer container)
@@ -165,7 +162,6 @@ namespace backend.Controllers
             }
         }
 
-        // Générer et envoyer le ZIP par mail (appelé par le timer)
         public async Task GenerateAndSendZip()
         {
             _logger.LogInformation("Début de la génération et de l'envoi du ZIP des feuilles de présence.");
@@ -276,7 +272,6 @@ namespace backend.Controllers
             MailPreferences? preferences;
             if (user.MailPreferencesId == null)
             {
-                // Créer un nouvel objet MailPreferences si aucun n'existe
                 preferences = new MailPreferences
                 {
                     EmailTo = user.Email,
@@ -289,7 +284,6 @@ namespace backend.Controllers
             }
             else
             {
-                // Récupérer les préférences existantes
                 preferences = _context.MailPreferences.FirstOrDefault(mp => mp.Id == user.MailPreferencesId);
                 if (preferences == null)
                 {
@@ -312,7 +306,6 @@ namespace backend.Controllers
             MailPreferences? existingPreferences;
             if (user.MailPreferencesId == null)
             {
-                // Créer un nouvel objet MailPreferences si aucun n'existe
                 existingPreferences = new MailPreferences
                 {
                     EmailTo = preferences.EmailTo,
@@ -324,7 +317,6 @@ namespace backend.Controllers
             }
             else
             {
-                // Mettre à jour les préférences existantes
                 existingPreferences = _context.MailPreferences.FirstOrDefault(mp => mp.Id == user.MailPreferencesId);
                 if (existingPreferences == null) return NotFound("Préférences de mail non trouvées.");
 
@@ -347,7 +339,7 @@ namespace backend.Controllers
             {
                 var smtpClient = new SmtpClient("smtpbv.univ-lyon1.fr", 587)
                 {
-                    EnableSsl = true, // STARTTLS
+                    EnableSsl = true, 
                     Credentials = new NetworkCredential(
                         Environment.GetEnvironmentVariable("SMTP_USERNAME"),
                         Environment.GetEnvironmentVariable("SMTP_PASSWORD")
@@ -365,7 +357,6 @@ namespace backend.Controllers
                 };
                 mailMessage.To.Add(mail);
 
-                // Envoi
                 smtpClient.Send(mailMessage);
 
                 _logger.LogInformation($"Mail de test envoyé à {mail}");
