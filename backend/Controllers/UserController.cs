@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace backend.Controllers
 {
@@ -78,15 +79,29 @@ namespace backend.Controllers
         }
 
         // PUT: api/User/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(int id, User user)
+        [HttpPut("{studentNumber}")]
+        public async Task<IActionResult> PutUser(string studentNumber, User user)
         {
-            if (id != user.Id)
+            _logger.LogInformation($"Received PUT request for user with student number: {studentNumber}");
+            _logger.LogInformation($"User data: {System.Text.Json.JsonSerializer.Serialize(user)}");
+            if (studentNumber != user.StudentNumber)
             {
                 return BadRequest();
             }
 
-            _context.Entry(user).State = EntityState.Modified;
+            // Chercher l'utilisateur existant par StudentNumber
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+            if (existingUser == null)
+            {
+                return NotFound();
+            }
+
+            // Mettre à jour les champs
+            existingUser.Name = user.Name;
+            existingUser.Firstname = user.Firstname;
+            existingUser.Email = user.Email;
+            existingUser.Year = user.Year;
+
 
             try
             {
@@ -94,24 +109,17 @@ namespace backend.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!UserExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return StatusCode(500, "Erreur lors de la mise à jour de l'utilisateur.");
             }
 
             return NoContent();
         }
 
         // DELETE: api/User/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
+        [HttpDelete("{studentNumber}")]
+        public async Task<IActionResult> DeleteUser(string studentNumber)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
             if (user == null)
             {
                 return NotFound();
@@ -122,6 +130,7 @@ namespace backend.Controllers
 
             return NoContent();
         }
+
 
         [HttpGet("year/{year}")]
         public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year)

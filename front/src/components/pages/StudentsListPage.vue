@@ -30,6 +30,7 @@
                     <th>Numéro étudiant</th>
                     <th>Email</th>
                     <th>Année</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -39,9 +40,16 @@
                     <td>{{ student.studentNumber }}</td>
                     <td>{{ student.email }}</td>
                     <td>{{ student.year }}</td>
+                    <td>
+                        <button class="edit-btn" @click="openEditPopup(student)">Modifier</button>
+                        <button class="delete-btn" @click="confirmDeleteStudent(student)">Supprimer</button>
+                    </td>
                 </tr>
             </tbody>
         </table>
+        <div v-if="students.length === 0" class="empty-message">
+            Aucun étudiant à afficher pour cette année.
+        </div>
     </div>
     <PopUpImportStudent 
       v-if="showImportPopup" 
@@ -55,6 +63,17 @@
       @close="closeAddPopup"
       @student-added="refreshStudents"
     />
+    <PopUpEditStudent
+      v-if="showEditPopup"
+      :student="selectedStudent"
+      @close="closeEditPopup"
+      @student-updated="refreshStudents"
+    />
+    <PopUpDeleteStudent
+      v-if="showDeleteConfirm"
+      @close="cancelDelete"
+      @confirm="deleteStudent"
+    />
 </template>
 
 <script setup>
@@ -63,11 +82,16 @@ import { onMounted, ref } from 'vue';
 import PopUpImportStudent from '../popups/PopUpImportStudent.vue';
 import PopUpAddStudent from '../popups/PopUpAddStudent.vue';
 import AddStudentButton from '../buttons/AddStudentButton.vue';
+import PopUpEditStudent from '../popups/PopUpEditStudent.vue';
+import PopUpDeleteStudent from '../popups/PopUpDeleteStudent.vue';
 
 const yearFilter = ref('3A');
 const studentsStore = useStudentsStore();
 const showImportPopup = ref(false);
 const showAddPopup = ref(false);
+const showEditPopup = ref(false);
+const showDeleteConfirm = ref(false);
+const selectedStudent = ref(null);
 
 const students = ref([]);
 
@@ -100,6 +124,30 @@ const openAddPopup = () => {
 
 const closeAddPopup = () => {
   showAddPopup.value = false;
+};
+
+const openEditPopup = (student) => {
+  selectedStudent.value = student;
+  showEditPopup.value = true;
+};
+
+const closeEditPopup = () => {
+  showEditPopup.value = false;
+};
+
+const confirmDeleteStudent = (student) => {
+  selectedStudent.value = student;
+  showDeleteConfirm.value = true;
+};
+
+const deleteStudent = async () => {
+  await studentsStore.deleteStudent(selectedStudent.value.studentNumber);
+  showDeleteConfirm.value = false;
+  await refreshStudents();
+};
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false;
 };
 </script>
 
@@ -175,5 +223,41 @@ th {
 
 tr:hover {
     background-color: #f9f9f9;
+}
+
+.empty-message {
+    margin-top: 20px;
+    text-align: center;
+    color: #888;
+}
+
+.edit-btn, .delete-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-right: 8px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.edit-btn {
+    background-color: #3498db;
+    color: white;
+}
+
+.edit-btn:hover {
+    background-color: #217dbb;
+}
+
+.delete-btn {
+    background-color: #e74c3c;
+    color: white;
+    margin-right: 0;
+}
+
+.delete-btn:hover {
+    background-color: #c0392b;
 }
 </style>

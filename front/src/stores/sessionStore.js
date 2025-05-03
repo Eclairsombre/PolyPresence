@@ -38,9 +38,9 @@ export const useSessionStore = defineStore("session", {
       if (!startDate && !endDate) return state.sessions;
 
       return state.sessions.filter((session) => {
-        const sessionDate = new Date(session.date);
-        const start = startDate ? new Date(startDate) : null;
-        const end = endDate ? new Date(endDate) : null;
+        const sessionDate = session.date?.substring(0, 10);
+        const start = startDate ? startDate.substring(0, 10) : null;
+        const end = endDate ? endDate.substring(0, 10) : null;
 
         if (start && end) {
           return sessionDate >= start && sessionDate <= end;
@@ -49,7 +49,6 @@ export const useSessionStore = defineStore("session", {
         } else if (end) {
           return sessionDate <= end;
         }
-
         return true;
       });
     },
@@ -400,7 +399,6 @@ export const useSessionStore = defineStore("session", {
       const { year, startDate, endDate } = filters;
       this.loading = true;
       this.error = null;
-
       try {
         if (year) {
           await this.fetchSessionsByYear(year);
@@ -411,7 +409,6 @@ export const useSessionStore = defineStore("session", {
         if (startDate || endDate) {
           this.sessions = this.getSessionsByDateRange(startDate, endDate);
         }
-
         return this.sessions;
       } catch (error) {
         this.error = error.message || "Erreur lors du filtrage des sessions";

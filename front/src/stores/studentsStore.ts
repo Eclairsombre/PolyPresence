@@ -112,6 +112,27 @@ export const useStudentsStore = defineStore("students", {
         console.error("Erreur lors de la récupération de l'étudiant:", error);
         return null;
       }
-    }
+    },
+    async updateStudent(student: Student): Promise<Student | boolean> {
+      console.log("Student to update:", student);
+
+      try {  
+        const response = await axios.put(
+          `${API_URL}/User/${encodeURIComponent(student.studentNumber)}`,
+          student
+        );
+        if (response.data) {
+          // Met à jour le store local
+          const idx = this.students.findIndex(s => s.studentNumber === student.studentNumber);
+          if (idx !== -1) {
+            this.students[idx] = { ...response.data };
+          }
+        }
+        return response.data;
+      } catch (error: any) {
+        console.error("Erreur lors de la modification de l'étudiant:", error);
+        throw error;
+      }
+    },
   }
 });
