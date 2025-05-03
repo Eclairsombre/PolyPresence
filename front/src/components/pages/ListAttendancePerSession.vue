@@ -99,7 +99,7 @@ export default defineComponent({
         
         const response = await axios.get(`http://localhost:5020/api/Session/${sessionId}/attendances`);
         if (response.data) {
-          for (const student of response.data) {
+          for (const student of response.data.$values) {
             students.value.push({
               id: student.item1.id,
               name: student.item1.name,

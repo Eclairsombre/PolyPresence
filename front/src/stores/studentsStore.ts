@@ -33,25 +33,35 @@ export const useStudentsStore = defineStore("students", {
     },
     async fetchStudents(year: string): Promise<Student[]> {
       try {
-        const response = await axios.get(`${API_URL}/User/year/${year}`);
-        if (response.status !== 200) {
-          throw new Error("Erreur lors de la récupération des étudiants.");
-        }
-        if (!Array.isArray(response.data)) {
-          throw new Error("Données invalides reçues.");
-        }
- 
-        this.students = response.data.map((student: any) => ({
-          name: student.name,
-          firstname: student.firstname,
-          studentNumber: student.studentNumber,
-          email: student.email,
-          year: student.year
-        }));
-        return this.students; 
+      const response = await axios.get(`${API_URL}/User/year/${year}`);
+      if (response.status === 404) {
+        console.warn("Aucun étudiant trouvé pour l'année spécifiée.");
+        return [];
+      }
+
+      if (response.status !== 200) {
+        throw new Error("Erreur lors de la récupération des étudiants.");
+      }
+
+      if (!response.data?.$values || !Array.isArray(response.data.$values)) {
+        throw new Error("Données invalides reçues.");
+      }
+
+      this.students = response.data.$values.map((student: any) => ({
+        name: student.name,
+        firstname: student.firstname,
+        studentNumber: student.studentNumber,
+        email: student.email,
+        year: student.year,
+        signature: student.signature,
+      }));
+      return this.students;
       } catch (error) {
-        console.error("Erreur lors de la récupération des étudiants:", error);
-        return []; 
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return [];
+      }
+      console.error("Erreur lors de la récupération des étudiants:", error);
+      return [];
       }
     },
     async deleteStudent(studentNumber: string): Promise<boolean> {

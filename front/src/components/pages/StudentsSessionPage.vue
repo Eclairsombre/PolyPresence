@@ -259,11 +259,13 @@ export default defineComponent({
     };
     
     const formatDate = (dateString) => {
+      console.log(sessions.value);
       const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
       return new Date(dateString).toLocaleDateString('fr-FR', options);
     };
     
     const formatTime = (timeString) => {
+      if (!timeString) return '';
       return timeString.substring(0, 5);
     };
     

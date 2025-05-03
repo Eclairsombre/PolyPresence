@@ -62,7 +62,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await axios.get(`${API_URL}/Session`);
-        this.sessions = response.data;
+        this.sessions = response.data.$values;
         return this.sessions;
       } catch (error) {
         this.error =
@@ -82,7 +82,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await axios.get(`${API_URL}/Session/year/${year}`);
-        this.sessions = response.data;
+        this.sessions = response.data.$values;
         return this.sessions;
       } catch (error) {
         if (error.response && error.response.status === 404) {
@@ -264,9 +264,13 @@ export const useSessionStore = defineStore("session", {
       try {
         const response = await axios.get(`${API_URL}/Session/current/${year}`);
         this.currentSession = response.data;
-        console.log("Session actuelle:", this.currentSession);
         return this.currentSession;
       } catch (error) {
+        if (error.response && error.response.status === 404) {
+          this.currentSession = null;
+          return null;
+        }
+
         this.error =
           error.message ||
           "Erreur lors de la récupération de la session actuelle";
