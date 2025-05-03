@@ -61,7 +61,7 @@ const createPdfFileName = (session) => {
 const generateSessionHtml = async (session) => {
   try {
     const response = await axios.get(`http://localhost:5020/api/Session/${session.id}/attendances`);
-    const attendances = response.data;
+    const attendances = response.data.$values;
     
     const formatDate = (dateString) => {
       const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
