@@ -405,7 +405,18 @@ namespace backend.Controllers
 
             var link = $"http://localhost:5173/prof-signature/{session.ProfSignatureToken}";
             var subject = "Signature de la feuille de présence";
-            var body = $@"Bonjour,\n\nVeuillez cliquer sur le lien suivant pour renseigner votre nom, prénom et signer la feuille de présence :\n{link}\n\nCordialement.";
+            var body = $@"Bonjour,
+
+Veuillez cliquer sur le lien suivant pour renseigner votre nom, prénom et signer la feuille de présence :
+{link}
+
+Informations de la session :
+- Année : {session.Year}
+- Date : {session.Date:yyyy/MM/dd}
+- Heure de début : {session.StartTime.ToString(@"hh\:mm")} - Heure de fin : {session.EndTime.ToString(@"hh\:mm")}
+- Validation : {session.ValidationCode}
+
+Cordialement";
 
             try
             {

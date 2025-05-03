@@ -1,5 +1,15 @@
 <template>
   <div class="prof-signature-page">
+    <div v-if="session" class="session-infos">
+        <h2>Informations de la session</h2>
+        <ul>
+            <li><strong>Année :</strong> {{ session.year || session.Year }}</li>
+            <li><strong>Date :</strong> {{ session.date ? new Date(session.date).toLocaleDateString() : (session.Date ? new Date(session.Date).toLocaleDateString() : '') }}</li>
+            <li><strong>Heure de début :</strong> {{ session.startTime || session.StartTime }}</li>
+            <li><strong>Heure de fin :</strong> {{ session.endTime || session.EndTime }}</li>
+            <li><strong>Code de validation :</strong> {{ validationCode }}</li>
+        </ul>
+    </div>
     <h1>Signature du professeur</h1>
     <div v-if="loading" class="loading">Chargement...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -16,7 +26,6 @@
         <div class="form-group">
           <label>Signature :</label>
           <SignatureCreator v-bind:hideSaveButton="true" ref="signaturePad" />
-          <button type="button" @click="clearSignature" class="clear-btn">Effacer la signature</button>
         </div>
         <button type="submit" class="submit-btn">Valider</button>
       </form>
@@ -39,11 +48,15 @@ const loading = ref(true);
 const error = ref('');
 const success = ref(false);
 const signaturePad = ref(null);
+const validationCode = ref('');
+const session = ref(null);
+const API_URL = import.meta.env.VITE_API_URL;
 
 onMounted(async () => {
   try {
-    // Vérifie que le token est valide
-    await axios.get(`/api/Session/prof-signature/${token}`);
+    const response = await axios.get(`${API_URL}/Session/prof-signature/${token}`);
+    session.value = response.data;
+    validationCode.value = response.data.validationCode || response.data.ValidationCode || response.data.validation_code || '';
     loading.value = false;
   } catch (e) {
     error.value = "Lien invalide ou expiré.";
@@ -54,7 +67,6 @@ onMounted(async () => {
 const clearSignature = () => {
   signaturePad.value && signaturePad.value.clear();
 };
-const API_URL = import.meta.env.VITE_API_URL;
 
 const submitSignature = async () => {
   const signatureData = signaturePad.value.getSignature();
@@ -77,60 +89,111 @@ const submitSignature = async () => {
 </script>
 
 <style scoped>
+.session-infos {
+  background: #f6f8fa;
+  border: 1px solid #e0e4ea;
+  border-radius: 8px;
+  padding: 18px 16px 10px 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
+}
+.session-infos h2 {
+  margin-top: 0;
+  font-size: 1.15em;
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+.session-infos ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.session-infos li {
+  margin-bottom: 6px;
+  font-size: 1em;
+  color: #34495e;
+}
+.session-infos strong {
+  color: #2980b9;
+}
 .prof-signature-page {
-  max-width: 400px;
+  max-width: 440px;
   margin: 40px auto;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  padding: 30px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(52,152,219,0.10);
+  padding: 36px 24px 28px 24px;
 }
 .prof-signature-page h1 {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  color: #2980b9;
+  font-size: 1.5em;
 }
 .form-group {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   display: flex;
   flex-direction: column;
 }
 input[type="text"] {
-  padding: 8px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #bfc9d1;
   font-size: 16px;
+  background: #fafdff;
+  transition: border 0.2s;
+}
+input[type="text"]:focus {
+  border: 1.5px solid #3498db;
+  outline: none;
 }
 .clear-btn {
   margin-top: 8px;
-  background: #eee;
+  background: #f2f6fa;
   border: none;
   border-radius: 4px;
-  padding: 6px 12px;
+  padding: 7px 14px;
   cursor: pointer;
+  color: #555;
+  transition: background 0.2s;
+}
+.clear-btn:hover {
+  background: #e1eaf4;
 }
 .submit-btn {
   width: 100%;
-  background: #3498db;
+  background: linear-gradient(90deg, #3498db 60%, #2980b9 100%);
   color: #fff;
   border: none;
-  border-radius: 4px;
-  padding: 12px;
-  font-size: 16px;
+  border-radius: 5px;
+  padding: 13px;
+  font-size: 17px;
   cursor: pointer;
-  margin-top: 10px;
+  margin-top: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(52,152,219,0.08);
+  transition: background 0.2s;
+}
+.submit-btn:hover {
+  background: linear-gradient(90deg, #2980b9 60%, #3498db 100%);
 }
 .success {
   color: #27ae60;
   text-align: center;
-  margin-top: 20px;
+  margin-top: 22px;
+  font-weight: 600;
+  font-size: 1.1em;
 }
 .error {
   color: #e74c3c;
   text-align: center;
-  margin-top: 20px;
+  margin-top: 22px;
+  font-weight: 600;
+  font-size: 1.1em;
 }
 .loading {
   text-align: center;
   color: #888;
+  font-size: 1.1em;
 }
 </style>
