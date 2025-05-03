@@ -157,9 +157,12 @@ export default defineComponent({
       exporting.value = true;
       
       try {
-        const element = document.querySelector('.attendance-table-wrapper');
+        const element = document.querySelector('.attendance-container');
+        const clonedElement = element.cloneNode(true);
+        const buttons = clonedElement.querySelectorAll('button');
+        buttons.forEach(button => button.remove());
         
-        if (!element) {
+        if (!clonedElement) {
           throw new Error("Élément non trouvé pour l'exportation");
         }
         
@@ -171,7 +174,7 @@ export default defineComponent({
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
         
-        await html2pdf().from(element).set(options).save();
+        await html2pdf().from(clonedElement).set(options).save();
       } catch (err) {
         console.error("Erreur lors de l'export PDF:", err);
         error.value = "Impossible d'exporter le PDF.";

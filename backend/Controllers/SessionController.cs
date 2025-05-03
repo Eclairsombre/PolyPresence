@@ -44,7 +44,7 @@ namespace backend.Controllers
             return session;
         }
 
-        // GET: api/Session/year/3TC
+        // GET: api/Session/year/3A
         [HttpGet("year/{year}")]
         public async Task<ActionResult<IEnumerable<Session>>> GetSessionsByYear(string year)
         {
@@ -122,6 +122,7 @@ namespace backend.Controllers
             var currentSession = await _context.Sessions
                 .Where(s => s.Year == year && s.Date.Date == DateTime.Today.Date)
                 .FirstOrDefaultAsync();
+
 
             if (currentSession == null)
             {
@@ -321,7 +322,7 @@ namespace backend.Controllers
         public async Task<IActionResult> GetNotSendSessions()
         {
             var sessions = await _context.Sessions
-                .Where(s =>  !s.IsSent)
+                .Where(s => !s.IsSent)
                 .ToListAsync();
 
             if (sessions == null || sessions.Count == 0)
