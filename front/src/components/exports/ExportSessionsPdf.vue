@@ -100,6 +100,8 @@ const generateSessionHtml = async (session) => {
         <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
           <h2 style="margin: 0 0 10px 0;">${formatDate(session.date)} - ${session.year}</h2>
           <p>Horaires: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}</p>
+          <div style='margin-top:10px;'><strong>Professeur :</strong> ${session.profFirstname || ''} ${session.profName || ''} (${session.profEmail || ''})</div>
+          <div style='margin-top:5px;'><strong>Signature :</strong> ${session.profSignature ? `<img src='${session.profSignature}' alt='Signature du professeur' style='max-height:60px;vertical-align:middle;margin-left:10px;'/>` : '<em>Non signée</em>'}</div>
         </div>
         <table style="width: 100%; border-collapse: collapse;">
           <thead>

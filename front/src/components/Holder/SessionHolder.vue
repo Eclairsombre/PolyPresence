@@ -28,6 +28,23 @@
                         <span class="detail-label">Code de validation:</span>
                         <span class="detail-value code-value">{{ currentSession.validationCode }}</span>
                     </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Email du professeur :</span>
+                        <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ currentSession.profEmail }}</span>
+                        <template v-if="isDelegate">
+                            <template v-if="!profEmailEditMode">
+                                <span class="detail-value">{{ currentSession.profEmail }}</span>
+                                <button @click="showEditProfMailPopup = true" class="edit-btn">Modifier</button>
+                                <button @click="showResendProfMailPopup = true" class="resend-btn">Renvoyer le mail</button>
+                            </template>
+                            <template v-else>
+                                <input v-model="profEmailInput" type="email" class="edit-input" />
+                                <button @click="saveProfEmail" class="save-btn">Enregistrer</button>
+                                <button @click="cancelProfEmailEdit" class="cancel-btn">Annuler</button>
+                            </template>
+                        </template>
+                    </div>
+                    <div v-if="mailSentMessage" class="mail-sent-message">{{ mailSentMessage }}</div>
                 </div>
             </div>
             <div v-if="attendance && attendance.status === 1" class="validate-presence">
@@ -37,6 +54,8 @@
         <div v-else class="no-session">
             <p>Aucune session en cours.</p>
         </div>
+        <PopUpEditProfMail v-if="showEditProfMailPopup" :value="profEmailInput" @close="showEditProfMailPopup = false" @save="onProfMailPopupSave" />
+        <PopUpResendProfMail v-if="showResendProfMailPopup" @close="showResendProfMailPopup = false" @confirm="confirmResendProfMail" />
     </div>
 </template>
 
@@ -47,6 +66,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 
 import ValidatePresence from '../buttons/ValidatePresence.vue';
+import PopUpEditProfMail from '../popups/PopUpEditProfMail.vue';
+import PopUpResendProfMail from '../popups/PopUpResendProfMail.vue';
 
 const loading = ref(true);
 const error = ref(null);
@@ -54,10 +75,17 @@ const currentSession = ref(null);
 const studentYear = ref(null);
 const attendance = ref(null);
 const hasSignature = ref(false);
+const profEmailEditMode = ref(false);
+const profEmailInput = ref("");
+const isDelegate = ref(false);
+const mailSentMessage = ref("");
+const showEditProfMailPopup = ref(false);
+const showResendProfMailPopup = ref(false);
 
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
+import axios from "axios";
 
 
 const formatDate = (dateString) => {
@@ -111,8 +139,53 @@ const loadData = async () => {
         loading.value = false;
     }
 };
+const API_URL = import.meta.env.VITE_API_URL;
 
-onMounted(loadData);
+onMounted(async () => {
+    await loadData();
+    console.log(authStore.user);
+    if (authStore.user && authStore.user.isDelegate) {
+        isDelegate.value = true;
+    }
+});
+
+const saveProfEmail = async () => {
+    if (!profEmailInput.value || !currentSession.value?.id) return;
+    try {
+        await axios.post(`${API_URL}/Session/${currentSession.value.id}/set-prof-email`, { profEmail: profEmailInput.value });
+        currentSession.value.profEmail = profEmailInput.value;
+    } catch (e) {
+        error.value = e.response?.data?.message || "Erreur lors de la modification de l'email du professeur.";
+        console.error("Erreur:", e);
+    }
+    profEmailEditMode.value = false;
+};
+const cancelProfEmailEdit = () => {
+    profEmailEditMode.value = false;
+    profEmailInput.value = currentSession.value.profEmail;
+};
+const resendProfMail = async () => {
+    if (!currentSession.value?.id) return;
+    mailSentMessage.value = "";
+    try {
+        await axios.post(`${API_URL}/Session/${currentSession.value.id}/resend-prof-mail`);
+        mailSentMessage.value = "Mail renvoyé au professeur.";
+    } catch (e) {
+        mailSentMessage.value = "Erreur lors de l'envoi du mail.";
+    }
+};
+const onProfMailPopupSave = async (newEmail) => {
+    profEmailInput.value = newEmail;
+    await saveProfEmail();
+    showEditProfMailPopup.value = false;
+};
+const confirmResendProfMail = async () => {
+    showResendProfMailPopup.value = false;
+    await resendProfMail();
+};
+watch(currentSession, (val) => {
+    profEmailInput.value = val?.profEmail || "";
+});
 
 watch(() => authStore.user, (newUser, oldUser) => {
     if (newUser !== oldUser) {
@@ -276,6 +349,57 @@ watch(() => authStore.user, (newUser, oldUser) => {
     background-color: #fff;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     text-align: center;
+}
+
+.edit-btn, .resend-btn, .save-btn, .cancel-btn {
+    margin-left: 8px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: none;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.edit-btn {
+    background: #f1c40f;
+    color: #fff;
+}
+.edit-btn:hover {
+    background: #f39c12;
+}
+.resend-btn {
+    background: #2980b9;
+    color: #fff;
+}
+.resend-btn:hover {
+    background: #1c5d8c;
+}
+.save-btn {
+    background: #27ae60;
+    color: #fff;
+}
+.save-btn:hover {
+    background: #219150;
+}
+.cancel-btn {
+    background: #e74c3c;
+    color: #fff;
+}
+.cancel-btn:hover {
+    background: #c0392b;
+}
+.mail-sent-message {
+    color: #27ae60;
+    margin-top: 8px;
+    font-size: 0.98rem;
+    font-weight: 500;
+}
+.edit-input {
+    padding: 7px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    margin-right: 8px;
 }
 
 @media (max-width: 768px) {

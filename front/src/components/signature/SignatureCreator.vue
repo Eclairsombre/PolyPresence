@@ -5,7 +5,7 @@
       </div>
       <div class="signature-actions">
         <button class="clear-button" @click="clearSignature">Effacer</button>
-        <button class="save-button" @click="saveSignature" :disabled="isEmpty">Sauvegarder</button>
+        <button v-if="!$attrs.hideSaveButton" class="save-button" @click="saveSignature" :disabled="isEmpty">Sauvegarder</button>
       </div>
     </div>
   </template>
@@ -65,6 +65,12 @@
           alert("Une erreur est survenue lors de la sauvegarde de votre signature.");
         }
       };
+
+      // Ajout d'une méthode pour exposer la signature au parent
+      const getSignature = () => {
+        if (!signaturePadInstance.value || signaturePadInstance.value.isEmpty()) return '';
+        return signaturePadInstance.value.toDataURL();
+      };
   
       const resizeCanvas = () => {
         if (!signaturePad.value || !signaturePadInstance.value) return;
@@ -98,7 +104,8 @@
         signaturePad,
         clearSignature,
         saveSignature,
-        isEmpty
+        isEmpty,
+        getSignature
       };
     }
   });

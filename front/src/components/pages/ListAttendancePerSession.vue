@@ -14,6 +14,19 @@
           <h2>{{ formatDate(session?.date) }} - {{ session?.year }}</h2>
           <p>{{ formatTime(session?.startTime) }} - {{ formatTime(session?.endTime) }}</p>
         </div>
+        <div class="prof-info" v-if="session">
+          <div class="prof-details">
+            <strong>Professeur :</strong>
+            {{ session.profFirstname }} {{ session.profName }} ({{ session.profEmail }})
+          </div>
+          <div class="prof-signature" v-if="session.profSignature">
+            <span>Signature :</span>
+            <img :src="session.profSignature" alt="Signature du professeur" style="max-height:60px; margin-left:10px;" />
+          </div>
+          <div class="prof-signature" v-else>
+            <span>Signature : <em>Non signée</em></span>
+          </div>
+        </div>
         <div class="actions">
           <button class="back-button" @click="goBack">Retour aux sessions</button>
           <button class="export-button" @click="exportToPDF" :disabled="exporting">

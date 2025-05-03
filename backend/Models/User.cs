@@ -12,6 +12,7 @@ namespace backend.Models
         public string Year { get; set; } = string.Empty;
         public string Signature { get; set; } = string.Empty;
         public bool IsAdmin { get; set; } = false;
+        public bool IsDelegate { get; set; } = false;
 
         public int? MailPreferencesId { get; set; }
         public MailPreferences? MailPreferences { get; set; }

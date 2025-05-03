@@ -72,6 +72,7 @@
             <option value="5A">5A</option>
           </select>
         </div>
+
         
         <div v-if="studentLoading" class="loading-info">
           Chargement des étudiants...
@@ -163,7 +164,10 @@ export default defineComponent({
       date: '',
       startTime: '',
       endTime: '',
-      year: ''
+      year: '',
+      profName: '',
+      profFirstname: '',
+      profEmail: ''
     });
     
     const sessions = computed(() => {
@@ -225,7 +229,10 @@ export default defineComponent({
         startTime: newSession.startTime,
         endTime: newSession.endTime,
         year: newSession.year,
-        validationCode: validationCode
+        validationCode: validationCode,
+        profName: newSession.profName,
+        profFirstname: newSession.profFirstname,
+        profEmail: newSession.profEmail
       };
       
       try {
@@ -243,6 +250,9 @@ export default defineComponent({
         newSession.startTime = '';
         newSession.endTime = '';
         newSession.year = '';
+        newSession.profName = '';
+        newSession.profFirstname = '';
+        newSession.profEmail = '';
         students.value = [];
         showCreateSessionForm.value = false;
         

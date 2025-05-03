@@ -6,6 +6,7 @@ import ListAttendancePerSession from "../components/pages/ListAttendancePerSessi
 import SignaturePage from "../components/pages/SignaturePage.vue";
 import NotFoundPage from "../components/pages/errorPages/NotFoundPage.vue";
 import UnauthorizedPage from "../components/pages/errorPages/UnauthorizedPage.vue";
+import ProfSignaturePage from "../components/pages/ProfSignaturePage.vue";
 import { requiresAdmin, requiresAuth } from "./middleware";
 
 const routes = [
@@ -54,7 +55,10 @@ const routes = [
     name: "not-found",
     component: NotFoundPage,
   },
-
+  {
+    path: "/prof-signature/:token",
+    component: ProfSignaturePage,
+  },
   {
     path: "/:pathMatch(.*)*",
     name: "catch-all",

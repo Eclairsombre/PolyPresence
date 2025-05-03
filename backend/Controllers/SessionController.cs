@@ -6,6 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
+using System.Security.Cryptography;
+using System.Net.Mail;
+using System.Net;
 
 namespace backend.Controllers
 {
@@ -64,10 +67,42 @@ namespace backend.Controllers
         [HttpPost]
         public async Task<ActionResult<Session>> PostSession(Session session)
         {
+            // Générer un token unique pour la signature du prof
+            session.ProfSignatureToken = Guid.NewGuid().ToString();
             _context.Sessions.Add(session);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetSession), new { id = session.Id }, session);
+        }
+
+        // GET: api/Session/prof-signature/{token}
+        [HttpGet("prof-signature/{token}")]
+        public async Task<ActionResult<Session>> GetSessionByProfSignatureToken(string token)
+        {
+            var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token);
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = "Session non trouvée pour ce lien." });
+            }
+            return session;
+        }
+
+        // POST: api/Session/prof-signature/{token}
+        [HttpPost("prof-signature/{token}")]
+        public async Task<IActionResult> SaveProfSignature(string token, [FromBody] SignatureModel signatureData)
+        {
+            var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token);
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = "Session non trouvée pour ce lien." });
+            }
+            session.ProfSignature = signatureData.Signature;
+            if (!string.IsNullOrWhiteSpace(signatureData.Name))
+                session.ProfName = signatureData.Name;
+            if (!string.IsNullOrWhiteSpace(signatureData.Firstname))
+                session.ProfFirstname = signatureData.Firstname;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Signature du professeur enregistrée avec succès." });
         }
 
         // PUT: api/Session/5
@@ -333,9 +368,83 @@ namespace backend.Controllers
             return Ok(sessions);
         }
 
+        // POST: api/Session/{sessionId}/set-prof-email
+        [HttpPost("{sessionId}/set-prof-email")]
+        public async Task<IActionResult> SetProfEmail(int sessionId, [FromBody] SetProfEmailModel model)
+        {
+            _logger.LogDebug($"Tentative de mise à jour de l'email du professeur pour la session {sessionId}");
+            _logger.LogDebug($"Email du professeur : {model.ProfEmail}");
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null)
+                return NotFound(new { error = true, message = "Session non trouvée." });
+
+
+            session.ProfEmail = model.ProfEmail;
+            await _context.SaveChangesAsync();
+
+            await SendProfSignatureMail(session);
+
+            return Ok(new { message = "Email du professeur enregistré et mail envoyé." });
+        }
+
+        // POST: api/Session/{sessionId}/resend-prof-mail
+        [HttpPost("{sessionId}/resend-prof-mail")]
+        public async Task<IActionResult> ResendProfMail(int sessionId)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null || string.IsNullOrEmpty(session.ProfEmail))
+                return NotFound(new { error = true, message = "Session ou email du professeur non trouvé." });
+            await SendProfSignatureMail(session);
+            return Ok(new { message = "Mail renvoyé au professeur." });
+        }
+
+        private async Task SendProfSignatureMail(Session session)
+        {
+            if (string.IsNullOrEmpty(session.ProfEmail) || string.IsNullOrEmpty(session.ProfSignatureToken))
+                return;
+
+            var link = $"http://localhost:5173/prof-signature/{session.ProfSignatureToken}";
+            var subject = "Signature de la feuille de présence";
+            var body = $@"Bonjour,\n\nVeuillez cliquer sur le lien suivant pour renseigner votre nom, prénom et signer la feuille de présence :\n{link}\n\nCordialement.";
+
+            try
+            {
+                var smtpClient = new SmtpClient("smtpbv.univ-lyon1.fr", 587)
+                {
+                    EnableSsl = true,
+                    Credentials = new NetworkCredential(
+                        Environment.GetEnvironmentVariable("SMTP_USERNAME"),
+                        Environment.GetEnvironmentVariable("SMTP_PASSWORD")
+                    )
+                };
+
+                var mailMessage = new MailMessage
+                {
+                    From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL")),
+                    Subject = subject,
+                    Body = body,
+                    IsBodyHtml = false,
+                };
+                mailMessage.To.Add(session.ProfEmail);
+
+                await smtpClient.SendMailAsync(mailMessage);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Erreur lors de l'envoi du mail au prof : {ex.Message}");
+            }
+        }
+
+        public class SetProfEmailModel
+        {
+            public string ProfEmail { get; set; } = string.Empty;
+        }
+
         public class SignatureModel
         {
             public string Signature { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+            public string Firstname { get; set; } = string.Empty;
         }
 
         private bool SessionExists(int id)

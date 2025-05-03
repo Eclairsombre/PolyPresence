@@ -53,17 +53,46 @@ export const useAuthStore = defineStore("auth", {
         this.debugData = response.data;
 
         if (response.data.success && response.data.user) {
+          let userData = null;
           if (response.data.rawResponse) {
             const data = this.parseRawData(response.data.rawResponse);
-            this.user = {
+            userData = {
               studentId: data.user,
               firstname: data.firstname || "N/A",
               lastname: data.lastname || "N/A",
               email: data.email || "N/A",
               isAdmin: false,
+              isDelegate: false,
             };
           }
+          // Fetch isDelegate depuis l'API backend
+          if (userData && userData.studentId) {
+            console.log("Fetching isDelegate for user:", userData.studentId);
+            try {
+              const userApi = await axios.get(
+                `${API_URL}/User/search/${userData.studentId}`
+              );
+              console.log(userApi.data);
+              if (userApi.data && userApi.data.user) {
+                userData.isDelegate = userApi.data.user.isDelegate || false;
+              } else {
+                console.warn(
+                  "User data is missing or malformed:",
+                  userApi.data
+                );
+                userData.isDelegate = false;
+              }
+            } catch (e) {
+              console.error(
+                "Erreur lors de la récupération de l'utilisateur depuis l'API:",
+                e
+              );
 
+              userData.isDelegate = false;
+            }
+          }
+          this.user = userData;
+          console.log("User data:", this.user);
           localStorage.setItem("user", JSON.stringify(this.user));
           window.history.replaceState(
             {},
@@ -110,6 +139,23 @@ export const useAuthStore = defineStore("auth", {
       if (savedUser) {
         try {
           this.user = JSON.parse(savedUser);
+          // Si isDelegate n'est pas présent, on le fetch
+          if (
+            this.user &&
+            this.user.studentId &&
+            this.user.isDelegate === undefined
+          ) {
+            axios
+              .get(`${API_URL}/User/search/${this.user.studentId}`)
+              .then((res) => {
+                console.log(res.data.user.isDelegate);
+                this.user.isDelegate = res.data.user.isDelegate || false;
+                localStorage.setItem("user", JSON.stringify(this.user));
+              })
+              .catch(() => {
+                this.user.isDelegate = false;
+              });
+          }
         } catch (e) {
           console.error(
             "Erreur lors de la récupération de l'utilisateur depuis localStorage:",
