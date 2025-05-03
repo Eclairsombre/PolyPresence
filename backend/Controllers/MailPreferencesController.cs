@@ -58,6 +58,10 @@ namespace backend.Controllers
                 var controller = new MailPreferencesController(scopedContext, logger, _serviceScopeFactory);
                 await controller.GenerateAndSendZip();
             }
+
+            _nextExecutionTime = GetNextExecutionTime();
+            _dailyMailTimer.Interval = (_nextExecutionTime - DateTime.Now).TotalMilliseconds;
+            _dailyMailTimer.Start();
         }
 
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status)> attendances)
@@ -339,7 +343,7 @@ namespace backend.Controllers
             {
                 var smtpClient = new SmtpClient("smtpbv.univ-lyon1.fr", 587)
                 {
-                    EnableSsl = true, 
+                    EnableSsl = true,
                     Credentials = new NetworkCredential(
                         Environment.GetEnvironmentVariable("SMTP_USERNAME"),
                         Environment.GetEnvironmentVariable("SMTP_PASSWORD")
