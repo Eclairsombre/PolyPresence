@@ -10,7 +10,7 @@ buildNpmPackage rec {
 
   src = lib.cleanSource ./.;
 
-  npmDepsHash = "sha256-5gxnKzKdLlEQhe1xDViPCVr2XxBBa2hZ1aBnx5S8rMQ=";
+  npmDepsHash = "sha256-b8fuar96WjWSt0MCQWq84k/E1AzEe/wzDh2QkeTG0+0=";
 
   installPhase = ''
     runHook preInstall
