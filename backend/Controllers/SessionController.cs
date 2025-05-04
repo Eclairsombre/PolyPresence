@@ -612,7 +612,8 @@ namespace backend.Controllers
             if (session == null || string.IsNullOrWhiteSpace(session.ProfEmail) || string.IsNullOrWhiteSpace(session.ProfSignatureToken))
                 return;
 
-            var link = $"http://localhost:5173/prof-signature/{session.ProfSignatureToken}";
+            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:5173";
+            var link = $"{frontendUrl}/prof-signature/{session.ProfSignatureToken}";
             var subject = "Signature de la feuille de présence";
             var body = $@"Bonjour,
 

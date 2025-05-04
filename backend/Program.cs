@@ -22,13 +22,19 @@ builder.Services.AddControllers()
 DotNetEnv.Env.Load();
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
+var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL");
+if (string.IsNullOrWhiteSpace(frontendUrl))
+{
+    throw new Exception("La variable d'environnement FRONTEND_URL n'est pas définie !");
+}
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection")));
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVue",
-        policy => policy.WithOrigins("http://localhost:5173") // Port de Vite
+        policy => policy.WithOrigins(frontendUrl)
                         .AllowAnyMethod()
                         .AllowAnyHeader());
 });

@@ -57,10 +57,11 @@ const createPdfFileName = (session) => {
     fullPath: `${folderStructure}/${fileName}`
   };
 };
+const API_URL = import.meta.env.VITE_API_URL;
 
 const generateSessionHtml = async (session) => {
   try {
-    const response = await axios.get(`http://localhost:5020/api/Session/${session.id}/attendances`);
+    const response = await axios.get(`${API_URL}/Session/${session.id}/attendances`);
     const attendances = response.data.$values;
     
     const formatDate = (dateString) => {
