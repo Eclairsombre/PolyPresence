@@ -9,9 +9,9 @@
 - Envoi de la fiche en pdf à la fin de la journée -> tout les jours ? -> choix du jour -> Option enregistré mais voir comment faire l'envoi de mail -> Fait
 - Trouver comment faire signer au prof-> FAIT
 - Check si l'user est présent dans la bd sur chaque page -> FAIT
+- AJouter gestion délégué -> FAIT
+- Gestion du code de session -> a qui l'envoyer ? prof mais peut etre visible direct par les délégué en cas de bug/ travail perso ? -> FAIT
 
-- AJouter gestion délégué
-- Gestion du code de session -> a qui l'envoyer ? prof mais peut etre visible direct par les délégué en cas de bug/ travail perso ? 
 - Stocker data au cas de bug de la bd -> Peut etre pas nécéssaire car envoi de mail auto ?
 - refactor code 
 - import edt pour création auto des sessions

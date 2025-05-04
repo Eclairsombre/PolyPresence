@@ -28,9 +28,14 @@
                             <span class="detail-label">Année:</span>
                             <span class="detail-value">{{ currentSession.year }}</span>
                         </div>
-                        <div class="detail-item">
+                        <div v-if="isDelegate" class="detail-item">
                             <span class="detail-label">Code de validation:</span>
-                            <span class="detail-value code-value">{{ currentSession.validationCode }}</span>
+                            <template v-if="currentSession.validationCode">
+                                <span class="detail-value code-value" :class="{ blurred: !showCode }">{{ currentSession.validationCode }}</span>
+                                <button type="button" class="show-code-btn" @click="handleShowCodeClick">
+                                    {{ showCode ? 'Cacher' : 'Voir' }}
+                                </button>
+                            </template>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Email du professeur :</span>
@@ -60,6 +65,7 @@
             </div>
             <PopUpEditProfMail v-if="showEditProfMailPopup" :value="profEmailInput" @close="showEditProfMailPopup = false" @save="onProfMailPopupSave" />
             <PopUpResendProfMail v-if="showResendProfMailPopup" @close="showResendProfMailPopup = false" @confirm="confirmResendProfMail" />
+            <PopUpShowCode v-if="showCodePopup" @confirm="confirmShowCode" @close="showCodePopup = false" />
         </div>
     </div>
 </template>
@@ -73,6 +79,7 @@ import { useStudentsStore } from '../../stores/studentsStore';
 import ValidatePresence from '../buttons/ValidatePresence.vue';
 import PopUpEditProfMail from '../popups/PopUpEditProfMail.vue';
 import PopUpResendProfMail from '../popups/PopUpResendProfMail.vue';
+import PopUpShowCode from '../popups/PopUpShowCode.vue';
 
 const loading = ref(true);
 const error = ref(null);
@@ -86,6 +93,8 @@ const isDelegate = ref(false);
 const mailSentMessage = ref("");
 const showEditProfMailPopup = ref(false);
 const showResendProfMailPopup = ref(false);
+const showCode = ref(false);
+const showCodePopup = ref(false);
 
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
@@ -113,12 +122,12 @@ const loadData = async () => {
         }
         const studentData = await studentsStore.getStudent(authStore.user.studentId);
         if(studentData){
-            if (studentData.user.signature && studentData.user.signature !== " ") {
+            if (studentData.signature && studentData.signature !== " ") {
                 hasSignature.value = true;
             }
-            studentYear.value = studentData.user.year;
-            console.log(studentYear.value);
+            studentYear.value = studentData.year;
             const session = await sessionStore.getCurrentSession(studentYear.value);
+            console.log('sessions', session);
             if (!session) {
                 return;
             }
@@ -148,7 +157,6 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 onMounted(async () => {
     await loadData();
-    console.log(authStore.user);
     if (authStore.user && authStore.user.isDelegate) {
         isDelegate.value = true;
     }
@@ -188,6 +196,17 @@ const confirmResendProfMail = async () => {
     showResendProfMailPopup.value = false;
     await resendProfMail();
 };
+function handleShowCodeClick() {
+    if (!showCode.value) {
+        showCodePopup.value = true;
+    } else {
+        showCode.value = false;
+    }
+}
+function confirmShowCode() {
+    showCode.value = true;
+    showCodePopup.value = false;
+}
 watch(currentSession, (val) => {
     profEmailInput.value = val?.profEmail || "";
 });
@@ -405,6 +424,24 @@ watch(() => authStore.user, (newUser, oldUser) => {
     border: 1px solid #ccc;
     font-size: 1rem;
     margin-right: 8px;
+}
+
+.blurred {
+    filter: blur(5px);
+}
+
+.show-code-btn {
+    background: #3498db;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.show-code-btn:hover {
+    background: #2980b9;
 }
 
 @media (max-width: 768px) {
