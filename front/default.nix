@@ -22,7 +22,7 @@ buildNpmPackage rec {
     echo '#!${bash}/bin/bash' > $out/bin/${pname}
     echo 'PORT=''${PORT:-8000}' >> $out/bin/${pname}
     echo 'THREADS=''${THREADS:-3}' >> $out/bin/${pname}
-    echo '${simple-http-server}/bin/simple-http-server -i -p $PORT -t $THEADS ${placeholder "out"}/lib' >> $out/bin/${pname}
+    echo '${simple-http-server}/bin/simple-http-server -i -p $PORT -t $THREADS ${placeholder "out"}/lib' >> $out/bin/${pname}
     chmod +x $out/bin/${pname}
     runHook postInstall
   '';
