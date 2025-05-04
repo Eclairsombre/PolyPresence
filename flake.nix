@@ -27,24 +27,12 @@
         };
       in {
         packages = {
-          front = pkgs.callPackage ./front {
-            inherit (pkgs) lib;
-          };
-          back = pkgs.callPackage ./backend {
-            inherit (pkgs) lib;
-          };
+          front = pkgs.callPackage ./front {};
+          back = pkgs.callPackage ./backend {};
         };
         devShells.default = with pkgs;
           mkShell {
-            inputsFrom = with self'.packages; [front];
-
-            nativeBuildInputs = [];
-
-            buildInputs = [
-              nodejs_latest
-            ];
-
-            LD_LIBRARY_PATH = lib.makeLibraryPath [];
+            inputsFrom = with self'.packages; [front back];
           };
 
         formatter = pkgs.alejandra;

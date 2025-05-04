@@ -2,7 +2,7 @@
   lib,
   buildNpmPackage,
   bash,
-  simple-http-server
+  simple-http-server,
 }:
 buildNpmPackage rec {
   pname = "polypresence_front";
@@ -24,7 +24,4 @@ buildNpmPackage rec {
     chmod +x $out/bin/${pname}
     runHook postInstall
   '';
-
-  meta = {}; # TODO complete some meta informations
-
 }
