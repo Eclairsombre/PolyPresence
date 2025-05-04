@@ -17,4 +17,5 @@ buildDotnetModule {
   selfContainedBuild = true;
 
   executables = ["backend"];
+  meta.mainProgram = "backend";
 }
