@@ -26,4 +26,6 @@ buildNpmPackage rec {
     chmod +x $out/bin/${pname}
     runHook postInstall
   '';
+
+  meta.mainProgram = pname;
 }
