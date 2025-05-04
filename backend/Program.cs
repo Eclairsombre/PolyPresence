@@ -28,8 +28,16 @@ if (string.IsNullOrWhiteSpace(frontendUrl))
     throw new Exception("La variable d'environnement FRONTEND_URL n'est pas définie !");
 }
 
+var databasePath = Environment.GetEnvironmentVariable("STORAGE_PATH");
+if (string.IsNullOrWhiteSpace(databasePath))
+{
+    throw new Exception("La variable d'environnement STORAGE_PATH n'est pas définie !");
+}
+
+databasePath = System.IO.Path.Combine(databasePath, "/polytechpresence.db");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection")));
+    options.UseSqlite($"Data Source={databasePath}"));
 
 builder.Services.AddCors(options =>
 {
