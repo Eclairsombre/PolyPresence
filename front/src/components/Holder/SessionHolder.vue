@@ -1,61 +1,66 @@
 <template>
     <div class="attendance-sheet">
-        <div v-if="loading" class="loading-state">
-            <div class="spinner"></div>
-            <p>Chargement des données...</p>
+        <div v-if="authStore.user && authStore.user.existsInDb === false" class="error-state">
+            <p>Vous n'êtes pas présent dans la base de données. Veuillez contacter un administrateur pour être ajouté.</p>
         </div>
-        <div v-else-if="error" class="error-state">
-            <p>{{ error }}</p>
-        </div>
-        <div v-else-if="currentSession" class="session-content">
-            <div class="session-info">
-                <div class="session-header">
-                    <h2>Session du {{ formatDate(currentSession.date) }}</h2>
-                    <div class="session-status" :class="{'status-present': attendance && attendance.status !== 1, 'status-absent': attendance && attendance.status === 1}">
-                        {{ attendance && attendance.status !== 1 ? 'Présent' : 'Absent' }}
+        <div v-else>
+            <div v-if="loading" class="loading-state">
+                <div class="spinner"></div>
+                <p>Chargement des données...</p>
+            </div>
+            <div v-else-if="error" class="error-state">
+                <p>{{ error }}</p>
+            </div>
+            <div v-else-if="currentSession" class="session-content">
+                <div class="session-info">
+                    <div class="session-header">
+                        <h2>Session du {{ formatDate(currentSession.date) }}</h2>
+                        <div class="session-status" :class="{'status-present': attendance && attendance.status !== 1, 'status-absent': attendance && attendance.status === 1}">
+                            {{ attendance && attendance.status !== 1 ? 'Présent' : 'Absent' }}
+                        </div>
+                    </div>
+                    <div class="session-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Horaires: </span>
+                            <span class="detail-value">{{ formatTime(currentSession.startTime) }} - {{ formatTime(currentSession.endTime) }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Année:</span>
+                            <span class="detail-value">{{ currentSession.year }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Code de validation:</span>
+                            <span class="detail-value code-value">{{ currentSession.validationCode }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Email du professeur :</span>
+                            <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ currentSession.profEmail }}</span>
+                            <template v-if="isDelegate">
+                                <template v-if="!profEmailEditMode">
+                                    <span class="detail-value">{{ currentSession.profEmail }}</span>
+                                    <button @click="showEditProfMailPopup = true" class="edit-btn">Modifier</button>
+                                    <button @click="showResendProfMailPopup = true" class="resend-btn">Renvoyer le mail</button>
+                                </template>
+                                <template v-else>
+                                    <input v-model="profEmailInput" type="email" class="edit-input" />
+                                    <button @click="saveProfEmail" class="save-btn">Enregistrer</button>
+                                    <button @click="cancelProfEmailEdit" class="cancel-btn">Annuler</button>
+                                </template>
+                            </template>
+                        </div>
+                        <div v-if="mailSentMessage" class="mail-sent-message">{{ mailSentMessage }}</div>
                     </div>
                 </div>
-                <div class="session-details">
-                    <div class="detail-item">
-                        <span class="detail-label">Horaires: </span>
-                        <span class="detail-value">{{ formatTime(currentSession.startTime) }} - {{ formatTime(currentSession.endTime) }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Année:</span>
-                        <span class="detail-value">{{ currentSession.year }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Code de validation:</span>
-                        <span class="detail-value code-value">{{ currentSession.validationCode }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Email du professeur :</span>
-                        <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ currentSession.profEmail }}</span>
-                        <template v-if="isDelegate">
-                            <template v-if="!profEmailEditMode">
-                                <span class="detail-value">{{ currentSession.profEmail }}</span>
-                                <button @click="showEditProfMailPopup = true" class="edit-btn">Modifier</button>
-                                <button @click="showResendProfMailPopup = true" class="resend-btn">Renvoyer le mail</button>
-                            </template>
-                            <template v-else>
-                                <input v-model="profEmailInput" type="email" class="edit-input" />
-                                <button @click="saveProfEmail" class="save-btn">Enregistrer</button>
-                                <button @click="cancelProfEmailEdit" class="cancel-btn">Annuler</button>
-                            </template>
-                        </template>
-                    </div>
-                    <div v-if="mailSentMessage" class="mail-sent-message">{{ mailSentMessage }}</div>
+                <div v-if="attendance && attendance.status === 1" class="validate-presence">
+                    <ValidatePresence @presence-validated="loadData" :hasSignature="hasSignature" />
                 </div>
             </div>
-            <div v-if="attendance && attendance.status === 1" class="validate-presence">
-                <ValidatePresence @presence-validated="loadData" :hasSignature="hasSignature" />
+            <div v-else class="no-session">
+                <p>Aucune session en cours.</p>
             </div>
+            <PopUpEditProfMail v-if="showEditProfMailPopup" :value="profEmailInput" @close="showEditProfMailPopup = false" @save="onProfMailPopupSave" />
+            <PopUpResendProfMail v-if="showResendProfMailPopup" @close="showResendProfMailPopup = false" @confirm="confirmResendProfMail" />
         </div>
-        <div v-else class="no-session">
-            <p>Aucune session en cours.</p>
-        </div>
-        <PopUpEditProfMail v-if="showEditProfMailPopup" :value="profEmailInput" @close="showEditProfMailPopup = false" @save="onProfMailPopupSave" />
-        <PopUpResendProfMail v-if="showResendProfMailPopup" @close="showResendProfMailPopup = false" @confirm="confirmResendProfMail" />
     </div>
 </template>
 

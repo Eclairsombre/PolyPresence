@@ -13,7 +13,8 @@
           Utilisateur présent dans la base de données
         </p>
         <p v-else-if="userStore.user.existsInDb === false" class="status-message error">
-          Utilisateur non trouvé dans la base de données
+          Vous n'êtes pas incrit dans la base de données. 
+          Si c'est sensé être le cas, contactez un administrateur.
         </p>
         <p v-else class="status-message loading">
           Vérification...
@@ -51,23 +52,9 @@ export default {
   this.userStore.isAdmin();
 },
   async mounted() {
-  if (this.userStore.user) {
-    try {
-      const exists = await this.userStore.checkIfUserExists();
-      this.userStore.user.existsInDb = exists.exists;
-    } catch (error) {
-      this.userStore.user.existsInDb = false;
-      console.error("Erreur lors de la vérification de l'utilisateur:", error);
-    }
-  }
+  
 },
-  watch: {
-    'userStore.user'(newUser) {
-      if (newUser) {
-        this.userStore.checkIfUserExists();
-      }
-    }
-  }
+  
 };
 
 </script>

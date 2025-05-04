@@ -71,4 +71,16 @@ const router = createRouter({
   routes,
 });
 
+import { useAuthStore } from '../stores/authStore';
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore();
+  if (to.name === 'home' || to.name === 'unauthorized' || to.name === 'not-found' || to.path.startsWith('/prof-signature')) {
+    return next();
+  }
+  if (authStore.user && authStore.user.existsInDb === false) {
+    return next({ name: 'unauthorized' });
+  }
+  next();
+});
+
 export default router;

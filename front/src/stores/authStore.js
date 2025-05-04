@@ -65,7 +65,6 @@ export const useAuthStore = defineStore("auth", {
               isDelegate: false,
             };
           }
-          // Fetch isDelegate depuis l'API backend
           if (userData && userData.studentId) {
             console.log("Fetching isDelegate for user:", userData.studentId);
             try {
@@ -75,20 +74,22 @@ export const useAuthStore = defineStore("auth", {
               console.log(userApi.data);
               if (userApi.data && userApi.data.user) {
                 userData.isDelegate = userApi.data.user.isDelegate || false;
+                userData.existsInDb = true;
               } else {
                 console.warn(
                   "User data is missing or malformed:",
                   userApi.data
                 );
                 userData.isDelegate = false;
+                userData.existsInDb = false;
               }
             } catch (e) {
               console.error(
                 "Erreur lors de la récupération de l'utilisateur depuis l'API:",
                 e
               );
-
               userData.isDelegate = false;
+              userData.existsInDb = false;
             }
           }
           this.user = userData;
@@ -139,7 +140,6 @@ export const useAuthStore = defineStore("auth", {
       if (savedUser) {
         try {
           this.user = JSON.parse(savedUser);
-          // Si isDelegate n'est pas présent, on le fetch
           if (
             this.user &&
             this.user.studentId &&
