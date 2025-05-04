@@ -129,7 +129,6 @@ async function handleSubmit() {
     emit('sessionCreated');
     close();
   } catch (e) {
-    // gestion d'erreur possible
   } finally {
     loading.value = false;
   }

@@ -73,7 +73,7 @@
 </template>
 
 <script>
-import { useStudentsStore } from '../../stores/studentsStore.ts';
+import { useStudentsStore } from '../../stores/studentsStore.js';
 import { ref } from 'vue';
 
 export default {

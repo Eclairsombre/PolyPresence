@@ -1,28 +1,25 @@
 import { defineStore } from "pinia";
 import axios from "axios";
-import type { Student } from "../types";
+import { useAuthStore } from "./authStore";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 export const useStudentsStore = defineStore("students", {
   state: () => ({
-    students: [] as Student[]
+    students: [],
   }),
-  
+
   actions: {
-    async addStudent(student: Student): Promise<Student | boolean> {
+    async addStudent(student) {
       try {
-        const response = await axios.post(
-          `${API_URL}/User`,
-          student
-        );
-        
+        const response = await axios.post(`${API_URL}/User`, student);
+
         if (response.data) {
           this.students.push(response.data);
         }
-        
+
         return response.data;
-      } catch (error: any) {
+      } catch (error) {
         if (error.response?.status === 409) {
           console.error("L'étudiant existe déjà.");
           return false;
@@ -31,68 +28,74 @@ export const useStudentsStore = defineStore("students", {
         throw error;
       }
     },
-    async fetchStudents(year: string): Promise<Student[]> {
+    async fetchStudents(year) {
       try {
-      const response = await axios.get(`${API_URL}/User/year/${year}`);
-      if (response.status === 404) {
-        console.warn("Aucun étudiant trouvé pour l'année spécifiée.");
-        return [];
-      }
+        const response = await axios.get(`${API_URL}/User/year/${year}`);
+        if (response.status === 404) {
+          console.warn("Aucun étudiant trouvé pour l'année spécifiée.");
+          return [];
+        }
 
-      if (response.status !== 200) {
-        throw new Error("Erreur lors de la récupération des étudiants.");
-      }
+        if (response.status !== 200) {
+          throw new Error("Erreur lors de la récupération des étudiants.");
+        }
 
-      if (!response.data?.$values || !Array.isArray(response.data.$values)) {
-        throw new Error("Données invalides reçues.");
-      }
-      this.students = response.data.$values.map((student: any) => ({
-        name: student.name,
-        firstname: student.firstname,
-        studentNumber: student.studentNumber,
-        email: student.email,
-        year: student.year,
-        signature: student.signature,
-        isDelegate: student.isDelegate ?? false,
-      }));
-      return this.students;
+        if (!response.data?.$values || !Array.isArray(response.data.$values)) {
+          throw new Error("Données invalides reçues.");
+        }
+        this.students = response.data.$values.map((student) => ({
+          name: student.name,
+          firstname: student.firstname,
+          studentNumber: student.studentNumber,
+          email: student.email,
+          year: student.year,
+          signature: student.signature,
+          isDelegate: student.isDelegate ?? false,
+        }));
+        return this.students;
       } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return [];
+        }
+        console.error("Erreur lors de la récupération des étudiants:", error);
         return [];
-      }
-      console.error("Erreur lors de la récupération des étudiants:", error);
-      return [];
       }
     },
-    async deleteStudent(studentNumber: string): Promise<boolean> {
+    async deleteStudent(studentNumber) {
       try {
-        const response = await axios.delete(`${API_URL}/User/${encodeURIComponent(studentNumber)}`);
+        const response = await axios.delete(
+          `${API_URL}/User/${encodeURIComponent(studentNumber)}`
+        );
         // Le statut 204 (NoContent) est souvent renvoyé pour les suppressions réussies
         if (response.status === 204 || response.status === 200) {
-          this.students = this.students.filter(student => student.studentNumber !== studentNumber);
+          this.students = this.students.filter(
+            (student) => student.studentNumber !== studentNumber
+          );
           return true;
         }
         return false;
       } catch (error) {
         console.error("Erreur lors de la suppression de l'étudiant:", error);
-        
+
         // Si l'erreur est une 404, cela signifie que l'étudiant n'existe pas
         // On considère donc que c'est un succès (l'étudiant n'est plus là)
         if (axios.isAxiosError(error) && error.response?.status === 404) {
           return true;
         }
-        
+
         // Log plus détaillé en cas d'erreur 400
         if (axios.isAxiosError(error) && error.response?.status === 400) {
           console.error("Détails de l'erreur 400:", error.response.data);
         }
-        
+
         return false;
       }
     },
-    async getStudent(studentNumber: string): Promise<Student | null> {
+    async getStudent(studentNumber) {
       try {
-        const response = await axios.get(`${API_URL}/User/search/${encodeURIComponent(studentNumber)}`);
+        const response = await axios.get(
+          `${API_URL}/User/search/${encodeURIComponent(studentNumber)}`
+        );
         if (response.status === 200) {
           const student = response.data.user || response.data;
           return {
@@ -105,7 +108,10 @@ export const useStudentsStore = defineStore("students", {
             isDelegate: student.isDelegate ?? false,
           };
         } else {
-          console.error("Erreur lors de la récupération de l'étudiant:", response.statusText);
+          console.error(
+            "Erreur lors de la récupération de l'étudiant:",
+            response.statusText
+          );
           return null;
         }
       } catch (error) {
@@ -113,7 +119,7 @@ export const useStudentsStore = defineStore("students", {
         return null;
       }
     },
-    async getStudentById(id : string): Promise<Student | null> {
+    async getStudentById(id) {
       try {
         const response = await axios.get(`${API_URL}/User/${id}`);
         return response.data;
@@ -122,26 +128,35 @@ export const useStudentsStore = defineStore("students", {
         return null;
       }
     },
-    async updateStudent(student: Student): Promise<Student | boolean> {
-      console.log("Student to update:", student);
-
-      try {  
+    async updateStudent(student) {
+      try {
         const response = await axios.put(
           `${API_URL}/User/${encodeURIComponent(student.studentNumber)}`,
           student
         );
         if (response.data) {
-          // Met à jour le store local
-          const idx = this.students.findIndex(s => s.studentNumber === student.studentNumber);
+          const idx = this.students.findIndex(
+            (s) => s.studentNumber === student.studentNumber
+          );
           if (idx !== -1) {
             this.students[idx] = { ...response.data };
           }
+          const authStore = useAuthStore();
+          if (
+            authStore.user &&
+            authStore.user.studentId === student.studentNumber
+          ) {
+            authStore.updateUserLocalStorage({
+              ...authStore.user,
+              ...response.data,
+            });
+          }
         }
         return response.data;
-      } catch (error: any) {
+      } catch (error) {
         console.error("Erreur lors de la modification de l'étudiant:", error);
         throw error;
       }
     },
-  }
+  },
 });

@@ -419,6 +419,39 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    async setProfEmail(sessionId, profEmail) {
+      try {
+        await axios.post(`${API_URL}/Session/${sessionId}/set-prof-email`, {
+          profEmail,
+        });
+        return true;
+      } catch (e) {
+        throw e;
+      }
+    },
+    async resendProfMail(sessionId) {
+      try {
+        await axios.post(`${API_URL}/Session/${sessionId}/resend-prof-mail`);
+        return true;
+      } catch (e) {
+        throw e;
+      }
+    },
+
+    async getSessionAttendances(sessionId) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const response = await axios.get(`${API_URL}/Session/${sessionId}/attendances`);
+        return response.data.$values || [];
+      } catch (error) {
+        this.error = error.message || "Erreur lors de la récupération des présences.";
+        return [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
     resetStore() {
       this.sessions = [];
       this.currentSession = null;

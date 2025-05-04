@@ -3,8 +3,13 @@ using System.Xml;
 
 public class AuthController : Controller
 {
-    private const string CasUrl = "https://cas.univ-lyon1.fr/cas/login";
-    private const string ServiceUrl = "http://localhost:5173/";
+    private readonly string CasUrl = "https://cas.univ-lyon1.fr/cas/login";
+    private readonly string ServiceUrl;
+
+    public AuthController(IConfiguration configuration)
+    {
+        ServiceUrl = configuration["FRONTEND_URL"] ?? "http://localhost:5173/";
+    }
 
     [HttpGet("login")]
     public IActionResult Login()
@@ -32,7 +37,7 @@ public class AuthController : Controller
                 {
                     success = true,
                     user = user,
-                    rawResponse = response 
+                    rawResponse = response
                 });
             }
             else
@@ -41,7 +46,7 @@ public class AuthController : Controller
                 {
                     success = false,
                     message = "Authentification échouée",
-                    rawResponse = response 
+                    rawResponse = response
                 });
             }
         }
@@ -78,5 +83,4 @@ public class AuthController : Controller
         var logoutUrl = $"https://cas.univ-lyon1.fr/cas/logout?service={Uri.EscapeDataString(ServiceUrl)}";
         return Redirect(logoutUrl);
     }
-
 }

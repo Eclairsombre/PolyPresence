@@ -68,7 +68,7 @@
 </template>
 
 <script>
-import { useStudentsStore } from '../../stores/studentsStore.ts';
+import { useStudentsStore } from '../../stores/studentsStore.js';
 import { ref, watch, toRefs } from 'vue';
 
 export default {
@@ -82,9 +82,7 @@ export default {
   emits: ['close', 'student-updated'],
   setup(props, { emit }) {
     const studentsStore = useStudentsStore();
-    console.log(studentsStore);
     const studentData = ref({ ...props.student });
-    console.log(props.student);
     watch(() => props.student, (newVal) => {
       studentData.value = { ...newVal };
     });

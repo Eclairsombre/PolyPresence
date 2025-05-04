@@ -16,7 +16,6 @@ export const requiresAuth = (to, from, next) => {
 export const requiresAdmin = async (to, from, next) => {
   const authStore = useAuthStore();
 
-  // Si l'utilisateur n'est pas connecté
   if (!authStore.user) {
     next({
       name: "unauthorized",
@@ -24,7 +23,6 @@ export const requiresAdmin = async (to, from, next) => {
     return;
   }
 
-  // Si isAdmin n'est pas encore défini, vérifier avec l'API
   if (authStore.user.isAdmin === undefined) {
     try {
       const isAdmin = await authStore.isAdmin();

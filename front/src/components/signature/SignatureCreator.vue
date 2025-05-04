@@ -66,7 +66,6 @@
         }
       };
 
-      // Ajout d'une méthode pour exposer la signature au parent
       const getSignature = () => {
         if (!signaturePadInstance.value || signaturePadInstance.value.isEmpty()) return '';
         return signaturePadInstance.value.toDataURL();

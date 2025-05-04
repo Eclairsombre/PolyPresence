@@ -39,6 +39,7 @@ import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import SignatureCreator from '../signature/SignatureCreator.vue';
 import axios from 'axios';
+import { useProfSignatureStore } from '../../stores/profSignatureStore';
 
 const route = useRoute();
 const token = route.params.token;
@@ -51,15 +52,16 @@ const signaturePad = ref(null);
 const validationCode = ref('');
 const session = ref(null);
 const API_URL = import.meta.env.VITE_API_URL;
+const profSignatureStore = useProfSignatureStore();
 
 onMounted(async () => {
-  try {
-    const response = await axios.get(`${API_URL}/Session/prof-signature/${token}`);
-    session.value = response.data;
-    validationCode.value = response.data.validationCode || response.data.ValidationCode || response.data.validation_code || '';
+  const data = await profSignatureStore.fetchSessionByProfSignatureToken(token);
+  if (data) {
+    session.value = data;
+    validationCode.value = data.validationCode || data.ValidationCode || data.validation_code || '';
     loading.value = false;
-  } catch (e) {
-    error.value = "Lien invalide ou expiré.";
+  } else {
+    error.value = profSignatureStore.error;
     loading.value = false;
   }
 });
@@ -74,16 +76,17 @@ const submitSignature = async () => {
     error.value = "Merci de signer dans la zone prévue.";
     return;
   }
-  try {
-    await axios.post(`${API_URL}/Session/prof-signature/${token}`, {
-      Signature: signatureData,
-      Name: profName.value,
-      Firstname: profFirstname.value
-    });
+  const payload = {
+    Signature: signatureData,
+    Name: profName.value,
+    Firstname: profFirstname.value
+  };
+  const result = await profSignatureStore.saveProfSignature(token, payload);
+  if (result) {
     success.value = true;
     error.value = '';
-  } catch (e) {
-    error.value = "Erreur lors de l'enregistrement. Veuillez réessayer.";
+  } else {
+    error.value = profSignatureStore.error;
   }
 };
 </script>

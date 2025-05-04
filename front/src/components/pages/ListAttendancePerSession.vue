@@ -107,26 +107,18 @@ export default defineComponent({
     const loadSessionData = async () => {
       loading.value = true;
       error.value = null;
-      
       try {
         const sessionId = route.params.id;
-        
         const sessionData = await sessionStore.fetchSessionById(sessionId);
         session.value = sessionData;
-        
-        const response = await axios.get(`http://localhost:5020/api/Session/${sessionId}/attendances`);
-        if (response.data) {
-          for (const student of response.data.$values) {
-            students.value.push({
-              id: student.item1.id,
-              name: student.item1.name,
-              firstname: student.item1.firstname,
-              status: student.item2 === 0 ? 'Present' : 'Absent',
-              signature: student.item1.signature || '' 
-            });
-          }
-          students.value = students.value.sort((a, b) => a.name.localeCompare(b.name));
-        }
+        const attendances = await sessionStore.getSessionAttendances(sessionId);
+        students.value = attendances.map((student, index) => ({
+          id: student.item1.id,
+          name: student.item1.name,
+          firstname: student.item1.firstname,
+          status: student.item2 === 0 ? 'Present' : 'Absent',
+          signature: student.item1.signature || ''
+        })).sort((a,b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
         error.value = "Impossible de charger les données de présence.";

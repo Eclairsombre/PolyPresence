@@ -10,5 +10,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/utils/generateAndSendZip.js", "src/router/index.js", "src/main.js"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/utils/generateAndSendZip.js", "src/router/index.js", "src/main.js", "src/stores/studentsStore.js"]
 }

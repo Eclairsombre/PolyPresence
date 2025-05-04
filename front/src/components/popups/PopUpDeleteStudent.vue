@@ -17,7 +17,6 @@
 </template>
 
 <script setup>
-// Pas de logique complexe, tout passe par les événements
 </script>
 
 <style scoped>

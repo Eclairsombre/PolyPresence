@@ -70,14 +70,13 @@ export const useAuthStore = defineStore("auth", {
             };
           }
           if (userData && userData.studentId) {
-            console.log("Fetching isDelegate for user:", userData.studentId);
             try {
               const userApi = await axios.get(
                 `${API_URL}/User/search/${userData.studentId}`
               );
-              console.log(userApi.data);
               if (userApi.data && userApi.data.user) {
                 userData.isDelegate = userApi.data.user.isDelegate || false;
+                userData.isAdmin = userApi.data.user.isAdmin || false;
                 userData.existsInDb = true;
               } else {
                 console.warn(
@@ -275,3 +274,4 @@ export const useAuthStore = defineStore("auth", {
     },
   },
 });
+

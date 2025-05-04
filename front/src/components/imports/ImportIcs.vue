@@ -8,13 +8,13 @@
     <div class="ics-links-list">
       <h3>Liens ICS enregistrés</h3>
       <ul>
-        <li v-for="link in icsLinks" :key="link.id" class="ics-link-item">
+        <li v-for="link in icsLinkStore.icsLinks" :key="link.id" class="ics-link-item">
           <span><strong>{{ link.year }}</strong> : <a :href="link.url" target="_blank">{{ link.url }}</a></span>
           <button @click="editLink(link)" class="edit-btn">Modifier</button>
           <button @click="deleteLink(link.id)" class="delete-btn">Supprimer</button>
         </li>
       </ul>
-      <div v-if="icsLinks.length === 0">Aucun lien enregistré.</div>
+      <div v-if="icsLinkStore.icsLinks.length === 0">Aucun lien enregistré.</div>
     </div>
     <hr style="margin: 24px 0; width: 100%;" />
     <div class="form-group">
@@ -40,67 +40,39 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
+<script setup>
+import { ref, onMounted, computed } from 'vue';
+import { useIcsLinkStore } from '../../stores/icsLinkStore.js';
 
-const icsLinks = ref<any[]>([]);
+const icsLinkStore = useIcsLinkStore();
+
 const icsUrl = ref('');
 const year = ref('');
-const message = ref('');
-const success = ref(false);
-const loading = ref(false);
-const editingId = ref<number|null>(null);
-const nextImportTimer = ref<number|null>(null);
+const message = computed(() => icsLinkStore.message);
+const success = computed(() => icsLinkStore.success);
+const loading = computed(() => icsLinkStore.loading);
+const editingId = ref(null);
+const nextImportTimer = computed(() => icsLinkStore.nextImportTimer);
 
-const fetchNextImportTimer = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/Session/next-import-timer`);
-    nextImportTimer.value = res.data.nextImport;
-  } catch {
-    nextImportTimer.value = null;
-  }
-};
-
-const API_URL = import.meta.env.VITE_API_URL;
-
-const fetchIcsLinks = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/IcsLink`);
-    console.log(res.data);
-    icsLinks.value = res.data.$values;
-  } catch {
-    icsLinks.value = [];
-  }
+const fetchAll = async () => {
+  await icsLinkStore.fetchIcsLinks();
+  await icsLinkStore.fetchNextImportTimer();
 };
 
 const saveIcsLink = async () => {
-  message.value = '';
-  success.value = false;
-  loading.value = true;
-  try {
-    if (editingId.value) {
-      await axios.put(`${API_URL}/IcsLink/${editingId.value}`, { id: editingId.value, year: year.value, url: icsUrl.value });
-      message.value = 'Lien modifié !';
-    } else {
-      await axios.post(`${API_URL}/IcsLink`, { year: year.value, url: icsUrl.value });
-      message.value = 'Lien ajouté !';
-    }
-    await axios.post(`${API_URL}/Session/import-ics`, { icsUrl: icsUrl.value, year: year.value });
-    success.value = true;
-    icsUrl.value = '';
-    year.value = '';
-    editingId.value = null;
-    fetchIcsLinks();
-  } catch (err: any) {
-    message.value = err.response?.data?.message || "Erreur lors de l'enregistrement.";
-    success.value = false;
-  } finally {
-    loading.value = false;
+  icsLinkStore.resetMessage();
+  if (editingId.value) {
+    await icsLinkStore.updateIcsLink(editingId.value, year.value, icsUrl.value);
+  } else {
+    await icsLinkStore.addIcsLink(year.value, icsUrl.value);
   }
+  await icsLinkStore.importIcs(icsUrl.value, year.value);
+  icsUrl.value = '';
+  year.value = '';
+  editingId.value = null;
 };
 
-const editLink = (link: any) => {
+const editLink = (link) => {
   editingId.value = link.id;
   year.value = link.year;
   icsUrl.value = link.url;
@@ -112,26 +84,12 @@ const cancelEdit = () => {
   icsUrl.value = '';
 };
 
-const deleteLink = async (id: number) => {
+const deleteLink = async (id) => {
   if (!confirm('Supprimer ce lien ?')) return;
-  loading.value = true;
-  try {
-    await axios.delete(`${API_URL}/IcsLink/${id}`);
-    message.value = 'Lien supprimé !';
-    success.value = true;
-    fetchIcsLinks();
-  } catch (err: any) {
-    message.value = err.response?.data?.message || "Erreur lors de la suppression.";
-    success.value = false;
-  } finally {
-    loading.value = false;
-  }
+  await icsLinkStore.deleteIcsLink(id);
 };
 
-onMounted(() => {
-  fetchIcsLinks();
-  fetchNextImportTimer();
-});
+onMounted(fetchAll);
 </script>
 
 <style scoped>

@@ -485,6 +485,9 @@ namespace backend.Controllers
 
                     string profName = string.Empty;
                     string profFirstname = string.Empty;
+
+                    if (date < DateTime.Today)
+                        continue;
                     if (summary.Contains("travail personnel", StringComparison.OrdinalIgnoreCase))
                     {
                         profName = string.Empty;
@@ -542,8 +545,7 @@ namespace backend.Controllers
                         _context.Sessions.Remove(overlap);
                     }
                     await _context.SaveChangesAsync();
-                    if (date < DateTime.Today)
-                        continue;
+
                     var session = new Session
                     {
                         Date = date,
@@ -580,7 +582,7 @@ namespace backend.Controllers
                 await _context.SaveChangesAsync();
                 foreach (var oldSession in existingSessions)
                 {
-                    if (!importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)))
+                    if (oldSession.Date >= DateTime.Today && !importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)))
                     {
                         var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
                         _context.Attendances.RemoveRange(attendances);

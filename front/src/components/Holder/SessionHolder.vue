@@ -135,19 +135,13 @@ const loadData = async () => {
             }
             studentYear.value = studentData.year;
             const session = await sessionStore.getCurrentSession(studentYear.value);
-            console.log('sessions', session);
             if (!session) {
                 return;
             }
-            console.log('currentSession', session);
-            
             currentSession.value = session;
-
             const at = await sessionStore.getAttendance(authStore.user.studentId, currentSession.value.id);
             attendance.value = at;
-            console.log(at)
             if (!currentSession.value) {
-                
                 error.value = "Aucune session en cours pour votre année.";
             }
         }
@@ -174,7 +168,7 @@ onMounted(async () => {
 const saveProfEmail = async () => {
     if (!profEmailInput.value || !currentSession.value?.id) return;
     try {
-        await axios.post(`${API_URL}/Session/${currentSession.value.id}/set-prof-email`, { profEmail: profEmailInput.value });
+        await sessionStore.setProfEmail(currentSession.value.id, profEmailInput.value);
         currentSession.value.profEmail = profEmailInput.value;
     } catch (e) {
         error.value = e.response?.data?.message || "Erreur lors de la modification de l'email du professeur.";
@@ -190,10 +184,11 @@ const resendProfMail = async () => {
     if (!currentSession.value?.id) return;
     mailSentMessage.value = "";
     try {
-        await axios.post(`${API_URL}/Session/${currentSession.value.id}/resend-prof-mail`);
+        await sessionStore.resendProfMail(currentSession.value.id);
         mailSentMessage.value = "Mail renvoyé au professeur.";
     } catch (e) {
         mailSentMessage.value = "Erreur lors de l'envoi du mail.";
+        console.error("Erreur:", e);
     }
 };
 const onProfMailPopupSave = async (newEmail) => {

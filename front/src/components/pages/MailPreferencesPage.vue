@@ -45,13 +45,14 @@
 </template>
 
 <script>
-import { defineComponent, reactive, onMounted, ref } from "vue";
+import { defineComponent, reactive, onMounted, ref, computed } from "vue";
 import { useAuthStore } from "../../stores/authStore";
-import axios from "axios";
+import { useMailPreferencesStore } from "../../stores/mailPreferencesStore";
 
 export default defineComponent({
   name: "MailPreferencesPage",
   setup() {
+    const mailPreferencesStore = useMailPreferencesStore();
     const authStore = useAuthStore();
     const preferences = reactive({
       emailTo: "",
@@ -61,43 +62,40 @@ export default defineComponent({
     const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
     const successMessage = ref("");
     const testMessage = ref("");
-    const timerData = ref(null);
+    const timerData = computed(() => mailPreferencesStore.timerData);
 
     const fetchPreferences = async () => {
-      const data = await authStore.getMailPreferences();
-      console.log(data)
+      if (!authStore.user || !authStore.user.studentId) return;
+      const data = await mailPreferencesStore.fetchMailPreferences(authStore.user.studentId);
       if (data) {
         preferences.active = data.active;
         preferences.emailTo = data.emailTo;
         if (Array.isArray(data.days)) {
-          for (const elt of data.days) {
-            preferences.days.push(elt);
-          }
+          preferences.days = [...data.days];
         } else if (data.days && Array.isArray(data.days.$values)) {
           preferences.days = [...data.days.$values];
         } else {
-          console.warn("data.days is not an array or does not have $values:", data.days);
+          preferences.days = [];
         }
       }
     };
 
     const updatePreferences = async () => {
-      await authStore.updateMailPreferences(preferences);
-      successMessage.value = "Préférences mises à jour avec succès !";
+      if (!authStore.user || !authStore.user.studentId) return;
+      await mailPreferencesStore.updateMailPreferences(authStore.user.studentId, preferences);
+      successMessage.value = mailPreferencesStore.successMessage;
       setTimeout(() => {
         successMessage.value = "";
+        mailPreferencesStore.resetMessages();
       }, 3000);
     };
 
     const testMail = async () => {
-      try {
-        await authStore.testMail(preferences.emailTo);
-        testMessage.value = "Mail de test envoyé avec succès !";
-      } catch (error) {
-        testMessage.value = "Échec de l'envoi du mail de test.";
-      }
+      await mailPreferencesStore.testMail(preferences.emailTo);
+      testMessage.value = mailPreferencesStore.testMessage;
       setTimeout(() => {
         testMessage.value = "";
+        mailPreferencesStore.resetMessages();
       }, 3000);
     };
 
@@ -110,18 +108,13 @@ export default defineComponent({
     };
 
     const fetchTimer = async () => {
-      try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/MailPreferences/timer`);
-        timerData.value = response.data;
-      } catch (error) {
-        console.error("Erreur lors de la récupération du timer :", error);
-      }
+      await mailPreferencesStore.fetchMailTimer();
     };
 
     onMounted(() => {
       fetchPreferences();
       fetchTimer();
-      setInterval(fetchTimer, 1000); // Actualisation toutes les secondes
+      setInterval(fetchTimer, 1000);
     });
 
     return {

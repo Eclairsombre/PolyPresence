@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { useStudentsStore } from '../../stores/studentsStore.ts';
+import { useStudentsStore } from '../../stores/studentsStore.js';
 import { onMounted, ref } from 'vue';
 import PopUpImportStudent from '../popups/PopUpImportStudent.vue';
 import PopUpAddStudent from '../popups/PopUpAddStudent.vue';

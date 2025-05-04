@@ -16,7 +16,7 @@
 
 import { ref } from 'vue';
 import * as XLSX from 'xlsx';
-import { useStudentsStore } from '../../stores/studentsStore.ts';
+import { useStudentsStore } from '../../stores/studentsStore.js';
 import type { Student } from '../../types';
 
 const props = defineProps({
