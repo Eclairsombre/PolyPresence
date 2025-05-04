@@ -16,18 +16,21 @@
         </div>
         <div class="prof-info" v-if="session">
           <p v-if="session.name" class="session-name"><strong>Nom de la session :</strong> {{ session.name }}</p>
-          <div class="prof-details">
-            <strong>Professeur :</strong>
-            {{ session.profFirstname }} {{ session.profName }} ({{ session.profEmail }})
+            <div class="prof-details" v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')">
+              <strong>Professeur :</strong>
+              {{ session.profFirstname }} {{ session.profName }} ({{ session.profEmail }})
+            </div>
+            <div class="prof-details" v-else>
+              <strong>Professeur :</strong> Travail personnel
+            </div>
+            <div class="prof-signature" v-if="session.profSignature">
+              <span>Signature :</span>
+              <img :src="session.profSignature" alt="Signature du professeur" style="max-height:60px; margin-left:10px;" />
+            </div>
+            <div class="prof-signature" v-else>
+              <span>Signature : <em>Non signée</em></span>
+            </div>
           </div>
-          <div class="prof-signature" v-if="session.profSignature">
-            <span>Signature :</span>
-            <img :src="session.profSignature" alt="Signature du professeur" style="max-height:60px; margin-left:10px;" />
-          </div>
-          <div class="prof-signature" v-else>
-            <span>Signature : <em>Non signée</em></span>
-          </div>
-        </div>
         <div class="actions">
           <button class="back-button" @click="goBack">Retour aux sessions</button>
           <button class="export-button" @click="exportToPDF" :disabled="exporting">

@@ -139,6 +139,7 @@ const loadData = async () => {
             if (!session) {
                 return;
             }
+            console.log('currentSession', session);
             
             currentSession.value = session;
 
