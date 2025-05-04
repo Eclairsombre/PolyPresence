@@ -629,7 +629,10 @@ Cordialement";
 
             try
             {
-                var smtpClient = new SmtpClient("smtpbv.univ-lyon1.fr", 587)
+                var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtpbv.univ-lyon1.fr";
+                var smtpPortStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
+                if (!int.TryParse(smtpPortStr, out var smtpPort)) smtpPort = 587;
+                var smtpClient = new SmtpClient(smtpHost, smtpPort)
                 {
                     EnableSsl = true,
                     Credentials = new NetworkCredential(
