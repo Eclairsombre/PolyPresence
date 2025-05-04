@@ -75,6 +75,26 @@ namespace backend.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
+            var today = DateTime.Today;
+            var futureSessions = await _context.Sessions
+                .Where(s => s.Year == user.Year && s.Date >= today)
+                .ToListAsync();
+            foreach (var session in futureSessions)
+            {
+                var alreadyExists = await _context.Attendances.AnyAsync(a => a.SessionId == session.Id && a.StudentId == user.Id);
+                if (!alreadyExists)
+                {
+                    var attendance = new Attendance
+                    {
+                        SessionId = session.Id,
+                        StudentId = user.Id,
+                        Status = AttendanceStatus.Absent
+                    };
+                    _context.Attendances.Add(attendance);
+                }
+            }
+            await _context.SaveChangesAsync();
+
             return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
         }
 
@@ -123,6 +143,13 @@ namespace backend.Controllers
             {
                 return NotFound();
             }
+
+            var today = DateTime.Today;
+            var futureAttendances = await _context.Attendances
+                .Include(a => a.Session)
+                .Where(a => a.StudentId == user.Id && a.Session.Year == user.Year && a.Session.Date >= today)
+                .ToListAsync();
+            _context.Attendances.RemoveRange(futureAttendances);
 
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
