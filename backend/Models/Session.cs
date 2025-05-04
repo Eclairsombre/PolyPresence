@@ -9,7 +9,8 @@ namespace backend.Models
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
         public string Year { get; set; } = string.Empty;
-
+        public string Name { get; set; } = string.Empty;
+        public string Room { get; set; } = string.Empty;
         public string ValidationCode { get; set; } = string.Empty;
         public string ProfName { get; set; } = string.Empty;
         public string ProfFirstname { get; set; } = string.Empty;

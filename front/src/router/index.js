@@ -7,6 +7,7 @@ import SignaturePage from "../components/pages/SignaturePage.vue";
 import NotFoundPage from "../components/pages/errorPages/NotFoundPage.vue";
 import UnauthorizedPage from "../components/pages/errorPages/UnauthorizedPage.vue";
 import ProfSignaturePage from "../components/pages/ProfSignaturePage.vue";
+import AdminImportIcsPage from "../components/pages/AdminImportIcsPage.vue";
 import { requiresAdmin, requiresAuth } from "./middleware";
 
 const routes = [
@@ -64,6 +65,12 @@ const routes = [
     name: "catch-all",
     component: NotFoundPage,
   },
+  {
+    path: "/admin/import-edt",
+    name: "AdminImportIcs",
+    component: AdminImportIcsPage,
+    meta: { requiresAdmin: true },
+  },
 ];
 
 const router = createRouter({
@@ -71,14 +78,19 @@ const router = createRouter({
   routes,
 });
 
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from "../stores/authStore";
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
-  if (to.name === 'home' || to.name === 'unauthorized' || to.name === 'not-found' || to.path.startsWith('/prof-signature')) {
+  if (
+    to.name === "home" ||
+    to.name === "unauthorized" ||
+    to.name === "not-found" ||
+    to.path.startsWith("/prof-signature")
+  ) {
     return next();
   }
   if (authStore.user && authStore.user.existsInDb === false) {
-    return next({ name: 'unauthorized' });
+    return next({ name: "unauthorized" });
   }
   next();
 });

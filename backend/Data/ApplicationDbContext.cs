@@ -16,6 +16,7 @@ namespace backend.Data
         public DbSet<MailPreferences> MailPreferences { get; set; }
 
         public DbSet<SessionSentToUser> SessionSentToUsers { get; set; }
+        public DbSet<IcsLink> IcsLinks { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

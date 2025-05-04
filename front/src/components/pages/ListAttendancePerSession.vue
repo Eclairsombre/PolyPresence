@@ -15,6 +15,7 @@
           <p>{{ formatTime(session?.startTime) }} - {{ formatTime(session?.endTime) }}</p>
         </div>
         <div class="prof-info" v-if="session">
+          <p v-if="session.name" class="session-name"><strong>Nom de la session :</strong> {{ session.name }}</p>
           <div class="prof-details">
             <strong>Professeur :</strong>
             {{ session.profFirstname }} {{ session.profName }} ({{ session.profEmail }})

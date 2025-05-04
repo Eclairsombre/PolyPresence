@@ -11,7 +11,7 @@
           <router-link to="/students">Étudiants</router-link>
           <router-link to="/sessions">Sessions</router-link>
           <router-link to="/mail-preferences">Préférences de Mail</router-link>
-
+          <router-link to="/admin/import-edt">Importer l'EDT</router-link>
         </div>
       </nav>
     </header>

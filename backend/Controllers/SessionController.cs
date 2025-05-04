@@ -398,6 +398,112 @@ namespace backend.Controllers
             return Ok(new { message = "Mail renvoyé au professeur." });
         }
 
+        // POST: api/Session/import-ics
+        [HttpPost("import-ics")]
+        public async Task<IActionResult> ImportIcs([FromBody] ImportIcsModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.IcsUrl) || string.IsNullOrWhiteSpace(model.Year))
+                return BadRequest(new { error = true, message = "URL ICS ou année manquante." });
+
+            try
+            {
+                using var httpClient = new HttpClient();
+                var icsContent = await httpClient.GetStringAsync(model.IcsUrl);
+                var calendar = Ical.Net.Calendar.Load(icsContent);
+                var events = calendar.Events;
+                int createdCount = 0;
+                foreach (var evt in events)
+                {
+                    var date = evt.Start.AsSystemLocal.Date;
+                    var startTime = evt.Start.AsSystemLocal.TimeOfDay;
+                    var endTime = evt.End.AsSystemLocal.TimeOfDay;
+                    var summary = evt.Summary ?? "Session importée";
+                    var year = model.Year;
+
+                    string room = evt.Location ?? string.Empty;
+
+                    string profName = string.Empty;
+                    string profFirstname = string.Empty;
+                    if (summary.Contains("travail personnel", StringComparison.OrdinalIgnoreCase))
+                    {
+                        profName = string.Empty;
+                        profFirstname = string.Empty;
+                    }
+                    else
+                    {
+                        if (!string.IsNullOrWhiteSpace(evt.Description))
+                        {
+                            var descLines = evt.Description.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+                            var profLine = descLines.LastOrDefault(l => !l.StartsWith("(Exporté le:"));
+                            if (!string.IsNullOrWhiteSpace(profLine))
+                            {
+                                var parts = profLine.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                                if (parts.Length == 2)
+                                {
+                                    profName = parts[0];
+                                    profFirstname = parts[1];
+                                }
+                                else if (parts.Length == 1)
+                                {
+                                    profName = parts[0];
+                                }
+                            }
+                        }
+                    }
+
+
+                    bool exists = await _context.Sessions.AnyAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
+                    if (exists) continue;
+                    if (date < DateTime.Today)
+                        continue;
+                    var session = new Session
+                    {
+                        Date = date,
+                        StartTime = startTime,
+                        EndTime = endTime,
+                        Year = year,
+                        Name = summary,
+                        ProfName = profName,
+                        ProfFirstname = profFirstname,
+                        Room = room,
+                        ProfSignatureToken = Guid.NewGuid().ToString(),
+                        ValidationCode = new Random().Next(1000, 9999).ToString()
+                    };
+                    _context.Sessions.Add(session);
+                    await _context.SaveChangesAsync(); 
+
+                    var sessionId = session.Id; 
+                    var students = await _context.Users.Where(u => u.Year == year).ToListAsync();
+                    foreach (var student in students)
+                    {
+                        var attendance = new Attendance
+                        {
+                            SessionId = sessionId,
+                            StudentId = student.Id,
+                            Status = AttendanceStatus.Absent
+                        };
+                        _context.Attendances.Add(attendance);
+                    }
+                    createdCount++;
+                }
+                await _context.SaveChangesAsync();
+                return Ok(new { message = $"{createdCount} sessions importées avec succès pour l'année {model.Year}." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Erreur lors de l'import ICS : {ex.Message}");
+                return StatusCode(500, new { error = true, message = "Erreur lors de l'import ICS." });
+            }
+        }
+
+        public class ImportIcsModel
+        {
+            public string IcsUrl { get; set; } = string.Empty;
+            public string Year { get; set; } = string.Empty;
+            public string? ProfName { get; set; }
+            public string? ProfFirstname { get; set; }
+        }
+
         private async Task SendProfSignatureMail(Session session)
         {
             if (string.IsNullOrEmpty(session.ProfEmail) || string.IsNullOrEmpty(session.ProfSignatureToken))

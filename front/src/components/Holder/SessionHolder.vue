@@ -15,6 +15,7 @@
                 <div class="session-info">
                     <div class="session-header">
                         <h2>Session du {{ formatDate(currentSession.date) }}</h2>
+                        <span v-if="currentSession.name" class="session-name">{{ currentSession.name }}</span>
                         <div class="session-status" :class="{'status-present': attendance && attendance.status !== 1, 'status-absent': attendance && attendance.status === 1}">
                             {{ attendance && attendance.status !== 1 ? 'Présent' : 'Absent' }}
                         </div>
@@ -27,6 +28,10 @@
                         <div class="detail-item">
                             <span class="detail-label">Année:</span>
                             <span class="detail-value">{{ currentSession.year }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Salle :</span>
+                            <span class="detail-value">{{ currentSession.room }}</span>
                         </div>
                         <div v-if="isDelegate" class="detail-item">
                             <span class="detail-label">Code de validation:</span>

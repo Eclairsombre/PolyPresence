@@ -118,7 +118,9 @@
             <span class="session-year">{{ session.year }}</span>
           </div>
           <div class="session-details">
+            <p v-if="session.name"><strong>Nom :</strong> {{ session.name }}</p>
             <p><strong>Horaires:</strong> {{ formatTime(session.startTime) }} - {{ formatTime(session.endTime) }}</p>
+            <p v-if="session.room"><strong>Salle :</strong> {{ session.room }}</p>
             <div class="session-actions">
               <router-link :to="`/sessions/${session.id}`" class="view-attendance-btn">
                 Voir les présences
@@ -171,8 +173,15 @@ export default defineComponent({
     });
     
     const sessions = computed(() => {
-      return sessionStore.sessions;
+      return sessionStore.sessions.slice().sort((a, b) => {
+      const dateComparison = new Date(a.date) - new Date(b.date);
+      if (dateComparison !== 0) {
+        return dateComparison;
+      }
+      return a.startTime.localeCompare(b.startTime);
+      });
     });
+    
     
     const loadSessions = async () => {
       isFiltering.value = true;
@@ -230,9 +239,6 @@ export default defineComponent({
         endTime: newSession.endTime,
         year: newSession.year,
         validationCode: validationCode,
-        profName: newSession.profName,
-        profFirstname: newSession.profFirstname,
-        profEmail: newSession.profEmail
       };
       
       try {

@@ -84,6 +84,7 @@ namespace backend.Controllers
                         var horaires = $"{session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm}";
 
                         column.Item().Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
+                        column.Item().Text($"Nom de la session : {session.Name}").FontSize(12).Italic();
                         column.Item().Text($"Horaires : {horaires}").FontSize(12);
 
                         column.Item().Table(table =>

@@ -13,7 +13,6 @@
 - Gestion du code de session -> a qui l'envoyer ? prof mais peut etre visible direct par les délégué en cas de bug/ travail perso ? -> FAIT
 - Encrypter la data dans le localstorage + temps de session-> FAIT (a tester temps de session)
 
-
 - import edt pour création auto des sessions
 - ajouter si travail perso -> pas de signature de prof
 - refactor code 
