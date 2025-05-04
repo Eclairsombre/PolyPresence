@@ -1,6 +1,10 @@
 <template>
   <div class="import-ics-container">
     <h2>Importer des sessions depuis un lien ICS</h2>
+    <p v-if="nextImportTimer" class="import-timer">
+      Prochain import automatique de l'EDT :
+      <span>{{ new Date(nextImportTimer).toLocaleString('fr-FR') }}</span>
+    </p>
     <div class="ics-links-list">
       <h3>Liens ICS enregistrés</h3>
       <ul>
@@ -47,6 +51,16 @@ const message = ref('');
 const success = ref(false);
 const loading = ref(false);
 const editingId = ref<number|null>(null);
+const nextImportTimer = ref<number|null>(null);
+
+const fetchNextImportTimer = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/Session/next-import-timer`);
+    nextImportTimer.value = res.data.nextImport;
+  } catch {
+    nextImportTimer.value = null;
+  }
+};
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -116,6 +130,7 @@ const deleteLink = async (id: number) => {
 
 onMounted(() => {
   fetchIcsLinks();
+  fetchNextImportTimer();
 });
 </script>
 

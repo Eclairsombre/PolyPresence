@@ -38,59 +38,14 @@
         </div>
       </div>
       
-      <button @click="showCreateSessionForm = !showCreateSessionForm" class="create-button">
-        {{ showCreateSessionForm ? 'Annuler' : 'Créer une session' }}
+      <button @click="showCreateSessionModal = true" class="create-button">
+        Créer une session
       </button>
       <ExportSessionsPdf :sessions="sessions" :selectedYear="selectedYear" />
 
     </div>
     
-    <div v-if="showCreateSessionForm" class="session-form-container">
-      <h2>Nouvelle Session</h2>
-      <form @submit.prevent="createNewSession" class="session-form">
-        <div class="form-group">
-          <label for="session-date">Date:</label>
-          <input type="date" id="session-date" v-model="newSession.date" required class="form-control">
-        </div>
-        
-        <div class="form-group">
-          <label for="session-start">Heure de début:</label>
-          <input type="time" id="session-start" v-model="newSession.startTime" required class="form-control">
-        </div>
-        
-        <div class="form-group">
-          <label for="session-end">Heure de fin:</label>
-          <input type="time" id="session-end" v-model="newSession.endTime" required class="form-control">
-        </div>
-        
-        <div class="form-group">
-          <label for="session-year">Année:</label>
-          <select id="session-year" v-model="newSession.year" required class="form-control" @change="loadStudentsByYear">
-            <option value="">Sélectionner une année</option>
-            <option value="3A">3A</option>
-            <option value="4A">4A</option>
-            <option value="5A">5A</option>
-          </select>
-        </div>
-
-        
-        <div v-if="studentLoading" class="loading-info">
-          Chargement des étudiants...
-        </div>
-        
-        <div v-else-if="students && students.length > 0" class="student-count-info">
-          {{ students.length }} étudiants seront ajoutés à cette session.
-        </div>
-        
-        <div v-else-if="newSession.year && !studentLoading" class="student-count-info warning">
-          Aucun étudiant trouvé pour l'année {{ newSession.year }}.
-        </div>
-        
-        <div class="form-actions">
-          <button type="submit" class="submit-button" :disabled="sessionStore.loading || studentLoading">Créer la session</button>
-        </div>
-      </form>
-    </div>
+    <PopUpCreateSession v-if="showCreateSessionModal" @close="showCreateSessionModal = false" @sessionCreated="handleSessionCreated" />
     
     <div v-if="showSuccessMessage" class="success-message">
       Session créée avec succès!
@@ -140,11 +95,13 @@ import { useStudentsStore } from '../../stores/studentsStore';
 import { useAuthStore } from '../../stores/authStore';
 import axios from 'axios';
 import ExportSessionsPdf from '../exports/ExportSessionsPdf.vue';
+import PopUpCreateSession from '../popups/PopUpCreateSession.vue';
 
 export default defineComponent({
   name: 'StudentsSessionPage',
   components: {
-    ExportSessionsPdf
+    ExportSessionsPdf,
+    PopUpCreateSession
   },
   setup() {
     const sessionStore = useSessionStore();
@@ -156,6 +113,7 @@ export default defineComponent({
     const studentLoading = ref(false);
     const students = ref([]);
     const isFiltering = ref(false);
+    const showCreateSessionModal = ref(false);
     
     const filters = reactive({
       startDate: '',
@@ -225,7 +183,7 @@ export default defineComponent({
     };
     
     const createNewSession = async () => {
-      if (!newSession.date || !newSession.startTime || !newSession.endTime || !newSession.year) {
+      if (!newSession.date || !newSession.startTime || !newSession.endTime || !newSession.year || !newSession.profName || !newSession.profFirstname || !newSession.profEmail) {
         return;
       }
       
@@ -239,6 +197,9 @@ export default defineComponent({
         endTime: newSession.endTime,
         year: newSession.year,
         validationCode: validationCode,
+        profName: newSession.profName,
+        profFirstname: newSession.profFirstname,
+        profEmail: newSession.profEmail
       };
       
       try {
@@ -284,6 +245,11 @@ export default defineComponent({
       return timeString.substring(0, 5);
     };
     
+    const handleSessionCreated = () => {
+      showCreateSessionModal.value = false;
+      loadSessions();
+    };
+
     onMounted(() => {
       loadSessions();
     });
@@ -305,7 +271,9 @@ export default defineComponent({
       filters,
       applyFilters,
       clearFilters,
-      isFiltering
+      isFiltering,
+      showCreateSessionModal,
+      handleSessionCreated
     };
   }
 });

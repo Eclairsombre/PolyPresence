@@ -18,13 +18,68 @@ namespace backend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SessionController> _logger;
+        private static System.Timers.Timer? _dailySessionTimer;
+        private static DateTime _nextSessionExecutionTime;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
 
-        public SessionController(ApplicationDbContext context, ILogger<SessionController> logger)
+        public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
         {
             _context = context;
             _logger = logger;
+            _serviceScopeFactory = serviceScopeFactory;
+
+            if (_dailySessionTimer == null)
+            {
+                _nextSessionExecutionTime = GetNextSessionExecutionTime();
+                _dailySessionTimer = new System.Timers.Timer((_nextSessionExecutionTime - DateTime.Now).TotalMilliseconds);
+                _dailySessionTimer.Elapsed += async (sender, e) => await DailySessionSync();
+                _dailySessionTimer.AutoReset = false;
+                _dailySessionTimer.Start();
+            }
         }
 
+        private DateTime GetNextSessionExecutionTime()
+        {
+            var now = DateTime.Now;
+            var target = new DateTime(now.Year, now.Month, now.Day, 1, 0, 0);
+            if (now > target) target = target.AddDays(1);
+            return target;
+        }
+
+        private async Task ImportAllIcsLinks(ApplicationDbContext context, ILogger logger)
+        {
+            var icsLinks = await context.IcsLinks.ToListAsync();
+            foreach (var link in icsLinks)
+            {
+                try
+                {
+                    var importModel = new ImportIcsModel { IcsUrl = link.Url, Year = link.Year };
+                    var controller = new SessionController(context, (ILogger<SessionController>)logger, _serviceScopeFactory);
+                    await controller.ImportIcs(importModel);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError($"Erreur lors de l'import ICS pour {link.Url} : {ex.Message}");
+                }
+            }
+        }
+
+        private async Task DailySessionSync()
+        {
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
+                logger.LogInformation("Synchronisation quotidienne des sessions et attendances à 01:00");
+                await ImportAllIcsLinks(scopedContext, logger);
+            }
+            _nextSessionExecutionTime = GetNextSessionExecutionTime();
+            if (_dailySessionTimer != null)
+            {
+                _dailySessionTimer.Interval = (_nextSessionExecutionTime - DateTime.Now).TotalMilliseconds;
+                _dailySessionTimer.Start();
+            }
+        }
 
         // GET: api/Session
         [HttpGet]
@@ -144,6 +199,10 @@ namespace backend.Controllers
             {
                 return NotFound();
             }
+
+            // Suppression des attendances associées à la session
+            var attendances = _context.Attendances.Where(a => a.SessionId == id);
+            _context.Attendances.RemoveRange(attendances);
 
             _context.Sessions.Remove(session);
             await _context.SaveChangesAsync();
@@ -412,6 +471,8 @@ namespace backend.Controllers
                 var calendar = Ical.Net.Calendar.Load(icsContent);
                 var events = calendar.Events;
                 int createdCount = 0;
+                var existingSessions = await _context.Sessions.Where(s => s.Year == model.Year).ToListAsync();
+                var importedSessions = new HashSet<(DateTime, TimeSpan, TimeSpan)>();
                 foreach (var evt in events)
                 {
                     var date = evt.Start.AsSystemLocal.Date;
@@ -451,9 +512,36 @@ namespace backend.Controllers
                         }
                     }
 
+                    importedSessions.Add((date, startTime, endTime));
 
-                    bool exists = await _context.Sessions.AnyAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
-                    if (exists) continue;
+                    var existingSession = await _context.Sessions.FirstOrDefaultAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
+                    if (existingSession != null)
+                    {
+                        if (existingSession.Name != summary || existingSession.ProfName != profName || existingSession.ProfFirstname != profFirstname || existingSession.Room != room)
+                        {
+                            var oldAttendances = _context.Attendances.Where(a => a.SessionId == existingSession.Id);
+                            _context.Attendances.RemoveRange(oldAttendances);
+                            _context.Sessions.Remove(existingSession);
+                            await _context.SaveChangesAsync();
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+                    var allSessionsSameDay = await _context.Sessions
+                        .Where(s => s.Year == year && s.Date == date)
+                        .ToListAsync();
+                    var overlappingSessions = allSessionsSameDay
+                        .Where(s => s.StartTime < endTime && s.EndTime > startTime)
+                        .ToList();
+                    foreach (var overlap in overlappingSessions)
+                    {
+                        var attendances = _context.Attendances.Where(a => a.SessionId == overlap.Id);
+                        _context.Attendances.RemoveRange(attendances);
+                        _context.Sessions.Remove(overlap);
+                    }
+                    await _context.SaveChangesAsync();
                     if (date < DateTime.Today)
                         continue;
                     var session = new Session
@@ -467,12 +555,15 @@ namespace backend.Controllers
                         ProfFirstname = profFirstname,
                         Room = room,
                         ProfSignatureToken = Guid.NewGuid().ToString(),
-                        ValidationCode = new Random().Next(1000, 9999).ToString()
+                        ValidationCode = new Random().Next(1000, 9999).ToString(),
+                        //ProfEmail = !string.IsNullOrWhiteSpace(profName) && !string.IsNullOrWhiteSpace(profFirstname)
+                        //    ? $"{profFirstname.ToLower()}.{profName.ToLower()}@univ-lyon1.fr"
+                        //    : ""
                     };
                     _context.Sessions.Add(session);
-                    await _context.SaveChangesAsync(); 
+                    await _context.SaveChangesAsync();
 
-                    var sessionId = session.Id; 
+                    var sessionId = session.Id;
                     var students = await _context.Users.Where(u => u.Year == year).ToListAsync();
                     foreach (var student in students)
                     {
@@ -485,6 +576,16 @@ namespace backend.Controllers
                         _context.Attendances.Add(attendance);
                     }
                     createdCount++;
+                }
+                await _context.SaveChangesAsync();
+                foreach (var oldSession in existingSessions)
+                {
+                    if (!importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)))
+                    {
+                        var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
+                        _context.Attendances.RemoveRange(attendances);
+                        _context.Sessions.Remove(oldSession);
+                    }
                 }
                 await _context.SaveChangesAsync();
                 return Ok(new { message = $"{createdCount} sessions importées avec succès pour l'année {model.Year}." });
@@ -506,7 +607,7 @@ namespace backend.Controllers
 
         private async Task SendProfSignatureMail(Session session)
         {
-            if (string.IsNullOrEmpty(session.ProfEmail) || string.IsNullOrEmpty(session.ProfSignatureToken))
+            if (session == null || string.IsNullOrWhiteSpace(session.ProfEmail) || string.IsNullOrWhiteSpace(session.ProfSignatureToken))
                 return;
 
             var link = $"http://localhost:5173/prof-signature/{session.ProfSignatureToken}";
@@ -567,6 +668,12 @@ Cordialement";
         private bool SessionExists(int id)
         {
             return _context.Sessions.Any(e => e.Id == id);
+        }
+
+        [HttpGet("next-import-timer")]
+        public IActionResult GetNextImportTimer()
+        {
+            return Ok(new { nextImport = _nextSessionExecutionTime });
         }
     }
 }
