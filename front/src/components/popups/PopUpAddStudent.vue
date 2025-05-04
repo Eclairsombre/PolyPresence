@@ -50,6 +50,13 @@
               placeholder="nom.prenom@etu.univ-lyon1.fr"
             />
           </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" v-model="student.isDelegate" />
+              Délégué
+            </label>
+          </div>
           
           <div class="form-actions">
             <button type="button" class="cancel-btn" @click="$emit('close')">Annuler</button>
@@ -85,7 +92,8 @@ export default {
       firstname: '',
       studentNumber: '',
       email: '',
-      year: props.year
+      year: props.year,
+      isDelegate: false
     });
     
     const isSubmitting = ref(false);

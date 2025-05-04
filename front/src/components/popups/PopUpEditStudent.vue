@@ -47,6 +47,12 @@
               placeholder="nom.prenom@etu.univ-lyon1.fr"
             />
           </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" v-model="studentData.isDelegate" />
+              Délégué
+            </label>
+          </div>
           <div class="form-actions">
             <button type="button" class="cancel-btn" @click="$emit('close')">Annuler</button>
             <button type="submit" class="submit-btn" :disabled="isSubmitting">
@@ -78,6 +84,7 @@ export default {
     const studentsStore = useStudentsStore();
     console.log(studentsStore);
     const studentData = ref({ ...props.student });
+    console.log(props.student);
     watch(() => props.student, (newVal) => {
       studentData.value = { ...newVal };
     });
@@ -111,6 +118,7 @@ export default {
     };
   }
 }
+
 </script>
 
 <style scoped>

@@ -5,4 +5,5 @@ export interface Student {
     email: string;
     year: string;
     signature: string;
+    isDelegate?: boolean;
 }

@@ -99,6 +99,7 @@ namespace backend.Controllers
             existingUser.Firstname = user.Firstname;
             existingUser.Email = user.Email;
             existingUser.Year = user.Year;
+            existingUser.IsDelegate = user.IsDelegate;
 
 
             try

@@ -30,6 +30,7 @@
                     <th>Numéro étudiant</th>
                     <th>Email</th>
                     <th>Année</th>
+                    <th>Délégué</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -40,6 +41,10 @@
                     <td>{{ student.studentNumber }}</td>
                     <td>{{ student.email }}</td>
                     <td>{{ student.year }}</td>
+                    <td>
+                        <span v-if="student.isDelegate" class="delegate-badge">✔️</span>
+                        <span v-else>-</span>
+                    </td>
                     <td>
                         <button class="edit-btn" @click="openEditPopup(student)">Modifier</button>
                         <button class="delete-btn" @click="confirmDeleteStudent(student)">Supprimer</button>

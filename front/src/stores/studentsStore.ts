@@ -46,7 +46,6 @@ export const useStudentsStore = defineStore("students", {
       if (!response.data?.$values || !Array.isArray(response.data.$values)) {
         throw new Error("Données invalides reçues.");
       }
-
       this.students = response.data.$values.map((student: any) => ({
         name: student.name,
         firstname: student.firstname,
@@ -54,6 +53,7 @@ export const useStudentsStore = defineStore("students", {
         email: student.email,
         year: student.year,
         signature: student.signature,
+        isDelegate: student.isDelegate ?? false,
       }));
       return this.students;
       } catch (error) {
@@ -94,7 +94,16 @@ export const useStudentsStore = defineStore("students", {
       try {
         const response = await axios.get(`${API_URL}/User/search/${encodeURIComponent(studentNumber)}`);
         if (response.status === 200) {
-          return response.data;
+          const student = response.data.user || response.data;
+          return {
+            name: student.name,
+            firstname: student.firstname,
+            studentNumber: student.studentNumber,
+            email: student.email,
+            year: student.year,
+            signature: student.signature,
+            isDelegate: student.isDelegate ?? false,
+          };
         } else {
           console.error("Erreur lors de la récupération de l'étudiant:", response.statusText);
           return null;
