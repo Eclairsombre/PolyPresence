@@ -20,7 +20,7 @@ buildNpmPackage rec {
     # Create a wrapper script
     mkdir -p $out/bin
     echo '#!${bash}/bin/bash' > $out/bin/${pname}
-    echo '${simple-http-server}/bin/simple-http-server ${placeholder "out"}/lib' >> $out/bin/${pname}
+    echo '${simple-http-server}/bin/simple-http-server -i ${placeholder "out"}/lib' >> $out/bin/${pname}
     chmod +x $out/bin/${pname}
     runHook postInstall
   '';
