@@ -1,8 +1,12 @@
 import { defineStore } from "pinia";
 import axios from "axios";
+import Cookies from "js-cookie";
+import CryptoJS from "crypto-js";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+const COOKIE_SECRET = import.meta.env.VITE_COOKIE_SECRET;
+const COOKIE_EXPIRATION_MINUTES = 30;
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
@@ -30,7 +34,7 @@ export const useAuthStore = defineStore("auth", {
     logout() {
       this.user = null;
       this.debugData = null;
-      localStorage.removeItem("user");
+      Cookies.remove("user");
       window.location.href = `${BASE_URL}/logout`;
     },
 
@@ -93,8 +97,13 @@ export const useAuthStore = defineStore("auth", {
             }
           }
           this.user = userData;
-          console.log("User data:", this.user);
-          localStorage.setItem("user", JSON.stringify(this.user));
+          const encrypted = CryptoJS.AES.encrypt(
+            JSON.stringify(this.user),
+            COOKIE_SECRET
+          ).toString();
+          Cookies.set("user", encrypted, {
+            expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
+          });
           window.history.replaceState(
             {},
             document.title,
@@ -136,10 +145,12 @@ export const useAuthStore = defineStore("auth", {
     },
 
     checkSession() {
-      const savedUser = localStorage.getItem("user");
-      if (savedUser) {
+      const encrypted = Cookies.get("user");
+      if (encrypted) {
         try {
-          this.user = JSON.parse(savedUser);
+          const bytes = CryptoJS.AES.decrypt(encrypted, COOKIE_SECRET);
+          const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+          this.user = JSON.parse(decrypted);
           if (
             this.user &&
             this.user.studentId &&
@@ -148,20 +159,21 @@ export const useAuthStore = defineStore("auth", {
             axios
               .get(`${API_URL}/User/search/${this.user.studentId}`)
               .then((res) => {
-                console.log(res.data.user.isDelegate);
                 this.user.isDelegate = res.data.user.isDelegate || false;
-                localStorage.setItem("user", JSON.stringify(this.user));
+                const encryptedUpdate = CryptoJS.AES.encrypt(
+                  JSON.stringify(this.user),
+                  COOKIE_SECRET
+                ).toString();
+                Cookies.set("user", encryptedUpdate, {
+                  expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
+                });
               })
               .catch(() => {
                 this.user.isDelegate = false;
               });
           }
         } catch (e) {
-          console.error(
-            "Erreur lors de la récupération de l'utilisateur depuis localStorage:",
-            e
-          );
-          localStorage.removeItem("user");
+          Cookies.remove("user");
         }
       }
     },
@@ -207,7 +219,13 @@ export const useAuthStore = defineStore("auth", {
     },
     async updateUserLocalStorage(user) {
       this.user = user;
-      localStorage.setItem("user", JSON.stringify(this.user));
+      const encrypted = CryptoJS.AES.encrypt(
+        JSON.stringify(this.user),
+        COOKIE_SECRET
+      ).toString();
+      Cookies.set("user", encrypted, {
+        expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
+      });
     },
     async getMailPreferences() {
       if (!this.user || !this.user.studentId) {

@@ -125,6 +125,9 @@ const loadData = async () => {
             if (studentData.signature && studentData.signature !== " ") {
                 hasSignature.value = true;
             }
+            if(studentData.isDelegate) {
+                isDelegate.value = true;
+            }
             studentYear.value = studentData.year;
             const session = await sessionStore.getCurrentSession(studentYear.value);
             console.log('sessions', session);
