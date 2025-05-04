@@ -28,7 +28,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import Auth from '../Auth.vue';
-import StudentsAttendanceSheetPage from '../holder/SessionHolder.vue';
+import StudentsAttendanceSheetPage from '../Holder/SessionHolder.vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useRouter } from 'vue-router';
 
