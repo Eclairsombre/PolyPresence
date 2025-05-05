@@ -34,7 +34,7 @@ if (string.IsNullOrWhiteSpace(databasePath))
     throw new Exception("La variable d'environnement STORAGE_PATH n'est pas définie !");
 }
 
-databasePath = System.IO.Path.Combine(databasePath, "/polytechpresence.db");
+databasePath = System.IO.Path.Combine(databasePath, "polytechpresence.db");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite($"Data Source={databasePath}"));
@@ -51,6 +51,12 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.EnsureCreated();
+}
 
 // Configure middleware
 if (app.Environment.IsDevelopment())
