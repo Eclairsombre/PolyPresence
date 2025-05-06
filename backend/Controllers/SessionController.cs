@@ -666,6 +666,7 @@ Cordialement";
                     IsBodyHtml = false,
                 };
                 mailMessage.To.Add(session.ProfEmail);
+                mailMessage.Headers.Add("X-Priority", "1");
 
                 await smtpClient.SendMailAsync(mailMessage);
             }

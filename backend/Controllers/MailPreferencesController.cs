@@ -245,6 +245,7 @@ namespace backend.Controllers
 
                     var attachment = new Attachment(zipStream, $"sessions_{DateTime.Now:yyyy-MM-dd}.zip", "application/zip");
                     mailMessage.Attachments.Add(attachment);
+                    mailMessage.Headers.Add("X-Priority", "1");
 
                     await smtpClient.SendMailAsync(mailMessage);
 
@@ -369,6 +370,7 @@ namespace backend.Controllers
                     IsBodyHtml = false
                 };
                 mailMessage.To.Add(mail);
+                mailMessage.Headers.Add("X-Priority", "1");
 
                 smtpClient.Send(mailMessage);
 
