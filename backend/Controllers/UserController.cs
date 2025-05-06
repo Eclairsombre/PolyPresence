@@ -187,6 +187,13 @@ namespace backend.Controllers
                 return BadRequest(new { message = "Aucune adresse mail renseignée pour cet étudiant." });
             if (!string.IsNullOrEmpty(user.PasswordHash))
                 return BadRequest(new { message = "Un mot de passe existe déjà pour cet utilisateur. Veuillez utiliser la page de connexion." });
+            if (user.RegisterTokenExpiration < DateTime.UtcNow)
+            {
+                user.RegisterToken = null;
+                user.RegisterTokenExpiration = null;
+                user.RegisterMailSent = false;
+                await _context.SaveChangesAsync();
+            }
             if (user.RegisterMailSent)
                 return BadRequest(new { message = "Un mail a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande." });
             user.RegisterToken = Guid.NewGuid().ToString();
@@ -282,10 +289,18 @@ namespace backend.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] RegisterLinkRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == "p2203381");
             // Toujours répondre OK pour la sécurité, même si l'utilisateur n'existe pas
             if (user == null || string.IsNullOrEmpty(user.Email))
-                return Ok(new { message = "Si un compte existe, un mail de réinitialisation a été envoyé." });
+                return Ok(new { message = "Pas de data suffisante." });
+            if (user.RegisterTokenExpiration < DateTime.UtcNow)
+            {
+                user.RegisterToken = null;
+                user.RegisterTokenExpiration = null;
+                user.RegisterMailSent = false;
+                await _context.SaveChangesAsync();
+            }
+
             if (user.RegisterMailSent)
                 return Ok(new { message = "Un mail de réinitialisation a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande." });
             user.RegisterToken = Guid.NewGuid().ToString();
@@ -316,9 +331,15 @@ namespace backend.Controllers
                     IsBodyHtml = true
                 };
                 mailMessage.To.Add(user.Email);
+                mailMessage.Headers.Add("X-Priority", "1");
+                _logger.LogInformation($"Sending password reset email to {user.Email} with link: {link}");
+
                 await smtpClient.SendMailAsync(mailMessage);
             }
-            catch { /* Ne rien faire pour la sécurité */ }
+            catch
+            {
+                return StatusCode(500, "Erreur lors de l'envoi du mail.");
+            }
 
             return Ok(new { message = "Si un compte existe, un mail de réinitialisation a été envoyé." });
         }

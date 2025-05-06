@@ -1,35 +1,72 @@
 <template>
   <div class="prof-signature-page">
     <div v-if="session" class="session-infos">
-        <h2>Informations de la session</h2>
-        <ul>
-            <li><strong>Année :</strong> {{ session.year || session.Year }}</li>
-            <li><strong>Date :</strong> {{ session.date ? new Date(session.date).toLocaleDateString() : (session.Date ? new Date(session.Date).toLocaleDateString() : '') }}</li>
-            <li><strong>Heure de début :</strong> {{ session.startTime || session.StartTime }}</li>
-            <li><strong>Heure de fin :</strong> {{ session.endTime || session.EndTime }}</li>
-            <li><strong>Code de validation :</strong> {{ validationCode }}</li>
-        </ul>
+      <h2>Informations de la session</h2>
+      <ul>
+        <li><strong>Année :</strong> {{ session.year || session.Year }}</li>
+        <li><strong>Date :</strong> {{ session.date ? new Date(session.date).toLocaleDateString() : (session.Date ? new Date(session.Date).toLocaleDateString() : '') }}</li>
+        <li><strong>Heure de début :</strong> {{ session.startTime || session.StartTime }}</li>
+        <li><strong>Heure de fin :</strong> {{ session.endTime || session.EndTime }}</li>
+        <li class="validation-code-row">
+          <strong>Code de validation :</strong>
+          <span class="validation-code fancy-validation-code">
+            <span class="validation-code-inner">{{ validationCode }}</span>
+          </span>
+        </li>
+      </ul>
     </div>
-    <h1>Signature du professeur</h1>
     <div v-if="loading" class="loading">Chargement...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else>
-      <form @submit.prevent="submitSignature" class="prof-form">
-        <div class="form-group">
-          <label>Nom :</label>
-          <input v-model="profName" type="text" required />
+    <div v-else class="prof-content-row">
+      <div class="prof-signature-form">
+        <h2>Signature du professeur</h2>
+
+        <form @submit.prevent="submitSignature" class="prof-form">
+          <div class="form-group">
+            <label>Nom :</label>
+            <input v-model="profName" type="text" required />
+          </div>
+          <div class="form-group">
+            <label>Prénom :</label>
+            <input v-model="profFirstname" type="text" required />
+          </div>
+          <div class="form-group signature-zone">
+            <label>Signature :</label>
+            <SignatureCreator v-bind:hideSaveButton="true" ref="signaturePad" />
+          </div>
+          <button type="submit" class="submit-btn">Valider</button>
+        </form>
+        <div v-if="success" class="success">Signature enregistrée avec succès !</div>
+      </div>
+      <div class="attendances">
+        <div class="attendances-header">
+          <h2>Liste des présences</h2>
+          <button @click="loadAttendances" class="reload-btn" :disabled="attendancesLoading">Rafraîchir</button>
         </div>
-        <div class="form-group">
-          <label>Prénom :</label>
-          <input v-model="profFirstname" type="text" required />
-        </div>
-        <div class="form-group">
-          <label>Signature :</label>
-          <SignatureCreator v-bind:hideSaveButton="true" ref="signaturePad" />
-        </div>
-        <button type="submit" class="submit-btn">Valider</button>
-      </form>
-      <div v-if="success" class="success">Signature enregistrée avec succès !</div>
+        <div v-if="attendancesLoading" class="loading">Chargement des présences...</div>
+        <table v-else class="attendances-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nom</th>
+              <th>Prénom</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(attendance, idx) in attendances" :key="attendance.item1.id">
+              <td>{{ idx + 1 }}</td>
+              <td class="cell-name">{{ attendance.item1.name }}</td>
+              <td class="cell-firstname">{{ attendance.item1.firstname }}</td>
+              <td>
+                <span :class="attendance.item2 !== 1 ? 'present' : 'absent'">
+                  {{ attendance.item2 !== 1 ? 'Présent' : 'Absent' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>
@@ -40,6 +77,8 @@ import { useRoute } from 'vue-router';
 import SignatureCreator from '../signature/SignatureCreator.vue';
 import axios from 'axios';
 import { useProfSignatureStore } from '../../stores/profSignatureStore';
+import { useSessionStore } from '../../stores/sessionStore';
+import SignatureDisplay from '../signature/SignatureDisplay.vue';
 
 const route = useRoute();
 const token = route.params.token;
@@ -53,6 +92,16 @@ const validationCode = ref('');
 const session = ref(null);
 const API_URL = import.meta.env.VITE_API_URL;
 const profSignatureStore = useProfSignatureStore();
+const sessionStore = useSessionStore();
+const attendances = ref([]);
+const attendancesLoading = ref(false);
+
+async function loadAttendances() {
+  if (!session.value?.id) return;
+  attendancesLoading.value = true;
+  attendances.value = await sessionStore.getSessionAttendances(session.value.id);
+  attendancesLoading.value = false;
+}
 
 onMounted(async () => {
   const data = await profSignatureStore.fetchSessionByProfSignatureToken(token);
@@ -60,15 +109,13 @@ onMounted(async () => {
     session.value = data;
     validationCode.value = data.validationCode || data.ValidationCode || data.validation_code || '';
     loading.value = false;
+    await loadAttendances();
   } else {
     error.value = profSignatureStore.error;
     loading.value = false;
   }
 });
 
-const clearSignature = () => {
-  signaturePad.value && signaturePad.value.clear();
-};
 
 const submitSignature = async () => {
   const signatureData = signaturePad.value.getSignature();
@@ -120,83 +167,235 @@ const submitSignature = async () => {
   color: #2980b9;
 }
 .prof-signature-page {
-  max-width: 440px;
+  max-width: 1100px;
   margin: 40px auto;
   background: #fff;
-  border-radius: 12px;
+  border-radius: 16px;
   box-shadow: 0 4px 24px rgba(52,152,219,0.10);
-  padding: 36px 24px 28px 24px;
+  padding: 36px 32px 32px 32px;
 }
-.prof-signature-page h1 {
+.main-title {
   text-align: center;
+  margin-bottom: 32px;
+  color: #217dbb;
+  font-size: 2em;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+.validation-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.validation-code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 2em;
+  color: #fff;
+  background: #217dbb;
+  padding: 6px 28px;
+  border-radius: 10px;
+  letter-spacing: 6px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(41,128,185,0.10);
+  border: 2px solid #217dbb;
+  margin-left: 8px;
+}
+.fancy-validation-code {
+  display: inline-flex;
+  align-items: center;
+  background: #fffbe6;
+  border: 2px solid #f7c948;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(247,201,72,0.10);
+  padding: 2px 18px;
+  margin-left: 8px;
+  position: relative;
+  font-size: 1em;
+  transition: box-shadow 0.2s;
+}
+.fancy-validation-code::before {
+  content: '\1F511'; /* Icône cadenas */
+  font-size: 1.1em;
+  margin-right: 8px;
+  color: #f7c948;
+  filter: drop-shadow(0 1px 2px #f7c94833);
+}
+.validation-code-inner {
+  font-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', monospace;
+  font-size: 1.08em;
+  color: #b8860b;
+  letter-spacing: 6px;
+  font-weight: 700;
+  text-shadow: 0 1px 4px #fffbe6, 0 1px 0 #f7c94844;
+  padding: 0 2px;
+  background: none;
+}
+@media (max-width: 600px) {
+  .fancy-validation-code {
+    font-size: 0.98em;
+    padding: 2px 10px;
+  }
+  .validation-code-inner {
+    letter-spacing: 3px;
+  }
+}
+.prof-content-row {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+  margin-top: 32px;
+}
+.prof-signature-form {
+  flex: 1 1 350px;
+  min-width: 320px;
+  background: #fafdff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(52,152,219,0.08);
+  padding: 24px 18px 18px 18px;
+}
+.signature-zone {
   margin-bottom: 24px;
-  color: #2980b9;
-  font-size: 1.5em;
+}
+.attendances {
+  flex: 1 1 420px;
+  min-width: 340px;
+  margin-top: 0;
+  background: #fafdff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(52,152,219,0.08);
+  padding: 24px 18px 18px 18px;
+}
+.attendances-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.attendances-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
+  font-size: 1.08em;
+}
+.attendances-table th, .attendances-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #e0e4ea;
+}
+.attendances-table th {
+  background: #f6f8fa;
+  color: #217dbb;
+  font-weight: 700;
+  font-size: 1.08em;
+}
+.attendances-table tr:last-child td {
+  border-bottom: none;
+}
+.cell-name, .cell-firstname {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+.present {
+  color: #27ae60;
+  font-weight: bold;
+}
+.absent {
+  color: #e74c3c;
+  font-weight: bold;
+}
+.reload-btn {
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 7px 18px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
+}
+.reload-btn:disabled {
+  background: #b2cbe4;
+  cursor: not-allowed;
+}
+.reload-btn:hover:not(:disabled) {
+  background: #217dbb;
 }
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 22px;
   display: flex;
   flex-direction: column;
 }
 input[type="text"] {
-  padding: 10px;
+  padding: 12px;
   border-radius: 5px;
-  border: 1px solid #bfc9d1;
-  font-size: 16px;
+  border: 1.5px solid #bfc9d1;
+  font-size: 17px;
   background: #fafdff;
   transition: border 0.2s;
 }
 input[type="text"]:focus {
-  border: 1.5px solid #3498db;
+  border: 2px solid #3498db;
   outline: none;
-}
-.clear-btn {
-  margin-top: 8px;
-  background: #f2f6fa;
-  border: none;
-  border-radius: 4px;
-  padding: 7px 14px;
-  cursor: pointer;
-  color: #555;
-  transition: background 0.2s;
-}
-.clear-btn:hover {
-  background: #e1eaf4;
 }
 .submit-btn {
   width: 100%;
-  background: linear-gradient(90deg, #3498db 60%, #2980b9 100%);
+  background: linear-gradient(90deg, #3498db 60%, #217dbb 100%);
   color: #fff;
   border: none;
   border-radius: 5px;
-  padding: 13px;
-  font-size: 17px;
+  padding: 15px;
+  font-size: 18px;
   cursor: pointer;
   margin-top: 12px;
-  font-weight: 600;
+  font-weight: 700;
   box-shadow: 0 2px 8px rgba(52,152,219,0.08);
   transition: background 0.2s;
+  letter-spacing: 1px;
 }
 .submit-btn:hover {
-  background: linear-gradient(90deg, #2980b9 60%, #3498db 100%);
+  background: linear-gradient(90deg, #217dbb 60%, #3498db 100%);
 }
 .success {
   color: #27ae60;
   text-align: center;
   margin-top: 22px;
-  font-weight: 600;
-  font-size: 1.1em;
+  font-weight: 700;
+  font-size: 1.15em;
 }
 .error {
   color: #e74c3c;
   text-align: center;
   margin-top: 22px;
-  font-weight: 600;
-  font-size: 1.1em;
+  font-weight: 700;
+  font-size: 1.15em;
 }
 .loading {
   text-align: center;
   color: #888;
   font-size: 1.1em;
+}
+@media (max-width: 1100px) {
+  .prof-signature-page {
+    padding: 18px 4vw 18px 4vw;
+  }
+  .prof-content-row {
+    gap: 18px;
+  }
+}
+@media (max-width: 900px) {
+  .prof-content-row {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .attendances, .prof-signature-form {
+    min-width: unset;
+    width: 100%;
+  }
 }
 </style>

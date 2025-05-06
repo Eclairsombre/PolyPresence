@@ -26,12 +26,26 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref,onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '../../stores/authStore';
 const authStore = useAuthStore();
 const username = ref('');
 const password = ref('');
 const errorMessage = ref('');
+
+const handleKeyPress = (event) => {
+  if (event.key === 'Enter') {
+    loginWithCredentials();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keypress', handleKeyPress);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keypress', handleKeyPress);
+});
 
 const loginWithCredentials = async () => {
   errorMessage.value = '';
@@ -50,6 +64,7 @@ const loginWithCredentials = async () => {
 
 import { useRouter } from 'vue-router';
 const router = useRouter();
+
 
 const navigateToRegister = () => {
   router.push('/register');
