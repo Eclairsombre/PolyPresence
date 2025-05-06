@@ -213,10 +213,17 @@ namespace backend.Controllers
         [HttpGet("current/{year}")]
         public async Task<ActionResult<Session>> GetCurrentSession(string year)
         {
-            var currentSession = await _context.Sessions
-                .Where(s => s.Year == year && s.Date.Date == DateTime.Today.Date && s.StartTime <= DateTime.Now.TimeOfDay && s.EndTime >= DateTime.Now.TimeOfDay)
-                .FirstOrDefaultAsync();
+            var today = DateTime.Today;
+            var now = DateTime.Now.TimeOfDay;
 
+            // On filtre côté SQL sur l'année et la date exacte (en ignorant l'heure)
+            var sessionsToday = await _context.Sessions
+                .Where(s => s.Year == year && s.Date == today)
+                .ToListAsync();
+
+            // On filtre côté C# sur l'heure
+            var currentSession = sessionsToday
+                .FirstOrDefault(s => s.StartTime <= now && s.EndTime >= now);
 
             if (currentSession == null)
             {
