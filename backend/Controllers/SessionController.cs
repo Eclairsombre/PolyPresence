@@ -214,7 +214,7 @@ namespace backend.Controllers
         public async Task<ActionResult<Session>> GetCurrentSession(string year)
         {
             var currentSession = await _context.Sessions
-                .Where(s => s.Year == year && s.Date.Date == DateTime.Today.Date)
+                .Where(s => s.Year == year && s.Date.Date == DateTime.Today.Date && s.StartTime <= DateTime.Now.TimeOfDay && s.EndTime >= DateTime.Now.TimeOfDay)
                 .FirstOrDefaultAsync();
 
 
