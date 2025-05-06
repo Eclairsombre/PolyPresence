@@ -22,8 +22,11 @@ const successMessage = ref('');
 const loading = ref(false);
 const API_URL = import.meta.env.VITE_API_URL;
 
+import { useRouter } from 'vue-router';
+const router = useRouter();
+
 const goToLogin = () => {
-  window.location.href = '/login';
+    router.push('/login');
 };
 
 const sendResetMail = async () => {

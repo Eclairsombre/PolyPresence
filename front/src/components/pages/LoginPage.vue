@@ -34,25 +34,28 @@ const password = ref('');
 const errorMessage = ref('');
 
 const loginWithCredentials = async () => {
-    errorMessage.value = '';
-    if (username.value && password.value) {
-        try {
-            await authStore.loginWithCredentials(username.value, password.value);
-            window.location.href = '/';
-        } catch (error) {
-            console.error('Erreur lors de la connexion:', error);
-            errorMessage.value = error?.message || 'Une erreur est survenue lors de la connexion.';
-        }
-    } else {
-        errorMessage.value = 'Veuillez entrer votre identifiant et mot de passe.';
+  errorMessage.value = '';
+  if (username.value && password.value) {
+    try {
+      await authStore.loginWithCredentials(username.value, password.value);
+      router.push('/');
+    } catch (error) {
+      console.error('Erreur lors de la connexion:', error);
+      errorMessage.value = error?.message || 'Une erreur est survenue lors de la connexion.';
     }
+  } else {
+    errorMessage.value = 'Veuillez entrer votre identifiant et mot de passe.';
+  }
 };
 
+import { useRouter } from 'vue-router';
+const router = useRouter();
+
 const navigateToRegister = () => {
-    window.location.href = '/register';
+  router.push('/register');
 };
 const navigateToForgotPassword = () => {
-    window.location.href = '/forgot-password';
+  router.push('/forgot-password');
 };
 </script>
 
