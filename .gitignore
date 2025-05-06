@@ -1,7 +1,10 @@
 backend/bin/*
 backend/Migrations/*
+backend/obj/*
 
 .env
+backend/.env
+frontend/.env
 
 .direnv
 result
