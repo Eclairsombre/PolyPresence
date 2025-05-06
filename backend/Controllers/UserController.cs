@@ -223,7 +223,7 @@ namespace backend.Controllers
                 mailMessage.To.Add(user.Email);
 
                 // Add headers to improve deliverability
-                // mailMessage.Headers.Add("X-Priority", "1");
+                mailMessage.Headers.Add("X-Priority", "1");
                 // mailMessage.Headers.Add("X-MSMail-Priority", "High");
                 // mailMessage.Headers.Add("Importance", "High");
 
