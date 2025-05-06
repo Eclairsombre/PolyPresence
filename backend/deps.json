@@ -10,6 +10,11 @@
     "hash": "sha256-J3nI80CQwS7fwRLnqBxqZNemxqP05rcn3x44YpIf2no="
   },
   {
+    "pname": "BCrypt.Net-Next",
+    "version": "4.0.3",
+    "hash": "sha256-BxXHAjIV2xBuRPUezzC+5jhaHiQhgnqTk1k1ko3D6Ds="
+  },
+  {
     "pname": "DotNetEnv",
     "version": "3.1.1",
     "hash": "sha256-w1gfQvaehGc795ZQCc7OCXn5XZosNVy0O50MzPkhjr4="
