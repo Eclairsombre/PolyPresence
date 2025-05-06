@@ -15,7 +15,7 @@
         <Auth />
       </div>
       
-      <div v-if="user" class="admin-toggle">
+      <div v-if="user && user.isAdmin" class="admin-toggle">
         <button @click="toggleAdminRole" class="toggle-button" :class="{ 'is-admin': user.isAdmin }">
           Mode {{ user.isAdmin ? 'Administrateur' : 'Étudiant' }}
           <span class="toggle-status">Cliquez pour basculer</span>
