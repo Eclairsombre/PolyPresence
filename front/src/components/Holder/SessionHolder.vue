@@ -135,6 +135,7 @@ const loadData = async () => {
             }
             studentYear.value = studentData.year;
             const session = await sessionStore.getCurrentSession(studentYear.value);
+            console.log("Session:", session);
             if (!session) {
                 return;
             }
