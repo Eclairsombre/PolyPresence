@@ -482,9 +482,18 @@ namespace backend.Controllers
                 var importedSessions = new HashSet<(DateTime, TimeSpan, TimeSpan)>();
                 foreach (var evt in events)
                 {
-                    var date = evt.Start.AsSystemLocal.Date;
-                    var startTime = evt.Start.AsSystemLocal.TimeOfDay;
-                    var endTime = evt.End.AsSystemLocal.TimeOfDay;
+                    var frenchTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris") ??
+                                         TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
+
+                    var startDateUtc = evt.Start.AsUtc;
+                    var endDateUtc = evt.End.AsUtc;
+
+                    var startDateLocal = TimeZoneInfo.ConvertTimeFromUtc(startDateUtc, frenchTimeZone);
+                    var endDateLocal = TimeZoneInfo.ConvertTimeFromUtc(endDateUtc, frenchTimeZone);
+
+                    var date = startDateLocal.Date;
+                    var startTime = startDateLocal.TimeOfDay;
+                    var endTime = endDateLocal.TimeOfDay;
                     var summary = evt.Summary ?? "Session importée";
                     var year = model.Year;
 
