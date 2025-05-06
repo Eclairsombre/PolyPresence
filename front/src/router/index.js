@@ -76,6 +76,21 @@ const routes = [
     name: "login",
     component: () => import("../components/pages/LoginPage.vue"),
   },
+  {
+    path: "/register",
+    name: "register",
+    component: () => import("../components/pages/RegisterPage.vue"),
+  },
+  {
+    path: "/set-password",
+    name: "set-password",
+    component: () => import("../components/pages/SetPasswordPage.vue"),
+  },
+  {
+    path: "/forgot-password",
+    name: "forgot-password",
+    component: () => import("../components/pages/ForgotPasswordPage.vue"),
+  },
 ];
 
 const router = createRouter({

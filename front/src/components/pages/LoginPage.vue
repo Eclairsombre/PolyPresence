@@ -18,6 +18,8 @@
         autocomplete="current-password"
       />
       <button class="login-btn" @click="loginWithCredentials">Se connecter</button>
+      <router-link to="/register" class="register-link">Créer un compte</router-link>
+      <router-link to="/forgot-password" class="forgot-link">Mot de passe oublié ?</router-link>
       <div v-if="errorMessage" class="login-error">{{ errorMessage }}</div>
     </div>
   </div>
@@ -91,5 +93,19 @@ const loginWithCredentials = async () => {
   color: #c0392b;
   margin-top: 18px;
   font-weight: 500;
+}
+.register-link {
+  display: block;
+  margin-top: 16px;
+  color: #3498db;
+  text-decoration: underline;
+  font-size: 1rem;
+}
+.forgot-link {
+  display: block;
+  margin-top: 8px;
+  color: #e67e22;
+  text-decoration: underline;
+  font-size: 1rem;
 }
 </style>

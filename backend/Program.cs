@@ -77,9 +77,6 @@ if (app.Environment.IsDevelopment())
 // Activer CORS
 app.UseCors("AllowVue");
 
-app.MapGet("/", () => "CORS Proxy Server - Utilisez /proxy?url=VOTRE_URL");
-
-app.MapProxyEndpoint();
 
 // Activer la session avant UseRouting
 app.UseSession();

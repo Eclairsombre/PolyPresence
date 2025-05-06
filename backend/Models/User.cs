@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Routing.Constraints;
+using System.ComponentModel.DataAnnotations;
 
 namespace backend.Models
 {
@@ -13,6 +14,11 @@ namespace backend.Models
         public string Signature { get; set; } = string.Empty;
         public bool IsAdmin { get; set; } = false;
         public bool IsDelegate { get; set; } = false;
+
+        public string? PasswordHash { get; set; }
+        public string? RegisterToken { get; set; }
+        public DateTime? RegisterTokenExpiration { get; set; }
+        public bool RegisterMailSent { get; set; } = false;
 
         public int? MailPreferencesId { get; set; }
         public MailPreferences? MailPreferences { get; set; }

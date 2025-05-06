@@ -25,19 +25,6 @@ export const useAuthStore = defineStore("auth", {
     async logout() {
       this.user = null;
       Cookies.remove("user");
-      const url = `${BASE_URL}/proxy?url=https://cas.univ-lyon1.fr/cas/logout`;
-      try {
-        await fetch(url, {
-          method: "GET",
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.3",
-          },
-        });
-      } catch (error) {
-        console.error("Erreur lors de la déconnexion:", error);
-        alert("Une erreur est survenue lors de la déconnexion.");
-      }
     },
 
     checkSession() {
@@ -113,131 +100,30 @@ export const useAuthStore = defineStore("auth", {
         return false;
       }
     },
-    async getExecutionToken() {
-      try {
-        const url = `${BASE_URL}/proxy?url=https://cas.univ-lyon1.fr/cas/login`;
-        const response = await fetch(url, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.3",
-          },
-        });
-        const html = await response.text();
-        const match = html.match(/name="execution" value="([^"]+)"/);
-        if (match && match[1]) {
-          return match[1];
-        } else {
-          throw new Error("Token execution non trouvé");
-        }
-      } catch (e) {
-        console.error("Erreur lors de la récupération du token execution:", e);
-        return null;
-      }
-    },
-
-    async postCasLogin(username, password) {
-      const execution = await this.getExecutionToken();
-      if (!execution)
-        throw new Error("Impossible de récupérer le token execution");
-      const formData = new URLSearchParams();
-      formData.append("username", username);
-      formData.append("password", password);
-      formData.append("execution", execution);
-      formData.append("_eventId", "submit");
-      const response = await fetch(
-        `${BASE_URL}/proxy?url=https://cas.univ-lyon1.fr/cas/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.3",
-          },
-          body: formData,
-        }
-      );
-      if (response.status === 401) {
-        throw new Error("Identifiant ou mot de passe incorrect");
-      }
-      return await response.text();
-    },
-
-    parseAndStoreUserFromCasHtml(html) {
-      const getAttr = (label) => {
-        const regex = new RegExp(
-          `<td class=\"mdc-data-table__cell\"><code><kbd>${label}</kbd></code></td>\\s*<td class=\"mdc-data-table__cell\">\\s*<code><kbd>\\[([^\\]]+)\\]</kbd></code>`,
-          "i"
-        );
-        const match = html.match(regex);
-        return match ? match[1] : null;
-      };
-      const numEtudiant = getAttr("username");
-      const nom = getAttr("name");
-      const prenom = getAttr("firstname");
-      const email = getAttr("email");
-      const user = {
-        studentId: numEtudiant,
-        firstname: prenom,
-        lastname: nom,
-        email: email,
-        isAdmin: false,
-        isDelegate: false,
-        existsInDb: undefined,
-      };
-      this.updateUserLocalStorage(user);
-      this.user = user;
-      return user;
-    },
 
     async loginWithCredentials(username, password) {
       if (!username || !password)
         throw new Error("Identifiant ou mot de passe manquant");
       try {
-        const response = await this.postCasLogin(username, password);
-        const userdata = this.parseAndStoreUserFromCasHtml(response);
-
-        // Vérification des infos essentielles
-        if (
-          !userdata ||
-          !userdata.studentId ||
-          !userdata.firstname ||
-          !userdata.lastname ||
-          !userdata.email
-        ) {
-          await this.logout();
-          throw new Error(
-            "Impossible de récupérer les informations de l'utilisateur. Connexion échouée."
-          );
-        }
-
-        try {
-          const userApi = await axios.get(
-            `${API_URL}/User/search/${userdata.studentId}`
-          );
-          if (userApi.data && userApi.data.user) {
-            userdata.isDelegate = userApi.data.user.isDelegate || false;
-            userdata.isAdmin = userApi.data.user.isAdmin || false;
-            userdata.existsInDb = true;
-          } else {
-            console.warn("User data is missing or malformed:", userApi.data);
-            userdata.isDelegate = false;
-            userdata.existsInDb = false;
-          }
-        } catch (e) {
-          console.error(
-            "Erreur lors de la récupération de l'utilisateur depuis l'API:",
-            e
-          );
-          userdata.isDelegate = false;
-          userdata.existsInDb = false;
-        }
+        const response = await axios.post(`${API_URL}/User/login`, {
+          studentNumber: username,
+          password: password,
+        });
+        const userdata = response.data;
         this.updateUserLocalStorage(userdata);
         return userdata;
       } catch (error) {
-        console.error("Erreur lors de la connexion:", error);
-        throw error;
+        if (
+          error.response &&
+          error.response.data &&
+          error.response.data.message
+        ) {
+          throw new Error(error.response.data.message);
+        }
+        throw new Error("Erreur lors de la connexion.");
       }
     },
+
     async updateUserLocalStorage(user) {
       this.user = user;
       const encrypted = CryptoJS.AES.encrypt(

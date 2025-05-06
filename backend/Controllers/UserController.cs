@@ -7,6 +7,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
+using System.Net.Mail;
 
 namespace backend.Controllers
 {
@@ -172,6 +175,142 @@ namespace backend.Controllers
             }
 
             return users;
+        }
+
+        [HttpPost("send-register-link")]
+        public async Task<IActionResult> SendRegisterLink([FromBody] RegisterLinkRequest request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+            if (user == null)
+                return NotFound(new { message = "Étudiant introuvable." });
+            if (string.IsNullOrEmpty(user.Email))
+                return BadRequest(new { message = "Aucune adresse mail renseignée pour cet étudiant." });
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+                return BadRequest(new { message = "Un mot de passe existe déjà pour cet utilisateur. Veuillez utiliser la page de connexion." });
+            if (user.RegisterMailSent)
+                return BadRequest(new { message = "Un mail a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande." });
+            user.RegisterToken = Guid.NewGuid().ToString();
+            user.RegisterTokenExpiration = DateTime.UtcNow.AddDays(1);
+            user.RegisterMailSent = true;
+            await _context.SaveChangesAsync();
+            var link = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/set-password?token={user.RegisterToken}";
+            var body = $"Bonjour {user.Firstname},<br>Pour créer votre mot de passe, cliquez sur ce lien : <a href='{link}'>Créer mon mot de passe</a><br>Ce lien expirera dans 24h.";
+
+            try
+            {
+                var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtpbv.univ-lyon1.fr";
+                var smtpPortStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
+                if (!int.TryParse(smtpPortStr, out var smtpPort)) smtpPort = 587;
+                var smtpClient = new SmtpClient(smtpHost, smtpPort)
+                {
+                    EnableSsl = true,
+                    Credentials = new System.Net.NetworkCredential(
+                        Environment.GetEnvironmentVariable("SMTP_USERNAME"),
+                        Environment.GetEnvironmentVariable("SMTP_PASSWORD")
+                    )
+                };
+                var mailMessage = new System.Net.Mail.MailMessage
+                {
+                    From = new System.Net.Mail.MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
+                    Subject = "Création de votre mot de passe PolytechPresence",
+                    Body = body,
+                    IsBodyHtml = true
+                };
+                mailMessage.To.Add(user.Email);
+                await smtpClient.SendMailAsync(mailMessage);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erreur lors de l'envoi du mail : {ex.Message}");
+            }
+            return Ok(new { message = "Mail envoyé." });
+        }
+
+        [HttpPost("set-password")]
+        public async Task<IActionResult> SetPassword([FromBody] SetPasswordRequest request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.RegisterToken == request.Token && u.RegisterTokenExpiration > DateTime.UtcNow);
+            if (user == null)
+                return BadRequest(new { message = "Lien invalide ou expiré." });
+            if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+                return BadRequest(new { message = "Le mot de passe doit contenir au moins 6 caractères." });
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            user.RegisterToken = null;
+            user.RegisterTokenExpiration = null;
+            user.RegisterMailSent = false;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Mot de passe défini avec succès." });
+        }
+        public class SetPasswordRequest { public string Token { get; set; } public string Password { get; set; } }
+
+        public class RegisterLinkRequest
+        {
+            public string StudentNumber { get; set; }
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+            if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
+            return Ok(new
+            {
+                studentId = user.StudentNumber,
+                firstname = user.Firstname,
+                lastname = user.Name,
+                email = user.Email,
+                isAdmin = user.IsAdmin,
+                isDelegate = user.IsDelegate,
+                existsInDb = true
+            });
+        }
+        public class LoginRequest { public string StudentNumber { get; set; } public string Password { get; set; } }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] RegisterLinkRequest request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+            // Toujours répondre OK pour la sécurité, même si l'utilisateur n'existe pas
+            if (user == null || string.IsNullOrEmpty(user.Email))
+                return Ok(new { message = "Si un compte existe, un mail de réinitialisation a été envoyé." });
+            if (user.RegisterMailSent)
+                return Ok(new { message = "Un mail de réinitialisation a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande." });
+            user.RegisterToken = Guid.NewGuid().ToString();
+            user.RegisterTokenExpiration = DateTime.UtcNow.AddHours(1);
+            user.RegisterMailSent = true;
+            await _context.SaveChangesAsync();
+            var link = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/set-password?token={user.RegisterToken}";
+            var body = $"Bonjour {user.Firstname},<br>Pour réinitialiser votre mot de passe, cliquez sur ce lien : <a href='{link}'>Réinitialiser mon mot de passe</a><br>Ce lien expirera dans 1h.";
+
+            try
+            {
+                var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtpbv.univ-lyon1.fr";
+                var smtpPortStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
+                if (!int.TryParse(smtpPortStr, out var smtpPort)) smtpPort = 587;
+                var smtpClient = new SmtpClient(smtpHost, smtpPort)
+                {
+                    EnableSsl = true,
+                    Credentials = new System.Net.NetworkCredential(
+                        Environment.GetEnvironmentVariable("SMTP_USERNAME"),
+                        Environment.GetEnvironmentVariable("SMTP_PASSWORD")
+                    )
+                };
+                var mailMessage = new System.Net.Mail.MailMessage
+                {
+                    From = new System.Net.Mail.MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
+                    Subject = "Réinitialisation de votre mot de passe PolytechPresence",
+                    Body = body,
+                    IsBodyHtml = true
+                };
+                mailMessage.To.Add(user.Email);
+                await smtpClient.SendMailAsync(mailMessage);
+            }
+            catch { /* Ne rien faire pour la sécurité */ }
+
+            return Ok(new { message = "Si un compte existe, un mail de réinitialisation a été envoyé." });
         }
 
         private bool UserExists(int id)
