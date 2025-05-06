@@ -194,7 +194,7 @@ namespace backend.Controllers
             user.RegisterMailSent = true;
             await _context.SaveChangesAsync();
             var link = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/set-password?token={user.RegisterToken}";
-            var body = $"Bonjour {user.Firstname},<br>Pour créer votre mot de passe, cliquez sur ce lien : <a href='{link}'>Créer mon mot de passe</a><br>Ce lien expirera dans 24h.";
+            var body = $"Bonjour {user.Firstname},<br>Pour créer votre mot de passe, cliquez sur ce lien : link <br>Ce lien expirera dans 24h.";
 
             try
             {
