@@ -18,8 +18,8 @@
         autocomplete="current-password"
       />
       <button class="login-btn" @click="loginWithCredentials">Se connecter</button>
-      <router-link to="/register" class="register-link">Créer un compte</router-link>
-      <router-link to="/forgot-password" class="forgot-link">Mot de passe oublié ?</router-link>
+      <button class="redirect-btn" @click="navigateToRegister">Créer un compte</button>
+      <button class="redirect-btn" @click="navigateToForgotPassword">Mot de passe oublié ?</button>
       <div v-if="errorMessage" class="login-error">{{ errorMessage }}</div>
     </div>
   </div>
@@ -46,6 +46,13 @@ const loginWithCredentials = async () => {
     } else {
         errorMessage.value = 'Veuillez entrer votre identifiant et mot de passe.';
     }
+};
+
+const navigateToRegister = () => {
+    window.location.href = '/register';
+};
+const navigateToForgotPassword = () => {
+    window.location.href = '/forgot-password';
 };
 </script>
 
@@ -107,5 +114,24 @@ const loginWithCredentials = async () => {
   color: #e67e22;
   text-decoration: underline;
   font-size: 1rem;
+}
+.redirect-btn {
+  background: transparent;
+  color: #2c3e50;
+  border: 1px solid #2c3e50;
+  padding: 10px 28px;
+  border-radius: 30px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 14px;
+  margin-bottom: 0;
+  transition: background 0.2s, color 0.2s;
+  display: block;
+  width: 100%;
+}
+.redirect-btn:hover {
+  background: #2c3e50;
+  color: #fff;
 }
 </style>

@@ -22,7 +22,7 @@
         <div v-if="errorMessage" class="register-error">{{ errorMessage }}</div>
         <div v-if="successMessage" class="register-success">{{ successMessage }}</div>
       </div>
-      <router-link to="/login" class="back-login-link">Déjà un compte ? Se connecter</router-link>
+      <button @click="goToLogin" class="redirect-btn">Déjà un compte ? Se connecter</button>
     </div>
   </div>
 </template>
@@ -48,6 +48,10 @@ const fetchAllStudents = async () => {
     const students = await studentsStore.fetchStudents(year);
     studentsByYear.value[year] = students.sort((a, b) => a.name.localeCompare(b.name));
   }
+};
+
+const goToLogin = () => {
+  router.push('/login');
 };
 
 onMounted(async () => {
@@ -151,5 +155,24 @@ const sendRegisterMail = async () => {
 .register-form-select {
   margin-bottom: 32px;
   text-align: left;
+}
+.redirect-btn {
+  background: transparent;
+  color: #2c3e50;
+  border: 1px solid #2c3e50;
+  padding: 10px 28px;
+  border-radius: 30px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 14px;
+  margin-bottom: 0;
+  transition: background 0.2s, color 0.2s;
+  display: block;
+  width: 100%;
+}
+.redirect-btn:hover {
+  background: #2c3e50;
+  color: #fff;
 }
 </style>

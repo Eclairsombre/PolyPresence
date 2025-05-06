@@ -8,7 +8,7 @@
         <div v-if="errorMessage" class="register-error">{{ errorMessage }}</div>
         <div v-if="successMessage" class="register-success">{{ successMessage }}</div>
       </form>
-      <router-link to="/login" class="back-login-link">Retour à la connexion</router-link>
+      <button @click="goToLogin" class="redirect-btn">Retour à la connexion</button>
     </div>
   </div>
 </template>
@@ -21,6 +21,10 @@ const errorMessage = ref('');
 const successMessage = ref('');
 const loading = ref(false);
 const API_URL = import.meta.env.VITE_API_URL;
+
+const goToLogin = () => {
+  window.location.href = '/login';
+};
 
 const sendResetMail = async () => {
   errorMessage.value = '';
@@ -103,5 +107,24 @@ const sendResetMail = async () => {
   color: #3498db;
   text-decoration: underline;
   font-size: 1rem;
+}
+.redirect-btn {
+  background: transparent;
+  color: #2c3e50;
+  border: 1px solid #2c3e50;
+  padding: 10px 28px;
+  border-radius: 30px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 14px;
+  margin-bottom: 0;
+  transition: background 0.2s, color 0.2s;
+  display: block;
+  width: 100%;
+}
+.redirect-btn:hover {
+  background: #2c3e50;
+  color: #fff;
 }
 </style>
