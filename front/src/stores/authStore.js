@@ -11,136 +11,33 @@ const COOKIE_EXPIRATION_MINUTES = 30;
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null,
-    debugData: null,
-    processedTickets: null,
   }),
 
   actions: {
     initialize() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const ticket = urlParams.get("ticket");
-
-      if (ticket) {
-        this.processTicket(ticket);
-      } else {
-        this.checkSession();
-      }
+      this.checkSession();
     },
 
     login() {
       window.location.href = `${BASE_URL}/login`;
     },
 
-    logout() {
+    async logout() {
       this.user = null;
-      this.debugData = null;
       Cookies.remove("user");
-      window.location.href = `${BASE_URL}/logout`;
-    },
-
-    async processTicket(ticket) {
-      if (this.processedTickets?.includes(ticket)) {
-        return;
-      }
-
-      if (!this.processedTickets) {
-        this.processedTickets = [];
-      }
-
-      this.processedTickets.push(ticket);
-
+      const url = `${BASE_URL}/proxy?url=https://cas.univ-lyon1.fr/cas/logout`;
       try {
-        const response = await axios.get(
-          `${BASE_URL}/callback?ticket=${ticket}`
-        );
-
-        this.debugData = response.data;
-
-        if (response.data.success && response.data.user) {
-          let userData = null;
-          if (response.data.rawResponse) {
-            const data = this.parseRawData(response.data.rawResponse);
-            userData = {
-              studentId: data.user,
-              firstname: data.firstname || "N/A",
-              lastname: data.lastname || "N/A",
-              email: data.email || "N/A",
-              isAdmin: false,
-              isDelegate: false,
-            };
-          }
-          if (userData && userData.studentId) {
-            try {
-              const userApi = await axios.get(
-                `${API_URL}/User/search/${userData.studentId}`
-              );
-              if (userApi.data && userApi.data.user) {
-                userData.isDelegate = userApi.data.user.isDelegate || false;
-                userData.isAdmin = userApi.data.user.isAdmin || false;
-                userData.existsInDb = true;
-              } else {
-                console.warn(
-                  "User data is missing or malformed:",
-                  userApi.data
-                );
-                userData.isDelegate = false;
-                userData.existsInDb = false;
-              }
-            } catch (e) {
-              console.error(
-                "Erreur lors de la récupération de l'utilisateur depuis l'API:",
-                e
-              );
-              userData.isDelegate = false;
-              userData.existsInDb = false;
-            }
-          }
-          this.user = userData;
-          const encrypted = CryptoJS.AES.encrypt(
-            JSON.stringify(this.user),
-            COOKIE_SECRET
-          ).toString();
-          Cookies.set("user", encrypted, {
-            expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
-          });
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname
-          );
-        } else {
-          console.error(
-            "Échec de l'authentification:",
-            response.data.message || "Utilisateur non trouvé"
-          );
-        }
+        await fetch(url, {
+          method: "GET",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.3",
+          },
+        });
       } catch (error) {
-        console.error("Erreur lors du traitement du ticket:", error);
+        console.error("Erreur lors de la déconnexion:", error);
+        alert("Une erreur est survenue lors de la déconnexion.");
       }
-    },
-
-    parseRawData(rawData) {
-      if (!rawData)
-        return { user: null, firstname: "N/A", lastname: "N/A", email: "N/A" };
-
-      const lines = rawData.split("\n");
-      const data = {};
-
-      lines.forEach((line) => {
-        const match = line.match(/<cas:(\w+)>(.*?)<\/cas:\1>/);
-        if (match) {
-          const key = match[1];
-          const value = match[2];
-          data[key] = value;
-        }
-      });
-
-      return {
-        user: data["user"] || null,
-        firstname: data["firstname"] || "N/A",
-        lastname: data["name"] || "N/A",
-        email: data["email"] || "N/A",
-      };
     },
 
     checkSession() {
@@ -216,6 +113,131 @@ export const useAuthStore = defineStore("auth", {
         return false;
       }
     },
+    async getExecutionToken() {
+      try {
+        const url = `${BASE_URL}/proxy?url=https://cas.univ-lyon1.fr/cas/login`;
+        const response = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.3",
+          },
+        });
+        const html = await response.text();
+        const match = html.match(/name="execution" value="([^"]+)"/);
+        if (match && match[1]) {
+          return match[1];
+        } else {
+          throw new Error("Token execution non trouvé");
+        }
+      } catch (e) {
+        console.error("Erreur lors de la récupération du token execution:", e);
+        return null;
+      }
+    },
+
+    async postCasLogin(username, password) {
+      const execution = await this.getExecutionToken();
+      if (!execution)
+        throw new Error("Impossible de récupérer le token execution");
+      const formData = new URLSearchParams();
+      formData.append("username", username);
+      formData.append("password", password);
+      formData.append("execution", execution);
+      formData.append("_eventId", "submit");
+      const response = await fetch(
+        `${BASE_URL}/proxy?url=https://cas.univ-lyon1.fr/cas/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.3",
+          },
+          body: formData,
+        }
+      );
+      if (response.status === 401) {
+        throw new Error("Identifiant ou mot de passe incorrect");
+      }
+      return await response.text();
+    },
+
+    parseAndStoreUserFromCasHtml(html) {
+      const getAttr = (label) => {
+        const regex = new RegExp(
+          `<td class=\"mdc-data-table__cell\"><code><kbd>${label}</kbd></code></td>\\s*<td class=\"mdc-data-table__cell\">\\s*<code><kbd>\\[([^\\]]+)\\]</kbd></code>`,
+          "i"
+        );
+        const match = html.match(regex);
+        return match ? match[1] : null;
+      };
+      const numEtudiant = getAttr("username");
+      const nom = getAttr("name");
+      const prenom = getAttr("firstname");
+      const email = getAttr("email");
+      const user = {
+        studentId: numEtudiant,
+        firstname: prenom,
+        lastname: nom,
+        email: email,
+        isAdmin: false,
+        isDelegate: false,
+        existsInDb: undefined,
+      };
+      this.updateUserLocalStorage(user);
+      this.user = user;
+      return user;
+    },
+
+    async loginWithCredentials(username, password) {
+      if (!username || !password)
+        throw new Error("Identifiant ou mot de passe manquant");
+      try {
+        const response = await this.postCasLogin(username, password);
+        const userdata = this.parseAndStoreUserFromCasHtml(response);
+
+        // Vérification des infos essentielles
+        if (
+          !userdata ||
+          !userdata.studentId ||
+          !userdata.firstname ||
+          !userdata.lastname ||
+          !userdata.email
+        ) {
+          await this.logout();
+          throw new Error(
+            "Impossible de récupérer les informations de l'utilisateur. Connexion échouée."
+          );
+        }
+
+        try {
+          const userApi = await axios.get(
+            `${API_URL}/User/search/${userdata.studentId}`
+          );
+          if (userApi.data && userApi.data.user) {
+            userdata.isDelegate = userApi.data.user.isDelegate || false;
+            userdata.isAdmin = userApi.data.user.isAdmin || false;
+            userdata.existsInDb = true;
+          } else {
+            console.warn("User data is missing or malformed:", userApi.data);
+            userdata.isDelegate = false;
+            userdata.existsInDb = false;
+          }
+        } catch (e) {
+          console.error(
+            "Erreur lors de la récupération de l'utilisateur depuis l'API:",
+            e
+          );
+          userdata.isDelegate = false;
+          userdata.existsInDb = false;
+        }
+        this.updateUserLocalStorage(userdata);
+        return userdata;
+      } catch (error) {
+        console.error("Erreur lors de la connexion:", error);
+        throw error;
+      }
+    },
     async updateUserLocalStorage(user) {
       this.user = user;
       const encrypted = CryptoJS.AES.encrypt(
@@ -226,52 +248,5 @@ export const useAuthStore = defineStore("auth", {
         expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
       });
     },
-    async getMailPreferences() {
-      if (!this.user || !this.user.studentId) {
-        console.error("Utilisateur non connecté ou ID manquant.");
-        return null;
-      }
-
-      try {
-        const response = await axios.get(
-          `${API_URL}/MailPreferences/${this.user.studentId}`
-        );
-        return response.data;
-      } catch (error) {
-        console.error(
-          "Erreur lors de la récupération des préférences de mail:",
-          error
-        );
-        return null;
-      }
-    },
-
-    async updateMailPreferences(preferences) {
-      if (!this.user || !this.user.studentId) {
-        console.error("Utilisateur non connecté ou ID manquant.");
-        return;
-      }
-
-      try {
-        await axios.put(
-          `${API_URL}/MailPreferences/${this.user.studentId}`,
-          preferences
-        );
-      } catch (error) {
-        console.error(
-          "Erreur lors de la mise à jour des préférences de mail:",
-          error
-        );
-      }
-    },
-    async testMail(email) {
-      try {
-        await axios.post(`${API_URL}/MailPreferences/test/${email}`);
-      } catch (error) {
-        console.error("Erreur lors de l'envoi du mail de test:", error);
-        throw error;
-      }
-    },
   },
 });
-

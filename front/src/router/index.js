@@ -71,6 +71,11 @@ const routes = [
     component: AdminImportIcsPage,
     meta: { requiresAdmin: true },
   },
+  {
+    path: "/login",
+    name: "login",
+    component: () => import("../components/pages/LoginPage.vue"),
+  },
 ];
 
 const router = createRouter({

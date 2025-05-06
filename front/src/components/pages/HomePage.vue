@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import Auth from '../Auth.vue';
 import StudentsAttendanceSheetPage from '../Holder/SessionHolder.vue';
 import { useAuthStore } from '../../stores/authStore';

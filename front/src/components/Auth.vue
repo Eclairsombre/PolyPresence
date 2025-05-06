@@ -2,7 +2,7 @@
   <div class="auth-container">
     <div v-if="!userStore.user" class="auth-card">
       <p class="auth-message">Veuillez vous connecter via CAS.</p>
-      <button class="btn btn-primary" @click="userStore.login">Se connecter</button>
+      <button class="btn btn-primary" @click="goToLogin">Se connecter</button>
     </div>
     <div v-else class="auth-card">
       <p class="welcome-message">Bienvenue, {{ userStore.user.studentId }}!</p>
@@ -11,18 +11,14 @@
           Utilisateur présent dans la base de données
         </p>
         <p v-else-if="userStore.user.existsInDb === false" class="status-message error">
-          Vous n'êtes pas incrit dans la base de données. 
-          Si c'est sensé être le cas, contactez un administrateur.
+          Vous n'êtes pas inscrit dans la base de données. 
+          Si c'est censé être le cas, contactez un administrateur.
         </p>
         <p v-else class="status-message loading">
           Vérification...
         </p>
       </div>
       <button class="btn btn-secondary" @click="userStore.logout">Se déconnecter</button>
-      <div v-if="userStore.debugData" class="debug-section">
-        <h3 class="debug-title">Données de débogage:</h3>
-        <pre>{{ JSON.stringify(userStore.debugData, null, 2) }}</pre>
-      </div>
     </div>
   </div>
 </template>
@@ -30,8 +26,14 @@
 <script setup>
 import { useAuthStore } from '../stores/authStore';
 import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 const userStore = useAuthStore();
+const router = useRouter();
+
+const goToLogin = () => {
+  router.push({ name: 'login' });
+};
 
 onMounted(() => {
   userStore.initialize();
