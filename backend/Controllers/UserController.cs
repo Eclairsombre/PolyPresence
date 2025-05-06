@@ -194,7 +194,11 @@ namespace backend.Controllers
             user.RegisterMailSent = true;
             await _context.SaveChangesAsync();
             var link = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/set-password?token={user.RegisterToken}";
-            var body = $"Bonjour {user.Firstname},<br>Pour créer votre mot de passe, cliquez sur ce lien : link <br>Ce lien expirera dans 24h.";
+            var body = $"<html><body>Bonjour {user.Firstname},<br><br>" +
+                       $"Pour créer votre mot de passe, cliquez sur ce lien : <a href='{link}'>Créer mon mot de passe</a>.<br>" +
+                       $"Ce lien expirera dans 24 heures.<br><br>" +
+                       $"Si vous n'avez pas demandé ce mail, veuillez ignorer ce message.<br><br>" +
+                       $"Cordialement,<br>L'équipe PolytechPresence</body></html>";
 
             try
             {
@@ -217,6 +221,12 @@ namespace backend.Controllers
                     IsBodyHtml = true
                 };
                 mailMessage.To.Add(user.Email);
+
+                // Add headers to improve deliverability
+                // mailMessage.Headers.Add("X-Priority", "1");
+                // mailMessage.Headers.Add("X-MSMail-Priority", "High");
+                // mailMessage.Headers.Add("Importance", "High");
+
                 await smtpClient.SendMailAsync(mailMessage);
             }
             catch (Exception ex)
