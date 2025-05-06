@@ -23,8 +23,8 @@ buildNpmPackage rec {
 
   installPhase = ''
     runHook preInstall
-    mkdir -p $out/lib
-    cp -r dist/* $out/lib/
+    mkdir -p $out
+    cp -r dist/* $out/
     runHook postInstall
   '';
 
