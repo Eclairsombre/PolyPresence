@@ -61,6 +61,7 @@ namespace backend.Controllers
                 {
                     logger.LogError($"Erreur lors de l'import ICS pour {link.Url} : {ex.Message}");
                 }
+
             }
         }
 
@@ -606,13 +607,43 @@ namespace backend.Controllers
                     }
                 }
                 await _context.SaveChangesAsync();
-                return Ok(new { message = $"{createdCount} sessions importées avec succès pour l'année {model.Year}." });
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Erreur lors de l'import ICS : {ex.Message}");
                 return StatusCode(500, new { error = true, message = "Erreur lors de l'import ICS." });
             }
+
+            return await MergeSameSessions(model.Year);
+
+        }
+        public async Task<IActionResult> MergeSameSessions(string year)
+        {
+            var sessions = await _context.Sessions
+                .Where(s => s.Year == year)
+                .ToListAsync();
+
+            foreach (var session in sessions.ToList())
+            {
+                var candidateSessions = sessions
+                    .Where(s => s.Date == session.Date && s.StartTime < session.StartTime)
+                    .ToList();
+
+                var sessionBefore = candidateSessions
+                    .FirstOrDefault(s => s.EndTime == session.StartTime - TimeSpan.FromMinutes(15));
+
+                if (sessionBefore != null && session.Name == sessionBefore.Name && session.Room == sessionBefore.Room)
+                {
+                    sessionBefore.EndTime = session.EndTime;
+
+                    var attendances = _context.Attendances.Where(a => a.SessionId == session.Id);
+                    _context.Attendances.RemoveRange(attendances);
+
+                    _context.Sessions.Remove(session);
+                }
+                await _context.SaveChangesAsync();
+            }
+            return Ok(new { message = "Sessions fusionnées avec succès." });
         }
 
         public class ImportIcsModel
