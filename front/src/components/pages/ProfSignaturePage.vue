@@ -75,10 +75,8 @@
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import SignatureCreator from '../signature/SignatureCreator.vue';
-import axios from 'axios';
 import { useProfSignatureStore } from '../../stores/profSignatureStore';
 import { useSessionStore } from '../../stores/sessionStore';
-import SignatureDisplay from '../signature/SignatureDisplay.vue';
 
 const route = useRoute();
 const token = route.params.token;
@@ -90,7 +88,6 @@ const success = ref(false);
 const signaturePad = ref(null);
 const validationCode = ref('');
 const session = ref(null);
-const API_URL = import.meta.env.VITE_API_URL;
 const profSignatureStore = useProfSignatureStore();
 const sessionStore = useSessionStore();
 const attendances = ref([]);
@@ -99,7 +96,7 @@ const attendancesLoading = ref(false);
 async function loadAttendances() {
   if (!session.value?.id) return;
   attendancesLoading.value = true;
-  attendances.value = await sessionStore.getSessionAttendances(session.value.id);
+  attendances.value = (await sessionStore.getSessionAttendances(session.value.id)).sort((a, b) => a.item1.name.localeCompare(b.item1.name));
   attendancesLoading.value = false;
 }
 
