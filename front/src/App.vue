@@ -3,20 +3,14 @@
     <header class="app-header">
       <h1>PolyPresence</h1>
       <nav class="app-nav">
-        <div class="auth-btn-wrapper" v-if="!isAuthPage">
-          <button v-if="!user" class="auth-btn" @click="goToLogin">Se connecter</button>
-          <button v-else class="auth-btn" @click="logout">Se déconnecter</button>
-        </div>
-        <div>
           <router-link to="/">Accueil</router-link>
           <router-link to="/signature">Ma signature</router-link>
-        </div>
-        <div v-if="isAdmin">
-          <router-link to="/students">Étudiants</router-link>
-          <router-link to="/sessions">Sessions</router-link>
-          <router-link to="/mail-preferences">Préférences de Mail</router-link>
-          <router-link to="/admin/import-edt">Importer l'EDT</router-link>
-        </div>
+          <router-link v-if="isAdmin" to="/students">Étudiants</router-link>
+          <router-link v-if="isAdmin" to="/sessions">Sessions</router-link>
+          <router-link v-if="isAdmin" to="/mail-preferences">Préférences de Mail</router-link>
+          <router-link v-if="isAdmin" to="/admin/import-edt">Importer l'EDT</router-link>
+          <button v-if="!user" class="auth-btn" @click="goToLogin">Se connecter</button>
+          <button v-else class="auth-btn" @click="logout">Se déconnecter</button>
       </nav>
     </header>
     <main class="app-content">
@@ -102,14 +96,14 @@ body {
 
 .app-nav {
   display: flex;
-  gap: 20px;
+  gap: 10px;
   align-items: center;
 }
 
 .app-nav a {
   color: white;
   text-decoration: none;
-  padding: 5px 10px;
+  padding: 5px ;
   border-radius: 4px;
   transition: background-color 0.3s;
 }

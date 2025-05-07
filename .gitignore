@@ -1,5 +1,4 @@
 backend/bin/*
-backend/Migrations/*
 backend/obj/*
 
 .env

@@ -116,7 +116,6 @@ const toggleAdminRole = () => {
   }
 }
 
-/* Style pour le bouton de bascule admin */
 .admin-toggle {
   margin-top: 30px;
   display: flex;

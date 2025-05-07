@@ -18,7 +18,7 @@
           <p v-if="session.name" class="session-name"><strong>Nom de la session :</strong> {{ session.name }}</p>
             <div class="prof-details" v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')">
               <strong>Professeur :</strong>
-              {{ session.profFirstname }} {{ session.profName }} ({{ session.profEmail }})
+              {{ session.profFirstname }} {{ session.profName }} {{ session.profEmail ? `(${session.profEmail})` : '' }}
             </div>
             <div class="prof-details" v-else>
               <strong>Professeur :</strong> Travail personnel
