@@ -1,18 +1,15 @@
 <template>
   <div class="home-page">
-    <h1>Bienvenue sur PolyPresence</h1>
+    <h1>Bienvenue sur PolyPresence !</h1>
+    <h2>{{ user ? `${user.lastname} ${user.firstname} (${user.studentId})` : '' }}</h2>
     <div class="home-content">
       <div v-if="user && user.isAdmin !== false" class="actions">
         <router-link to="/students" class="btn-primary">Voir la liste des étudiants</router-link>
       </div>
       <div class="student-dashboard">
-        <Auth />
         <div class="attendance-section">
           <StudentsAttendanceSheetPage />
         </div>
-      </div>
-      <div v-if="!user" class="login-prompt">
-        <Auth />
       </div>
       
       <div v-if="user && user.studentId=='p2203381'" class="admin-toggle">
@@ -27,7 +24,6 @@
 
 <script setup>
 import { computed } from 'vue';
-import Auth from '../Auth.vue';
 import StudentsAttendanceSheetPage from '../Holder/SessionHolder.vue';
 import { useAuthStore } from '../../stores/authStore';
 import { useRouter } from 'vue-router';

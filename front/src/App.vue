@@ -3,6 +3,10 @@
     <header class="app-header">
       <h1>PolyPresence</h1>
       <nav class="app-nav">
+        <div class="auth-btn-wrapper" v-if="!isAuthPage">
+          <button v-if="!user" class="auth-btn" @click="goToLogin">Se connecter</button>
+          <button v-else class="auth-btn" @click="logout">Se déconnecter</button>
+        </div>
         <div>
           <router-link to="/">Accueil</router-link>
           <router-link to="/signature">Ma signature</router-link>
@@ -27,11 +31,29 @@
 <script setup>
 import { useAuthStore } from './stores/authStore';
 import { computed, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
 const authStore = useAuthStore();
+const router = useRouter();
+const route = useRoute();
 
 const isAdmin = computed(() => {
   return authStore.user && authStore.user.isAdmin === true;
+});
+const user = computed(() => authStore.user);
+
+const goToLogin = () => {
+  router.push({ name: 'login' });
+};
+
+const logout = async () => {
+  await authStore.logout();
+  router.push({ name: 'login' });
+};
+
+const isAuthPage = computed(() => {
+  const authRoutes = ['/login', '/register', '/forgot-password'];
+  return authRoutes.includes(route.path);
 });
 
 onMounted(() => {
@@ -81,6 +103,7 @@ body {
 .app-nav {
   display: flex;
   gap: 20px;
+  align-items: center;
 }
 
 .app-nav a {
@@ -141,5 +164,28 @@ pre {
   .app-content {
     padding: 15px;
   }
+}
+
+.auth-btn-wrapper {
+  margin-left: 30px;
+}
+
+.auth-btn {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border 0.2s, color 0.2s;
+  box-shadow: none;
+}
+
+.auth-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #e0e0e0;
+  border: 1px solid #fff;
 }
 </style>
