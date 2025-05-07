@@ -6,18 +6,10 @@
     </div>
     <div v-else class="auth-card">
       <p class="welcome-message">Bienvenue, {{ userStore.user.studentId }}!</p>
-      <div class="user-status">
-        <p v-if="userStore.user.existsInDb" class="status-message success">
-          Utilisateur présent dans la base de données
-        </p>
-        <p v-else-if="userStore.user.existsInDb === false" class="status-message error">
+        <p v-if="userStore.user.existsInDb === false" class="status-message error">
           Vous n'êtes pas inscrit dans la base de données. 
           Si c'est censé être le cas, contactez un administrateur.
         </p>
-        <p v-else class="status-message loading">
-          Vérification...
-        </p>
-      </div>
       <button class="btn btn-secondary" @click="userStore.logout">Se déconnecter</button>
     </div>
   </div>
