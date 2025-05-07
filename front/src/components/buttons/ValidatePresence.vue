@@ -107,4 +107,22 @@ const validatePresence = async () => {
         flex: 1;
     }
 }
+
+@media (max-width: 600px) {
+  .validate-presence-container {
+    flex-direction: column;
+    gap: 8px;
+    max-width: 98vw;
+    padding: 0 2vw;
+  }
+  .validation-input {
+    font-size: 0.98em;
+    padding: 8px;
+  }
+  .validation-button {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

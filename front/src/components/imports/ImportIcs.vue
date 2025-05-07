@@ -93,7 +93,6 @@ onMounted(fetchAll);
 </script>
 
 <style scoped>
-/* Mise en forme du CSS pour une meilleure lisibilité */
 .import-ics-container {
   max-width: 500px;
   margin: 30px auto;
@@ -243,6 +242,20 @@ onMounted(fetchAll);
     max-width: 80px;
     font-size: 0.85rem;
     padding: 4px 6px;
+  }
+  .import-ics-container {
+    padding: 8px 2vw;
+    max-width: 98vw;
+  }
+  .ics-input, .ics-year-select {
+    font-size: 0.98em;
+    padding: 8px;
+  }
+  .import-btn, .edit-btn, .delete-btn, .cancel-btn {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+    max-width: unset;
   }
 }
 </style>

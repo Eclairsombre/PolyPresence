@@ -82,7 +82,7 @@ const toggleAdminRole = () => {
   margin-top: 40px;
 }
 
-/* Styles pour les utilisateurs non-admin */
+
 .student-dashboard {
   display: flex;
   flex-direction: column;
@@ -113,6 +113,31 @@ const toggleAdminRole = () => {
   
   .attendance-section {
     padding: 15px;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-page {
+    padding: 6px;
+  }
+  .home-content {
+    margin: 18px 0;
+  }
+  .btn-primary {
+    padding: 10px 10vw;
+    font-size: 1em;
+  }
+  .attendance-section {
+    padding: 8px;
+    min-width: unset;
+    max-width: 100vw;
+  }
+  .admin-toggle {
+    margin-top: 16px;
+  }
+  .toggle-button {
+    padding: 8px 10px;
+    font-size: 0.95em;
   }
 }
 

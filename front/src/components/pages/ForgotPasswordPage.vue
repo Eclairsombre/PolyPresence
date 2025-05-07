@@ -37,7 +37,6 @@ const sendResetMail = async () => {
     const response = await axios.post(`${API_URL}/User/forgot-password`, {
       studentNumber: studentNumber.value,
     });
-    // Gestion du message de retour même si status 200
     const msg = response?.data?.message || '';
     if (msg.includes('déjà été envoyé')) {
       errorMessage.value = "Un mail de réinitialisation a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande.";
@@ -129,5 +128,20 @@ const sendResetMail = async () => {
 .redirect-btn:hover {
   background: #2c3e50;
   color: #fff;
+}
+
+@media (max-width: 600px) {
+  .forgot-password-container {
+    padding: 18px 4vw;
+  }
+  .register-btn, .redirect-btn {
+    padding: 10px 0;
+    font-size: 1em;
+    width: 100%;
+  }
+  .register-input {
+    padding: 10px;
+    font-size: 0.98em;
+  }
 }
 </style>

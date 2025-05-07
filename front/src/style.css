@@ -77,3 +77,27 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+@media (max-width: 600px) {
+  body {
+    padding: 0 2vw;
+    min-width: unset;
+    min-height: 100vh;
+    flex-direction: column;
+    place-items: unset;
+  }
+  #app {
+    padding: 0.5rem;
+    max-width: 100vw;
+  }
+  h1 {
+    font-size: 2em;
+  }
+  .card {
+    padding: 1em;
+  }
+  button {
+    font-size: 0.95em;
+    padding: 0.5em 0.8em;
+  }
+}

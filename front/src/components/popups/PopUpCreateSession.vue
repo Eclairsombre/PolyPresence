@@ -253,4 +253,22 @@ async function handleSubmit() {
     padding: 18px 6vw 18px 6vw;
   }
 }
+@media (max-width: 600px) {
+  .modal-content {
+    padding: 10px 2vw;
+    min-width: unset;
+    width: 98vw;
+  }
+  .session-form {
+    gap: 8px;
+  }
+  .form-group label, .form-control {
+    font-size: 0.98em;
+  }
+  .submit-button, .cancel-button {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

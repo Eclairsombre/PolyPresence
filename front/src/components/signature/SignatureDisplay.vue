@@ -87,4 +87,19 @@
   .edit-button:hover {
     background-color: #2980b9;
   }
+
+  @media (max-width: 600px) {
+    .signature-image {
+      max-height: 60px;
+    }
+    .no-signature-placeholder {
+      height: 40px;
+      font-size: 0.95em;
+    }
+    .edit-button {
+      width: 100%;
+      padding: 8px 0;
+      font-size: 1em;
+    }
+  }
   </style>

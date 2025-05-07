@@ -564,7 +564,30 @@ export default defineComponent({
   }
 }
 
-/* Ajout des styles pour la section d'export */
+@media (max-width: 600px) {
+  .sessions-list {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .session-card {
+    font-size: 0.98em;
+    padding: 0;
+  }
+  .session-header, .session-details {
+    padding: 8px;
+  }
+  .session-form-container {
+    padding: 8px;
+  }
+  .form-group label, .form-control {
+    font-size: 0.98em;
+  }
+  .export-section {
+    padding: 8px;
+    font-size: 0.95em;
+  }
+}
+
 .export-section {
   margin-bottom: 20px;
   padding: 15px;

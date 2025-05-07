@@ -225,4 +225,23 @@ button[type="submit"]:hover,
   color: #0c5460;
   border: 1px solid #bee5eb;
 }
+
+@media (max-width: 600px) {
+  .mail-preferences-page {
+    padding: 8px 2vw;
+    max-width: 98vw;
+  }
+  .form-group label, input[type="email"], .days-buttons button {
+    font-size: 0.98em;
+  }
+  .days-buttons {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  button[type="submit"], .test-mail-button {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

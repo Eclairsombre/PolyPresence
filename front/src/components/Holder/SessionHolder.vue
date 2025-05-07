@@ -280,7 +280,7 @@ watch(() => authStore.user, (newUser, oldUser) => {
     color: #3b5bdb;
 }
 
-/* Informations de session */
+
 .session-content {
     margin-top: 20px;
 }
@@ -369,7 +369,7 @@ watch(() => authStore.user, (newUser, oldUser) => {
     text-decoration: underline;
 }
 
-/* Zone de validation de présence */
+
 .validate-presence {
     margin-top: 20px;
     padding: 20px;

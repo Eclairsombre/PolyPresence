@@ -117,4 +117,19 @@
 .delete-btn:hover {
   background-color: #c0392b;
 }
+
+@media (max-width: 600px) {
+  .popup-content {
+    padding: 8px 2vw;
+    max-width: 98vw;
+  }
+  .popup-header h2 {
+    font-size: 1.1rem;
+  }
+  .cancel-btn, .delete-btn {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

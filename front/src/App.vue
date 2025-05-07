@@ -58,7 +58,6 @@ onMounted(() => {
 </script>
 
 <style>
-/* Style global */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -72,7 +71,6 @@ body {
   background-color: #f5f7fa;
 }
 
-/* Styles spécifiques à l'application */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -129,7 +127,6 @@ body {
   margin-top: auto;
 }
 
-/* Style des débogages réutilisable */
 .debug-section {
   margin-top: 30px;
   padding: 15px;
@@ -149,7 +146,7 @@ pre {
   font-size: 0.9rem;
 }
 
-/* Media queries pour la responsivité */
+
 @media (max-width: 768px) {
   .app-header h1 {
     font-size: 1.5rem;
@@ -157,6 +154,30 @@ pre {
   
   .app-content {
     padding: 15px;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 8px;
+  }
+  .app-header h1 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+  .app-nav {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .app-content {
+    padding: 6px;
+    margin-top: 10px;
+  }
+  .app-footer {
+    padding: 8px;
+    font-size: 0.8rem;
   }
 }
 

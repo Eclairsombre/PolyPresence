@@ -189,4 +189,16 @@ onMounted(loadSignature);
     gap: 15px;
   }
 }
+
+@media (max-width: 600px) {
+  .signature-container {
+    padding: 8px 2vw;
+  }
+  .signature-content {
+    gap: 12px;
+  }
+  .current-signature, .signature-editor {
+    padding: 8px 2vw;
+  }
+}
 </style>

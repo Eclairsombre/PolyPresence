@@ -82,14 +82,12 @@ namespace backend.Controllers
             }
         }
 
-        // GET: api/Session
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Session>>> GetSessions()
         {
             return await _context.Sessions.ToListAsync();
         }
 
-        // GET: api/Session/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Session>> GetSession(int id)
         {
@@ -103,7 +101,6 @@ namespace backend.Controllers
             return session;
         }
 
-        // GET: api/Session/year/3A
         [HttpGet("year/{year}")]
         public async Task<ActionResult<IEnumerable<Session>>> GetSessionsByYear(string year)
         {
@@ -119,11 +116,9 @@ namespace backend.Controllers
             return sessions;
         }
 
-        // POST: api/Session
         [HttpPost]
         public async Task<ActionResult<Session>> PostSession(Session session)
         {
-            // Générer un token unique pour la signature du prof
             session.ProfSignatureToken = Guid.NewGuid().ToString();
             _context.Sessions.Add(session);
             await _context.SaveChangesAsync();
@@ -131,7 +126,6 @@ namespace backend.Controllers
             return CreatedAtAction(nameof(GetSession), new { id = session.Id }, session);
         }
 
-        // GET: api/Session/prof-signature/{token}
         [HttpGet("prof-signature/{token}")]
         public async Task<ActionResult<Session>> GetSessionByProfSignatureToken(string token)
         {
@@ -143,7 +137,6 @@ namespace backend.Controllers
             return session;
         }
 
-        // POST: api/Session/prof-signature/{token}
         [HttpPost("prof-signature/{token}")]
         public async Task<IActionResult> SaveProfSignature(string token, [FromBody] SignatureModel signatureData)
         {
@@ -161,7 +154,6 @@ namespace backend.Controllers
             return Ok(new { message = "Signature du professeur enregistrée avec succès." });
         }
 
-        // PUT: api/Session/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutSession(int id, Session session)
         {
@@ -191,7 +183,6 @@ namespace backend.Controllers
             return NoContent();
         }
 
-        // DELETE: api/Session/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSession(int id)
         {
@@ -201,7 +192,6 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            // Suppression des attendances associées à la session
             var attendances = _context.Attendances.Where(a => a.SessionId == id);
             _context.Attendances.RemoveRange(attendances);
 
@@ -217,12 +207,10 @@ namespace backend.Controllers
             var today = DateTime.Today;
             var now = DateTime.Now.TimeOfDay;
 
-            // On filtre côté SQL sur l'année et la date exacte (en ignorant l'heure)
             var sessionsToday = await _context.Sessions
                 .Where(s => s.Year == year && s.Date == today)
                 .ToListAsync();
 
-            // On filtre côté C# sur l'heure
             var currentSession = sessionsToday
                 .FirstOrDefault(s => s.StartTime <= now && s.EndTime >= now);
 
@@ -234,7 +222,6 @@ namespace backend.Controllers
             return currentSession;
         }
 
-        // POST: api/Session/5/students
         [HttpPost("{sessionId}/student/{studentNumber}")]
         public async Task<IActionResult> AddStudentsToSession(int sessionId, string studentNumber)
         {
@@ -435,7 +422,6 @@ namespace backend.Controllers
             return Ok(sessions);
         }
 
-        // POST: api/Session/{sessionId}/set-prof-email
         [HttpPost("{sessionId}/set-prof-email")]
         public async Task<IActionResult> SetProfEmail(int sessionId, [FromBody] SetProfEmailModel model)
         {
@@ -454,7 +440,6 @@ namespace backend.Controllers
             return Ok(new { message = "Email du professeur enregistré et mail envoyé." });
         }
 
-        // POST: api/Session/{sessionId}/resend-prof-mail
         [HttpPost("{sessionId}/resend-prof-mail")]
         public async Task<IActionResult> ResendProfMail(int sessionId)
         {
@@ -465,7 +450,6 @@ namespace backend.Controllers
             return Ok(new { message = "Mail renvoyé au professeur." });
         }
 
-        // POST: api/Session/import-ics
         [HttpPost("import-ics")]
         public async Task<IActionResult> ImportIcs([FromBody] ImportIcsModel model)
         {

@@ -265,4 +265,21 @@ tr:hover {
 .delete-btn:hover {
     background-color: #c0392b;
 }
+
+@media (max-width: 600px) {
+  table, thead, tbody, th, td, tr {
+    display: block;
+    width: 100%;
+  }
+  th, td {
+    padding: 8px 4px;
+    font-size: 0.98em;
+  }
+  .edit-btn, .delete-btn {
+    width: 100%;
+    margin: 4px 0 0 0;
+    font-size: 0.95em;
+    padding: 8px 0;
+  }
+}
 </style>

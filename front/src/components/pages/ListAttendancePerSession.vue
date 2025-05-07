@@ -368,4 +368,28 @@ export default defineComponent({
     min-width: 600px;
   }
 }
+
+@media (max-width: 600px) {
+  .attendance-page {
+    padding: 4px;
+  }
+  .header-section {
+    gap: 4px;
+  }
+  .attendance-table-wrapper {
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .attendance-table {
+    min-width: 400px;
+    font-size: 0.95em;
+  }
+  .attendance-table th, .attendance-table td {
+    padding: 6px 4px;
+  }
+  .back-button, .export-button {
+    padding: 8px 8px;
+    font-size: 0.95em;
+  }
+}
 </style>

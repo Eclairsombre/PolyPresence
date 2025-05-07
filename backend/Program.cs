@@ -4,9 +4,7 @@ using Microsoft.AspNetCore.Http;
 using backend;
 
 var builder = WebApplication.CreateBuilder(args);
-// Ajouter avant de construire l'application
 builder.Logging.AddConsole();
-// Ajouter la prise en charge des sessions
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -18,7 +16,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
-        options.JsonSerializerOptions.MaxDepth = 64; // (optionnel, augmente la profondeur max)
+        options.JsonSerializerOptions.MaxDepth = 64; 
     });
 DotNetEnv.Env.Load();
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -68,17 +66,14 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
 }
 
-// Configure middleware
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-// Activer CORS
 app.UseCors("AllowVue");
 
 
-// Activer la session avant UseRouting
 app.UseSession();
 
 app.UseRouting();

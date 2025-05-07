@@ -27,14 +27,12 @@ namespace backend.Controllers
         }
 
 
-        // GET: api/User
         [HttpGet]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
             return await _context.Users.ToListAsync();
         }
 
-        // GET: api/User/5
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> GetUser(int id)
         {
@@ -48,7 +46,6 @@ namespace backend.Controllers
             return user;
         }
 
-        // GET: api/User/search/{studentNumber}
         [HttpGet("search/{studentNumber}")]
         public async Task<ActionResult<object>> SearchUserByNumber(string studentNumber)
         {
@@ -63,7 +60,6 @@ namespace backend.Controllers
             return new { exists = true, user };
         }
 
-        // GET: api/User/IsUserAdmin/{username}
         [HttpGet("IsUserAdmin/{username}")]
         public IActionResult IsUserAdmin(string username)
         {
@@ -71,7 +67,6 @@ namespace backend.Controllers
             return Ok(new { IsAdmin = isAdmin });
         }
 
-        // POST: api/User
         [HttpPost]
         public async Task<ActionResult<User>> PostUser(User user)
         {
@@ -101,7 +96,6 @@ namespace backend.Controllers
             return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
         }
 
-        // PUT: api/User/5
         [HttpPut("{studentNumber}")]
         public async Task<IActionResult> PutUser(string studentNumber, User user)
         {
@@ -137,7 +131,6 @@ namespace backend.Controllers
             return NoContent();
         }
 
-        // DELETE: api/User/5
         [HttpDelete("{studentNumber}")]
         public async Task<IActionResult> DeleteUser(string studentNumber)
         {
@@ -229,10 +222,7 @@ namespace backend.Controllers
                 };
                 mailMessage.To.Add(user.Email);
 
-                // Add headers to improve deliverability
                 mailMessage.Headers.Add("X-Priority", "1");
-                // mailMessage.Headers.Add("X-MSMail-Priority", "High");
-                // mailMessage.Headers.Add("Importance", "High");
 
                 await smtpClient.SendMailAsync(mailMessage);
             }
@@ -290,7 +280,6 @@ namespace backend.Controllers
         public async Task<IActionResult> ForgotPassword([FromBody] RegisterLinkRequest request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == "p2203381");
-            // Toujours répondre OK pour la sécurité, même si l'utilisateur n'existe pas
             if (user == null || string.IsNullOrEmpty(user.Email))
                 return Ok(new { message = "Pas de data suffisante." });
             if (user.RegisterTokenExpiration < DateTime.UtcNow)

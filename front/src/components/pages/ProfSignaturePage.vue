@@ -212,7 +212,7 @@ const submitSignature = async () => {
   transition: box-shadow 0.2s;
 }
 .fancy-validation-code::before {
-  content: '\1F511'; /* Icône cadenas */
+  content: '\1F511';
   font-size: 1.1em;
   margin-right: 8px;
   color: #f7c948;
@@ -393,6 +393,24 @@ input[type="text"]:focus {
   .attendances, .prof-signature-form {
     min-width: unset;
     width: 100%;
+  }
+}
+@media (max-width: 600px) {
+  .prof-signature-page {
+    padding: 8px 2vw;
+  }
+  .prof-content-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .prof-signature-form, .attendances {
+    padding: 8px 2vw;
+    min-width: unset;
+    width: 100%;
+  }
+  .attendances-table th, .attendances-table td {
+    padding: 6px 4px;
+    font-size: 0.98em;
   }
 }
 </style>

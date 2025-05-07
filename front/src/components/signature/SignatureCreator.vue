@@ -160,4 +160,21 @@
     background-color: #a0cbeb;
     cursor: not-allowed;
   }
+
+  @media (max-width: 600px) {
+    .signature-creator-container {
+      gap: 4px;
+    }
+    .signature-pad {
+      height: 60px;
+    }
+    .signature-actions {
+      gap: 4px;
+    }
+    .clear-button, .save-button {
+      width: 100%;
+      padding: 8px 0;
+      font-size: 1em;
+    }
+  }
   </style>

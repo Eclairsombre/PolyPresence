@@ -153,4 +153,19 @@ export default {
 .cancel-button:hover {
     background-color: #5a6268;
 }
+
+@media (max-width: 600px) {
+  .popup-content {
+    padding: 8px 2vw;
+    max-width: 98vw;
+  }
+  .popup-header h2 {
+    font-size: 1.1rem;
+  }
+  .cancel-button {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

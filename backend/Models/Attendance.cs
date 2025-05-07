@@ -14,7 +14,7 @@ namespace backend.Models
         public int SessionId { get; set; }
         public Session Session { get; set; } = null!;
         public int StudentId { get; set; }
-        public User User { get; set; } = null!; // Propriété de navigation ajoutée
+        public User User { get; set; } = null!; 
         public AttendanceStatus Status { get; set; }
     }
 }

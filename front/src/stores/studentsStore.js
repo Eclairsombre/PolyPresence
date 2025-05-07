@@ -66,7 +66,6 @@ export const useStudentsStore = defineStore("students", {
         const response = await axios.delete(
           `${API_URL}/User/${encodeURIComponent(studentNumber)}`
         );
-        // Le statut 204 (NoContent) est souvent renvoyé pour les suppressions réussies
         if (response.status === 204 || response.status === 200) {
           this.students = this.students.filter(
             (student) => student.studentNumber !== studentNumber
@@ -77,13 +76,10 @@ export const useStudentsStore = defineStore("students", {
       } catch (error) {
         console.error("Erreur lors de la suppression de l'étudiant:", error);
 
-        // Si l'erreur est une 404, cela signifie que l'étudiant n'existe pas
-        // On considère donc que c'est un succès (l'étudiant n'est plus là)
         if (axios.isAxiosError(error) && error.response?.status === 404) {
           return true;
         }
 
-        // Log plus détaillé en cas d'erreur 400
         if (axios.isAxiosError(error) && error.response?.status === 400) {
           console.error("Détails de l'erreur 400:", error.response.data);
         }

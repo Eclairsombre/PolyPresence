@@ -89,4 +89,20 @@
 .popup-content button:first-child:hover {
   background: #c0392b;
 }
+
+@media (max-width: 600px) {
+  .popup-content.warning {
+    padding: 10px 2vw;
+    min-width: unset;
+    max-width: 98vw;
+  }
+  .popup-content h2 {
+    font-size: 1.1rem;
+  }
+  .popup-actions button {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

@@ -156,4 +156,15 @@ input[type="file"] {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+@media (max-width: 600px) {
+  .file-upload-container {
+    max-width: 98vw;
+    padding: 0 2vw;
+  }
+  .file-upload-label {
+    font-size: 0.98em;
+    padding: 10px 0;
+  }
+}
 </style>

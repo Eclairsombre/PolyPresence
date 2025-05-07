@@ -273,4 +273,23 @@ export default {
   border-radius: 4px;
   border-left: 3px solid #2ecc71;
 }
+
+@media (max-width: 600px) {
+  .popup-content {
+    padding: 8px 2vw;
+    max-width: 98vw;
+  }
+  .popup-header h2 {
+    font-size: 1.1rem;
+  }
+  .form-group input {
+    font-size: 0.98em;
+    padding: 8px;
+  }
+  .cancel-btn, .submit-btn {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

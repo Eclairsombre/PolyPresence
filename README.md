@@ -1,22 +1,85 @@
-- Faire affichage complet de la fiche (signature ?) -> FAIT
-- Faire export PDF -> FAIT
-- acces au différentes fiches de présence -> Fait
-- AJouter filtre sur la date -> FAIT
-- téléchargement de toute les fiches pour une période de temps -> Fait partiellement pas sur une ppériode donnée mais surement auto avec le filtre -> FAIT
-- Trier par ordre alphbéthique sur l'affichage des éleves -> FAIT
-- prendre en compte si il n'y a pas de session en cours -> FAIT
-- check si c'est un admin sur chaque page -> FAIT
-- Envoi de la fiche en pdf à la fin de la journée -> tout les jours ? -> choix du jour -> Option enregistré mais voir comment faire l'envoi de mail -> Fait
-- Trouver comment faire signer au prof-> FAIT
-- Check si l'user est présent dans la bd sur chaque page -> FAIT
-- AJouter gestion délégué -> FAIT
-- Gestion du code de session -> a qui l'envoyer ? prof mais peut etre visible direct par les délégué en cas de bug/ travail perso ? -> FAIT
-- Encrypter la data dans le localstorage + temps de session-> FAIT (a tester temps de session)
-- import edt pour création auto des sessions - FAIT
-- ajouter si travail perso -> pas de signature de prof -> FAIT
+# PolyPresence
+
+PolyPresence est une application de gestion de présence pour Polytech Lyon, composée d’un backend .NET (C#) et d’un frontend en Vue.
+
+## Fonctionnalités principales
+- Gestion des utilisateurs et des présences
+- Gestion et utilisation de liens ICS (calendrier)
+- Gestion d'envoi de mail
+- Export PDF (QuestPDF, iText)
+- API RESTful (ASP.NET Core)
+- Base de données SQLite
+
+## Structure du projet
+
+```
+PolyPresence/
+│
+├── backend/         # Backend .NET (API, services, modèles, migrations)
+│   ├── Controllers/
+│   ├── Data/
+│   ├── Models/
+│   ├── Services/
+│   ├── Migrations/
+│   └── ...
+│
+└── front/           # Frontend (Vite.js, React ou autre)
+    ├── src/
+    ├── public/
+    └── ...
+```
+
+## Prérequis
+- .NET 9 SDK
+- Node.js (pour le frontend)
+- SQLite (inclus)
+
+## Configuration des fichiers .env
+
+### Exemple de `backend/.env`
+```
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=
+FRONTEND_URL=
+SMTP_HOST=
+SMTP_PORT=
+STORAGE_PATH=
+```
+
+### Exemple de `front/.env`
+```
+VITE_API_URL=
+VITE_BASE_URL=
+VITE_COOKIE_SECRET=
+```
 
 
-- refactor code -> FAit
+## Installation et lancement
+
+### Backend
+```bash
+cd backend
+# Vérifiez/complétez le fichier .env
+# Restaurez et lancez le projet
+ dotnet restore
+ dotnet build
+ dotnet run
+```
+
+### Frontend
+```bash
+cd front
+# Vérifiez/complétez le fichier .env
+npm install
+npm run dev
+```
+
+## Accès
+- Frontend : http://localhost:5173
+- Backend : http://localhost:5020/api
 
 
-- Stocker data au cas de bug de la bd -> Peut etre pas nécéssaire car envoi de mail auto ? -> A voir plus tard
+## Licence
+Projet académique – usage interne Polytech.
+

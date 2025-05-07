@@ -59,4 +59,20 @@
   border-radius: 4px;
   cursor: pointer;
 }
+
+@media (max-width: 600px) {
+  .popup-content {
+    padding: 10px 2vw;
+    max-width: 98vw;
+  }
+  .actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .confirm-btn, .cancel-btn {
+    width: 100%;
+    padding: 8px 0;
+    font-size: 1em;
+  }
+}
 </style>

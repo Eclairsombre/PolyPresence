@@ -175,4 +175,19 @@ const sendRegisterMail = async () => {
   background: #2c3e50;
   color: #fff;
 }
+
+@media (max-width: 600px) {
+  .register-btn, .redirect-btn {
+    padding: 10px 0;
+    font-size: 1em;
+    width: 100%;
+  }
+  .register-input {
+    padding: 10px;
+    font-size: 0.98em;
+  }
+  .students-list-register {
+    margin-top: 18px;
+  }
+}
 </style>

@@ -66,4 +66,18 @@ p {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
+
+@media (max-width: 600px) {
+  .error-container {
+    padding: 18px 4vw;
+  }
+  .home-button {
+    width: 100%;
+    padding: 10px 0;
+    font-size: 1em;
+  }
+  .error-code {
+    font-size: 4rem;
+  }
+}
 </style>
