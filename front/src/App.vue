@@ -1,7 +1,10 @@
 <template>
   <div class="app-container">
     <header class="app-header">
-      <h1>PolyPresence</h1>
+      <div class="header-left">
+        <img src="/polytech-logo.png" alt="Logo PolyPresence" class="header-logo" />
+        <h1>PolyPresence</h1>
+      </div>
       <nav class="app-nav">
           <router-link to="/">Accueil</router-link>
           <router-link to="/signature">Ma signature</router-link>
@@ -202,5 +205,18 @@ pre {
   background: rgba(255,255,255,0.08);
   color: #e0e0e0;
   border: 1px solid #fff;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-logo {
+  height: 44px;
+  width: 44px;
+  border-radius: 12px;
+  background: transparent;
+  object-fit: contain;
 }
 </style>
