@@ -41,7 +41,14 @@ namespace backend.Controllers
         private DateTime GetNextSessionExecutionTime()
         {
             var now = DateTime.Now;
-            var target = new DateTime(now.Year, now.Month, now.Day, 1, 0, 0);
+            var target = new DateTime(
+                now.Year,
+                now.Month,
+                now.Day,
+                int.Parse(Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_HOUR") ?? "0"),
+                int.Parse(Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_MINUTE") ?? "0"),
+                int.Parse(Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_SECOND") ?? "0")
+            );
             if (now > target) target = target.AddDays(1);
             return target;
         }
@@ -525,8 +532,9 @@ namespace backend.Controllers
                         {
                             var oldAttendances = _context.Attendances.Where(a => a.SessionId == existingSession.Id);
                             _context.Attendances.RemoveRange(oldAttendances);
+                            await _context.SaveChangesAsync(); // Sauvegarde après suppression des attendances
                             _context.Sessions.Remove(existingSession);
-                            await _context.SaveChangesAsync();
+                            await _context.SaveChangesAsync(); // Sauvegarde après suppression de la session
                         }
                         else
                         {
@@ -543,9 +551,10 @@ namespace backend.Controllers
                     {
                         var attendances = _context.Attendances.Where(a => a.SessionId == overlap.Id);
                         _context.Attendances.RemoveRange(attendances);
+                        await _context.SaveChangesAsync(); // Sauvegarde après suppression des attendances
                         _context.Sessions.Remove(overlap);
+                        await _context.SaveChangesAsync(); // Sauvegarde après suppression de la session
                     }
-                    await _context.SaveChangesAsync();
 
                     var session = new Session
                     {
@@ -559,9 +568,6 @@ namespace backend.Controllers
                         Room = room,
                         ProfSignatureToken = Guid.NewGuid().ToString(),
                         ValidationCode = new Random().Next(1000, 9999).ToString(),
-                        //ProfEmail = !string.IsNullOrWhiteSpace(profName) && !string.IsNullOrWhiteSpace(profFirstname)
-                        //    ? $"{profFirstname.ToLower()}.{profName.ToLower()}@univ-lyon1.fr"
-                        //    : ""
                     };
                     _context.Sessions.Add(session);
                     await _context.SaveChangesAsync();
@@ -587,10 +593,11 @@ namespace backend.Controllers
                     {
                         var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
                         _context.Attendances.RemoveRange(attendances);
+                        await _context.SaveChangesAsync(); // Sauvegarde après suppression des attendances
                         _context.Sessions.Remove(oldSession);
+                        await _context.SaveChangesAsync(); // Sauvegarde après suppression de la session
                     }
                 }
-                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
