@@ -44,7 +44,14 @@ namespace backend.Controllers
         private DateTime GetNextExecutionTime()
         {
             var now = DateTime.Now;
-            var target = new DateTime(now.Year, now.Month, now.Day, 20, 0, 0);
+            var target = new DateTime(
+                now.Year,
+                now.Month,
+                now.Day,
+                int.Parse(Environment.GetEnvironmentVariable("MAIL_SENT_HOUR") ?? "0"),
+                int.Parse(Environment.GetEnvironmentVariable("MAIL_SENT_MINUTE") ?? "0"),
+                int.Parse(Environment.GetEnvironmentVariable("MAIL_SENT_SECOND") ?? "0")
+            );
             if (now > target) target = target.AddDays(1);
             return target;
         }
@@ -75,79 +82,129 @@ namespace backend.Controllers
                     page.Margin(20);
                     page.DefaultTextStyle(x => x.FontSize(12));
 
-                    page.Header().Text("Liste de présence")
-                    .SemiBold().FontSize(20).AlignCenter();
+                    // En-tête coloré et centré
+                    page.Header().Background("#f6f8fa").Padding(10).Column(headerCol =>
+                    {
+                        headerCol.Item().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50").AlignCenter();
+                    });
 
                     page.Content().Column(column =>
                     {
                         var dateStr = session.Date.ToString("dddd dd MMMM yyyy", new CultureInfo("fr-FR"));
                         var horaires = $"{session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm}";
 
-                        column.Item().Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
-                        column.Item().Text($"Nom de la session : {session.Name}").FontSize(12).Italic();
-                        column.Item().Text($"Horaires : {horaires}").FontSize(12);
-
-                        column.Item().Table(table =>
-                    {
-                        table.ColumnsDefinition(columns =>
+                        // Bloc infos session
+                        column.Item().Background("#f8f9fa").Padding(10).Border(1).BorderColor("#e0e4ea").Column(infoCol =>
                         {
-                            columns.ConstantColumn(30);
-                            columns.RelativeColumn();
-                            columns.RelativeColumn();
-                            columns.RelativeColumn();
-                            columns.RelativeColumn();
-                        });
-
-                        table.Header(header =>
-                        {
-                            header.Cell().Element(CellStyle).Text("N°");
-                            header.Cell().Element(CellStyle).Text("Nom");
-                            header.Cell().Element(CellStyle).Text("Prénom");
-                            header.Cell().Element(CellStyle).Text("Présent/Absent");
-                            header.Cell().Element(CellStyle).Text("Signature");
-                        });
-
-                        int idx = 1;
-                        foreach (var (student, status) in attendances)
-                        {
-                            table.Cell().Element(CellStyle).Text(idx.ToString());
-                            table.Cell().Element(CellStyle).Text(student.Name);
-                            table.Cell().Element(CellStyle).Text(student.Firstname);
-                            table.Cell().Element(CellStyle).Text(status == 0 ? "Présent" : "Absent");
-
-                            if (status == 0 && !string.IsNullOrEmpty(student.Signature))
+                            infoCol.Item().Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
+                            if (!string.IsNullOrWhiteSpace(session.Name))
+                                infoCol.Item().Text($"Nom de la session : {session.Name}").FontSize(12).Italic();
+                            infoCol.Item().Text($"Horaires : {horaires}").FontSize(12);
+                            infoCol.Item().Text($"Salle : {session.Room}").FontSize(12);
+                            infoCol.Item().Text("");
+                            infoCol.Item().Text($"Professeur : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
+                            // Signature du prof
+                            if (!string.IsNullOrWhiteSpace(session.ProfSignature))
                             {
-                                string base64 = student.Signature;
+                                var base64 = session.ProfSignature;
                                 if (base64.StartsWith("data:image"))
                                 {
                                     var base64Data = base64.Substring(base64.IndexOf(",") + 1);
                                     try
                                     {
                                         byte[] imageBytes = Convert.FromBase64String(base64Data);
-                                        table.Cell().Element(CellStyle).Image(imageBytes);
+                                        infoCol.Item().Row(row =>
+                                        {
+                                            row.RelativeItem().Text("Signature :").FontSize(12);
+                                            row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
+                                        });
                                     }
                                     catch
                                     {
-                                        table.Cell().Element(CellStyle).Text("Erreur image");
+                                        infoCol.Item().Text("Signature du professeur : Erreur image");
                                     }
                                 }
                                 else
                                 {
-                                    table.Cell().Element(CellStyle).Text("Format inconnu");
+                                    infoCol.Item().Text("Signature du professeur : Format inconnu");
                                 }
                             }
                             else
                             {
-                                table.Cell().Element(CellStyle).Text(string.Empty);
+                                infoCol.Item().Text(text =>
+                                {
+                                    text.Span("Signature du professeur : ").Italic().FontColor("#888");
+                                    text.Span("Non signée");
+                                });
                             }
-                            idx++;
-                        }
-                    });
+                        });
+
+                        column.Item().PaddingTop(15);
+
+                        // Tableau des présences
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(30); // N°
+                                columns.RelativeColumn(); // Nom
+                                columns.RelativeColumn(); // Prénom
+                                columns.RelativeColumn(); // Présent/Absent
+                                columns.RelativeColumn(); // Signature
+                            });
+
+                            table.Header(header =>
+                            {
+                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("N°");
+                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Nom");
+                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Prénom");
+                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Présent/Absent");
+                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Signature");
+                            });
+
+                            var sortedAttendances = attendances.OrderBy(a => a.User.Name).ToList();
+                            int idx = 1;
+                            foreach (var (student, status) in sortedAttendances)
+                            {
+                                table.Cell().Element(CellStyle).Text(idx.ToString());
+                                table.Cell().Element(CellStyle).Text(student.Name);
+                                table.Cell().Element(CellStyle).Text(student.Firstname);
+                                var isPresent = status == 0;
+                                table.Cell().Element(CellStyle).Text(isPresent ? "Présent" : "Absent").FontColor(isPresent ? "#27ae60" : "#c0392b");
+
+                                if (isPresent && !string.IsNullOrEmpty(student.Signature))
+                                {
+                                    string base64 = student.Signature;
+                                    if (base64.StartsWith("data:image"))
+                                    {
+                                        var base64Data = base64.Substring(base64.IndexOf(",") + 1);
+                                        try
+                                        {
+                                            byte[] imageBytes = Convert.FromBase64String(base64Data);
+                                            table.Cell().Element(CellStyle).Element(container => container.Height(30).Image(imageBytes));
+                                        }
+                                        catch
+                                        {
+                                            table.Cell().Element(CellStyle).Text("Erreur image");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        table.Cell().Element(CellStyle).Text("Format inconnu");
+                                    }
+                                }
+                                else
+                                {
+                                    table.Cell().Element(CellStyle).Text(string.Empty);
+                                }
+                                idx++;
+                            }
+                        });
                     });
 
                     page.Footer().AlignCenter().Text(x =>
                     {
-                        x.Span("Generated on ").FontSize(10);
+                        x.Span("Généré le ").FontSize(10);
                         x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(10);
                     });
                 });
@@ -169,35 +226,32 @@ namespace backend.Controllers
 
         public async Task GenerateAndSendZip()
         {
-            _logger.LogInformation("Début de la génération et de l'envoi du ZIP des feuilles de présence.");
 
             var usersWithPrefs = _context.Users
                 .Include(u => u.MailPreferences)
                 .Where(u => u.MailPreferences != null && u.MailPreferences.Active)
                 .ToList();
 
-            _logger.LogInformation($"Nombre d'utilisateurs avec préférences de mail : {usersWithPrefs.Count}");
 
             foreach (var user in usersWithPrefs)
             {
                 var prefs = user.MailPreferences;
                 var today = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", new CultureInfo("fr-FR")));
-                _logger.LogInformation($"Préférences de mail pour l'utilisateur {user.StudentNumber} : {prefs.EmailTo}, jours : {string.Join(", ", prefs.Days)}");
-                _logger.LogInformation($"Jour d'aujourd'hui : {today}");
                 if (!prefs.Days.Contains(today)) continue;
-                _logger.LogInformation($"L'utilisateur {user.StudentNumber} a choisi de recevoir le mail aujourd'hui.");
 
                 var sessions = _context.Sessions
-                    .Where(s => !_context.SessionSentToUsers.Any(ssu => ssu.SessionId == s.Id && ssu.UserId == user.Id))
+                    .Where(s => !_context.SessionSentToUsers.Any(ssu => ssu.SessionId == s.Id && ssu.UserId == user.Id) &&
+                                s.Date <= DateTime.Now)
                     .ToList();
 
-                if (!sessions.Any()) continue;
+                if (sessions.Count == 0) continue;
 
                 using var zipStream = new MemoryStream();
                 using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
                 {
                     foreach (var session in sessions)
                     {
+
                         var attendances = await _context.Attendances
                             .Where(a => a.SessionId == session.Id)
                             .Include(a => a.User)
