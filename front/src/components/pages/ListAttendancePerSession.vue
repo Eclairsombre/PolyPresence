@@ -279,6 +279,7 @@ export default defineComponent({
   display: flex;
   justify-content: flex-start;
   margin-top: 15px;
+  gap: 10px;
 }
 
 .back-button {
@@ -289,10 +290,34 @@ export default defineComponent({
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.3s;
+  font-weight: 500;
 }
 
 .back-button:hover {
   background-color: #2980b9;
+}
+
+.export-button {
+  background-color: #34495e;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.export-button:hover:not(:disabled) {
+  background-color: #2c3e50;
 }
 
 .attendance-table-wrapper {
@@ -390,6 +415,11 @@ export default defineComponent({
   .back-button, .export-button {
     padding: 8px 8px;
     font-size: 0.95em;
+    width: 100%;
+  }
+  .actions {
+    flex-direction: column;
+    gap: 6px;
   }
 }
 </style>

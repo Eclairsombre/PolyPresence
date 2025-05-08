@@ -51,6 +51,7 @@
               <th>Nom</th>
               <th>Prénom</th>
               <th>Statut</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -59,9 +60,14 @@
               <td class="cell-name">{{ attendance.item1.name }}</td>
               <td class="cell-firstname">{{ attendance.item1.firstname }}</td>
               <td>
-                <span :class="attendance.item2 !== 1 ? 'present' : 'absent'">
-                  {{ attendance.item2 !== 1 ? 'Présent' : 'Absent' }}
+                <span :class="attendance.item2 === 2 ? 'annule' : (attendance.item2 === 1 ? 'absent' : 'present')">
+                  {{ attendance.item2 === 2 ? 'Présence annulé' : (attendance.item2 === 1 ? 'Absent' : 'Présent') }}
                 </span>
+              </td>
+              <td>
+                <button @click="makeAction(attendance.item2,attendance.item1.studentNumber)" class="action-btn">
+                  {{ attendance.item2 === 2 ? 'Marquer comme présent' : (attendance.item2 === 1 ? 'Marquer comme présent' : 'Annuler la présence') }}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -131,6 +137,28 @@ const submitSignature = async () => {
     error.value = '';
   } else {
     error.value = profSignatureStore.error;
+  }
+};
+
+const makeAction = async (action, studentNumber) => {
+  if (!session.value?.id) return;
+  let newStatus;
+  switch (action) {
+    case 1:
+    case 2:
+      newStatus = 0;
+      break;
+    case 0:
+      newStatus = 2;
+      break;
+    default:
+      return;
+  }
+  try {
+    await sessionStore.changeAttendanceStatus(session.value.id, studentNumber, newStatus);
+    await loadAttendances();
+  } catch (e) {
+    error.value = "Erreur lors du changement de statut.";
   }
 };
 </script>
@@ -304,6 +332,12 @@ const submitSignature = async () => {
   color: #e74c3c;
   font-weight: bold;
 }
+.annule {
+  color: #888;
+  font-weight: bold;
+  font-style: italic;
+  text-decoration: line-through;
+}
 .reload-btn {
   background: #3498db;
   color: #fff;
@@ -376,6 +410,27 @@ input[type="text"]:focus {
   text-align: center;
   color: #888;
   font-size: 1.1em;
+}
+.action-btn {
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 18px;
+  font-size: 1em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
+  margin: 0 2px;
+}
+.action-btn:hover:not(:disabled) {
+  background: #217dbb;
+}
+.action-btn:disabled {
+  background: #b2cbe4;
+  color: #eee;
+  cursor: not-allowed;
 }
 @media (max-width: 1100px) {
   .prof-signature-page {

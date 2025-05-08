@@ -16,8 +16,8 @@
                     <div class="session-header">
                         <h2>Session du {{ formatDate(currentSession.date) }}</h2>
                         <span v-if="currentSession.name" class="session-name">{{ currentSession.name }}</span>
-                        <div class="session-status" :class="{'status-present': attendance && attendance.status !== 1, 'status-absent': attendance && attendance.status === 1}">
-                            {{ attendance && attendance.status !== 1 ? 'Présent' : 'Absent' }}
+                        <div class="session-status" :class="{'status-present': attendance && attendance.status !== 1, 'status-absent': attendance && attendance.status === 1, 'status-annule': attendance && attendance.status === 2}">
+                            {{ attendance && attendance.status === 2 ? 'Annulé' : (attendance && attendance.status !== 1 ? 'Présent' : 'Absent') }}
                         </div>
                     </div>
                     <div class="session-details">
@@ -61,7 +61,7 @@
                         <div v-if="mailSentMessage" class="mail-sent-message">{{ mailSentMessage }}</div>
                     </div>
                 </div>
-                <div v-if="attendance && attendance.status === 1" class="validate-presence">
+                <div v-if="attendance && attendance.status === 1 " class="validate-presence">
                     <ValidatePresence @presence-validated="loadData" :hasSignature="hasSignature" />
                 </div>
             </div>
@@ -323,6 +323,13 @@ watch(() => authStore.user, (newUser, oldUser) => {
 .status-absent {
     background-color: #f8d7da;
     color: #721c24;
+}
+
+.status-annule {
+    background-color: #ececec;
+    color: #888;
+    font-style: italic;
+    text-decoration: line-through;
 }
 
 .session-details {

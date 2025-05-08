@@ -442,13 +442,34 @@ export const useSessionStore = defineStore("session", {
       this.loading = true;
       this.error = null;
       try {
-        const response = await axios.get(`${API_URL}/Session/${sessionId}/attendances`);
+        const response = await axios.get(
+          `${API_URL}/Session/${sessionId}/attendances`
+        );
         return response.data.$values || [];
       } catch (error) {
-        this.error = error.message || "Erreur lors de la récupération des présences.";
+        this.error =
+          error.message || "Erreur lors de la récupération des présences.";
         return [];
       } finally {
         this.loading = false;
+      }
+    },
+
+    async changeAttendanceStatus(sessionId, studentNumber, status) {
+      try {
+        await axios.post(
+          `${API_URL}/Session/${sessionId}/attendance-status/${studentNumber}`,
+          { status }
+        );
+        return true;
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors du changement de statut de présence.";
+        console.error(
+          "Erreur lors du changement de statut de présence:",
+          error
+        );
+        return false;
       }
     },
 

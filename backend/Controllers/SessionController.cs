@@ -532,9 +532,9 @@ namespace backend.Controllers
                         {
                             var oldAttendances = _context.Attendances.Where(a => a.SessionId == existingSession.Id);
                             _context.Attendances.RemoveRange(oldAttendances);
-                            await _context.SaveChangesAsync(); // Sauvegarde après suppression des attendances
+                            await _context.SaveChangesAsync();
                             _context.Sessions.Remove(existingSession);
-                            await _context.SaveChangesAsync(); // Sauvegarde après suppression de la session
+                            await _context.SaveChangesAsync();
                         }
                         else
                         {
@@ -551,9 +551,9 @@ namespace backend.Controllers
                     {
                         var attendances = _context.Attendances.Where(a => a.SessionId == overlap.Id);
                         _context.Attendances.RemoveRange(attendances);
-                        await _context.SaveChangesAsync(); // Sauvegarde après suppression des attendances
+                        await _context.SaveChangesAsync();
                         _context.Sessions.Remove(overlap);
-                        await _context.SaveChangesAsync(); // Sauvegarde après suppression de la session
+                        await _context.SaveChangesAsync();
                     }
 
                     var session = new Session
@@ -593,9 +593,9 @@ namespace backend.Controllers
                     {
                         var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
                         _context.Attendances.RemoveRange(attendances);
-                        await _context.SaveChangesAsync(); // Sauvegarde après suppression des attendances
+                        await _context.SaveChangesAsync();
                         _context.Sessions.Remove(oldSession);
-                        await _context.SaveChangesAsync(); // Sauvegarde après suppression de la session
+                        await _context.SaveChangesAsync();
                     }
                 }
             }
@@ -719,6 +719,34 @@ Cordialement";
         public IActionResult GetNextImportTimer()
         {
             return Ok(new { nextImport = _nextSessionExecutionTime });
+        }
+
+        [HttpPost("{sessionId}/attendance-status/{studentNumber}")]
+        public async Task<IActionResult> ChangeAttendanceStatus(int sessionId, string studentNumber, [FromBody] ChangeAttendanceStatusModel model)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
+            }
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+            if (user == null)
+            {
+                return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
+            }
+            var attendance = await _context.Attendances.FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
+            if (attendance == null)
+            {
+                return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
+            }
+            attendance.Status = (AttendanceStatus)model.Status;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Statut de présence mis à jour avec succès." });
+        }
+
+        public class ChangeAttendanceStatusModel
+        {
+            public int Status { get; set; }
         }
     }
 }

@@ -1,43 +1,34 @@
 import { createRouter, createWebHistory } from "vue-router";
-import StudentsListPage from "../components/pages/StudentsListPage.vue";
-import HomePage from "../components/pages/HomePage.vue";
-import StudentsSessionPage from "../components/pages/StudentsSessionPage.vue";
-import ListAttendancePerSession from "../components/pages/ListAttendancePerSession.vue";
-import SignaturePage from "../components/pages/SignaturePage.vue";
-import NotFoundPage from "../components/pages/errorPages/NotFoundPage.vue";
-import UnauthorizedPage from "../components/pages/errorPages/UnauthorizedPage.vue";
-import ProfSignaturePage from "../components/pages/ProfSignaturePage.vue";
-import AdminImportIcsPage from "../components/pages/AdminImportIcsPage.vue";
 import { requiresAdmin, requiresAuth } from "./middleware";
 
 const routes = [
   {
     path: "/",
     name: "home",
-    component: HomePage,
+    component: () => import("../components/pages/HomePage.vue"),
   },
   {
     path: "/students",
     name: "students",
-    component: StudentsListPage,
+    component: () => import("../components/pages/StudentsListPage.vue"),
     beforeEnter: requiresAdmin,
   },
   {
     path: "/sessions",
     name: "sessions",
-    component: StudentsSessionPage,
+    component: () => import("../components/pages/StudentsSessionPage.vue"),
     beforeEnter: requiresAdmin,
   },
   {
     path: "/sessions/:id",
     name: "SessionAttendance",
-    component: ListAttendancePerSession,
+    component: () => import("../components/pages/ListAttendancePerSession.vue"),
     beforeEnter: requiresAdmin,
   },
   {
     path: "/signature",
     name: "signature",
-    component: SignaturePage,
+    component: () => import("../components/pages/SignaturePage.vue"),
     beforeEnter: requiresAuth,
   },
   {
@@ -49,26 +40,27 @@ const routes = [
   {
     path: "/unauthorized",
     name: "unauthorized",
-    component: UnauthorizedPage,
+    component: () =>
+      import("../components/pages/errorPages/UnauthorizedPage.vue"),
   },
   {
     path: "/not-found",
     name: "not-found",
-    component: NotFoundPage,
+    component: () => import("../components/pages/errorPages/NotFoundPage.vue"),
   },
   {
     path: "/prof-signature/:token",
-    component: ProfSignaturePage,
+    component: () => import("../components/pages/ProfSignaturePage.vue"),
   },
   {
     path: "/:pathMatch(.*)*",
     name: "catch-all",
-    component: NotFoundPage,
+    component: () => import("../components/pages/errorPages/NotFoundPage.vue"),
   },
   {
     path: "/admin/import-edt",
     name: "AdminImportIcs",
-    component: AdminImportIcsPage,
+    component: () => import("../components/pages/AdminImportIcsPage.vue"),
     meta: { requiresAdmin: true },
   },
   {
