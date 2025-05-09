@@ -432,7 +432,6 @@ namespace backend.Controllers
             session.ProfEmail = model.ProfEmail;
             await _context.SaveChangesAsync();
 
-            await SendProfSignatureMail(session);
 
             return Ok(new { message = "Email du professeur enregistré et mail envoyé." });
         }
