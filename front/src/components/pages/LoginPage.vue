@@ -6,7 +6,7 @@
       <input
         v-model="username"
         type="text"
-        placeholder="Identifiant"
+        placeholder="Identifiant : p1234567 ou prenom.nom"
         class="login-input"
         autocomplete="username"
       />
