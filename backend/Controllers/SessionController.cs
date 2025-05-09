@@ -18,8 +18,6 @@ namespace backend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SessionController> _logger;
-        private static System.Timers.Timer? _dailySessionTimer;
-        private static DateTime _nextSessionExecutionTime;
         private readonly IServiceScopeFactory _serviceScopeFactory;
 
         public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
@@ -27,33 +25,10 @@ namespace backend.Controllers
             _context = context;
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
-
-            if (_dailySessionTimer == null)
-            {
-                _nextSessionExecutionTime = GetNextSessionExecutionTime();
-                _dailySessionTimer = new System.Timers.Timer((_nextSessionExecutionTime - DateTime.Now).TotalMilliseconds);
-                _dailySessionTimer.Elapsed += async (sender, e) => await DailySessionSync();
-                _dailySessionTimer.AutoReset = false;
-                _dailySessionTimer.Start();
-            }
         }
 
-        private DateTime GetNextSessionExecutionTime()
-        {
-            var now = DateTime.Now;
-            var target = new DateTime(
-                now.Year,
-                now.Month,
-                now.Day,
-                int.Parse(Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_HOUR") ?? "0"),
-                int.Parse(Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_MINUTE") ?? "0"),
-                int.Parse(Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_SECOND") ?? "0")
-            );
-            if (now > target) target = target.AddDays(1);
-            return target;
-        }
 
-        private async Task ImportAllIcsLinks(ApplicationDbContext context, ILogger logger)
+        public async Task ImportAllIcsLinks(ApplicationDbContext context, ILogger logger)
         {
             var icsLinks = await context.IcsLinks.ToListAsync();
             foreach (var link in icsLinks)
@@ -72,20 +47,35 @@ namespace backend.Controllers
             }
         }
 
-        private async Task DailySessionSync()
+
+        public async Task CheckAndSendSessionMails()
         {
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
-                logger.LogInformation("Synchronisation quotidienne des sessions et attendances à 01:00");
-                await ImportAllIcsLinks(scopedContext, logger);
-            }
-            _nextSessionExecutionTime = GetNextSessionExecutionTime();
-            if (_dailySessionTimer != null)
-            {
-                _dailySessionTimer.Interval = (_nextSessionExecutionTime - DateTime.Now).TotalMilliseconds;
-                _dailySessionTimer.Start();
+                var now = DateTime.Now;
+                _logger.LogInformation($"Vérification des sessions à {now} pour l'envoi de mails au professeur.");
+                var sessions = await scopedContext.Sessions
+                    .Where(s => !s.IsMailSent && s.Date == now.Date && s.ProfEmail != "")
+                    .ToListAsync();
+                sessions = sessions
+                    .Where(s => s.StartTime <= now.TimeOfDay)
+                    .ToList();
+                foreach (var session in sessions)
+                {
+                    try
+                    {
+                        await SendProfSignatureMail(session);
+                        session.IsMailSent = true;
+                        await scopedContext.SaveChangesAsync();
+                        logger.LogInformation($"Mail envoyé automatiquement au professeur pour la session {session.Id}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError($"Erreur lors de l'envoi automatique du mail pour la session {session.Id} : {ex.Message}");
+                    }
+                }
             }
         }
 
@@ -680,9 +670,12 @@ Cordialement";
                     )
                 };
 
+                var fromEmail = Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL");
+                if (string.IsNullOrWhiteSpace(fromEmail))
+                    throw new Exception("L'adresse email d'expéditeur (SMTP_FROM_EMAIL) n'est pas définie dans les variables d'environnement.");
                 var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL")),
+                    From = new MailAddress(fromEmail),
                     Subject = subject,
                     Body = body,
                     IsBodyHtml = false,
@@ -715,11 +708,7 @@ Cordialement";
             return _context.Sessions.Any(e => e.Id == id);
         }
 
-        [HttpGet("next-import-timer")]
-        public IActionResult GetNextImportTimer()
-        {
-            return Ok(new { nextImport = _nextSessionExecutionTime });
-        }
+
 
         [HttpPost("{sessionId}/attendance-status/{studentNumber}")]
         public async Task<IActionResult> ChangeAttendanceStatus(int sessionId, string studentNumber, [FromBody] ChangeAttendanceStatusModel model)
@@ -747,6 +736,23 @@ Cordialement";
         public class ChangeAttendanceStatusModel
         {
             public int Status { get; set; }
+        }
+
+        [HttpGet("timers")]
+        public IActionResult GetTimers()
+        {
+            var importTime = backend.Services.TimerService.StaticNextSessionExecutionTime;
+            var mailTime = backend.Services.TimerService.StaticNextMailExecutionTime;
+            var now = DateTime.Now;
+            var importRemaining = importTime - now;
+            var mailRemaining = mailTime - now;
+            return Ok(new
+            {
+                nextImport = importTime,
+                importRemaining = importRemaining.ToString(@"hh\:mm\:ss"),
+                nextMail = mailTime,
+                mailRemaining = mailRemaining.ToString(@"hh\:mm\:ss")
+            });
         }
     }
 }

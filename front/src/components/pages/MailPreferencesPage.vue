@@ -31,10 +31,9 @@
       <button class="test-mail-button" @click="testMail">Tester l'envoi de mail</button>
       <p v-if="testMessage" class="test-message">{{ testMessage }}</p>
 
-      <!-- Nouveau compteur -->
       <div class="mail-timer">
         <p v-if="timerData">
-          Prochain envoi automatique : {{ timerData.nextExecutionTime }} (dans {{ timerData.remainingTime }})
+          Prochain envoi automatique : {{ timerData.nextMail }} (dans {{ timerData.mailRemaining }})
         </p>
       </div>
     </div>
@@ -108,7 +107,10 @@ export default defineComponent({
     };
 
     const fetchTimer = async () => {
-      await mailPreferencesStore.fetchMailTimer();
+      await mailPreferencesStore.fetchTimers();
+      if (mailPreferencesStore.timerData) {
+      const { nextMail, mailRemaining } = mailPreferencesStore.timerData;
+      }
     };
 
     onMounted(() => {

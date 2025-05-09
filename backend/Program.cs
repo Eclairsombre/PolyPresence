@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using Microsoft.AspNetCore.Http;
 using backend;
+using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddConsole();
@@ -16,7 +17,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
-        options.JsonSerializerOptions.MaxDepth = 64; 
+        options.JsonSerializerOptions.MaxDepth = 64;
     });
 DotNetEnv.Env.Load();
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -48,6 +49,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddSingleton<TimerService>();
 
 builder.Services.AddSingleton(new HttpClient(new HttpClientHandler
 {
@@ -59,6 +61,9 @@ builder.Services.AddSingleton(new HttpClient(new HttpClientHandler
 });
 
 var app = builder.Build();
+
+// Force l'instanciation du TimerService au démarrage
+app.Services.GetRequiredService<TimerService>();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -72,7 +77,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowVue");
-
 
 app.UseSession();
 

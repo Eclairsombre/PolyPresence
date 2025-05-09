@@ -2,7 +2,6 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using backend.Data;
 
@@ -11,11 +10,9 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250504101309_AddRoomToSession")]
-    partial class AddRoomToSession
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.3");
@@ -43,6 +40,25 @@ namespace backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Attendances");
+                });
+
+            modelBuilder.Entity("backend.Models.IcsLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Year")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("IcsLinks");
                 });
 
             modelBuilder.Entity("backend.Models.MailPreferences", b =>
@@ -78,6 +94,9 @@ namespace backend.Migrations
 
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsMailSent")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsSent")
                         .HasColumnType("INTEGER");
@@ -169,6 +188,18 @@ namespace backend.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("RegisterMailSent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RegisterToken")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RegisterTokenExpiration")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Signature")

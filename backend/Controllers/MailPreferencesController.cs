@@ -19,10 +19,6 @@ namespace backend.Controllers
 
         private readonly ApplicationDbContext _context;
 
-        private static System.Timers.Timer? _dailyMailTimer;
-
-        private static DateTime _nextExecutionTime;
-
         private readonly IServiceScopeFactory _serviceScopeFactory;
 
         public MailPreferencesController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
@@ -31,45 +27,8 @@ namespace backend.Controllers
             _context = context;
             _serviceScopeFactory = serviceScopeFactory;
 
-            if (_dailyMailTimer == null)
-            {
-                _nextExecutionTime = GetNextExecutionTime();
-                _dailyMailTimer = new System.Timers.Timer((_nextExecutionTime - DateTime.Now).TotalMilliseconds);
-                _dailyMailTimer.Elapsed += async (sender, e) => await SendDailyAttendanceSheets();
-                _dailyMailTimer.AutoReset = false;
-                _dailyMailTimer.Start();
-            }
         }
 
-        private DateTime GetNextExecutionTime()
-        {
-            var now = DateTime.Now;
-            var target = new DateTime(
-                now.Year,
-                now.Month,
-                now.Day,
-                int.Parse(Environment.GetEnvironmentVariable("MAIL_SENT_HOUR") ?? "0"),
-                int.Parse(Environment.GetEnvironmentVariable("MAIL_SENT_MINUTE") ?? "0"),
-                int.Parse(Environment.GetEnvironmentVariable("MAIL_SENT_SECOND") ?? "0")
-            );
-            if (now > target) target = target.AddDays(1);
-            return target;
-        }
-
-        private async Task SendDailyAttendanceSheets()
-        {
-            using (var scope = _serviceScopeFactory.CreateScope())
-            {
-                var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
-                var controller = new MailPreferencesController(scopedContext, logger, _serviceScopeFactory);
-                await controller.GenerateAndSendZip();
-            }
-
-            _nextExecutionTime = GetNextExecutionTime();
-            _dailyMailTimer.Interval = (_nextExecutionTime - DateTime.Now).TotalMilliseconds;
-            _dailyMailTimer.Start();
-        }
 
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status)> attendances)
         {
@@ -82,7 +41,6 @@ namespace backend.Controllers
                     page.Margin(20);
                     page.DefaultTextStyle(x => x.FontSize(12));
 
-                    // En-tête coloré et centré
                     page.Header().Background("#f6f8fa").Padding(10).Column(headerCol =>
                     {
                         headerCol.Item().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50").AlignCenter();
@@ -93,7 +51,6 @@ namespace backend.Controllers
                         var dateStr = session.Date.ToString("dddd dd MMMM yyyy", new CultureInfo("fr-FR"));
                         var horaires = $"{session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm}";
 
-                        // Bloc infos session
                         column.Item().Background("#f8f9fa").Padding(10).Border(1).BorderColor("#e0e4ea").Column(infoCol =>
                         {
                             infoCol.Item().Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
@@ -103,7 +60,6 @@ namespace backend.Controllers
                             infoCol.Item().Text($"Salle : {session.Room}").FontSize(12);
                             infoCol.Item().Text("");
                             infoCol.Item().Text($"Professeur : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
-                            // Signature du prof
                             if (!string.IsNullOrWhiteSpace(session.ProfSignature))
                             {
                                 var base64 = session.ProfSignature;
@@ -141,16 +97,15 @@ namespace backend.Controllers
 
                         column.Item().PaddingTop(15);
 
-                        // Tableau des présences
                         column.Item().Table(table =>
                         {
                             table.ColumnsDefinition(columns =>
                             {
-                                columns.ConstantColumn(30); // N°
-                                columns.RelativeColumn(); // Nom
-                                columns.RelativeColumn(); // Prénom
-                                columns.RelativeColumn(); // Présent/Absent
-                                columns.RelativeColumn(); // Signature
+                                columns.ConstantColumn(30); 
+                                columns.RelativeColumn(); 
+                                columns.RelativeColumn(); 
+                                columns.RelativeColumn(); 
+                                columns.RelativeColumn();
                             });
 
                             table.Header(header =>
@@ -205,7 +160,7 @@ namespace backend.Controllers
                     page.Footer().AlignCenter().Text(x =>
                     {
                         x.Span("Généré le ").FontSize(10);
-                        x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(10);
+                        x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
                     });
                 });
             });
@@ -329,10 +284,6 @@ namespace backend.Controllers
             var user = _context.Users.FirstOrDefault(u => u.StudentNumber == userId);
             if (user == null) return NotFound("Utilisateur non trouvé.");
 
-            _logger.LogInformation($"Récupération des préférences de mail pour l'utilisateur {userId}");
-            _logger.LogInformation($"Préférences de mail ID : {user.MailPreferencesId}");
-            _logger.LogInformation($"Email : {user.Email}");
-
             MailPreferences? preferences;
             if (user.MailPreferencesId == null)
             {
@@ -343,6 +294,7 @@ namespace backend.Controllers
                     Active = false
                 };
                 _context.MailPreferences.Add(preferences);
+                _context.SaveChanges();
                 user.MailPreferencesId = preferences.Id;
                 _context.SaveChanges();
             }
@@ -439,11 +391,5 @@ namespace backend.Controllers
         }
 
 
-        [HttpGet("timer")]
-        public IActionResult GetTimer()
-        {
-            var remainingTime = _nextExecutionTime - DateTime.Now;
-            return Ok(new { nextExecutionTime = _nextExecutionTime, remainingTime = remainingTime.ToString(@"hh\:mm\:ss") });
-        }
     }
 }

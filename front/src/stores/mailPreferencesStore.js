@@ -54,9 +54,9 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
         this.loading = false;
       }
     },
-    async fetchMailTimer() {
+    async fetchTimers() {
       try {
-        const response = await axios.get(`${API_URL}/MailPreferences/timer`);
+        const response = await axios.get(`${API_URL}/Session/timers`);
         this.timerData = response.data;
       } catch (error) {
         this.timerData = null;

@@ -11,6 +11,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
     error: null,
     message: "",
     success: false,
+    timers: null,
   }),
   actions: {
     async fetchIcsLinks() {
@@ -91,12 +92,12 @@ export const useIcsLinkStore = defineStore("icsLink", {
         this.loading = false;
       }
     },
-    async fetchNextImportTimer() {
+    async fetchTimers() {
       try {
-        const res = await axios.get(`${API_URL}/Session/next-import-timer`);
-        this.nextImportTimer = res.data.nextImport;
+        const res = await axios.get(`${API_URL}/Session/timers`);
+        this.timers = res.data;
       } catch {
-        this.nextImportTimer = null;
+        this.timers = null;
       }
     },
     resetMessage() {

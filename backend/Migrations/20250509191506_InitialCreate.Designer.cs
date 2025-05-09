@@ -11,8 +11,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250428201924_AddUserMailPreferencesRelation1")]
-    partial class AddUserMailPreferencesRelation1
+    [Migration("20250509191506_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -43,6 +43,25 @@ namespace backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Attendances");
+                });
+
+            modelBuilder.Entity("backend.Models.IcsLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Year")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("IcsLinks");
                 });
 
             modelBuilder.Entity("backend.Models.MailPreferences", b =>
@@ -79,8 +98,37 @@ namespace backend.Migrations
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsMailSent")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsSent")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProfEmail")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProfFirstname")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProfName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProfSignature")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProfSignatureToken")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Room")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("TEXT");
@@ -96,6 +144,26 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Sessions");
+                });
+
+            modelBuilder.Entity("backend.Models.SessionSentToUser", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SessionSentToUsers");
                 });
 
             modelBuilder.Entity("backend.Models.User", b =>
@@ -115,11 +183,26 @@ namespace backend.Migrations
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("MailPreferencesId")
+                    b.Property<bool>("IsDelegate")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("MailPreferencesId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("RegisterMailSent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RegisterToken")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RegisterTokenExpiration")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Signature")
@@ -164,9 +247,7 @@ namespace backend.Migrations
                 {
                     b.HasOne("backend.Models.MailPreferences", "MailPreferences")
                         .WithMany()
-                        .HasForeignKey("MailPreferencesId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("MailPreferencesId");
 
                     b.Navigation("MailPreferences");
                 });

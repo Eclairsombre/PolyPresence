@@ -52,11 +52,11 @@ const message = computed(() => icsLinkStore.message);
 const success = computed(() => icsLinkStore.success);
 const loading = computed(() => icsLinkStore.loading);
 const editingId = ref(null);
-const nextImportTimer = computed(() => icsLinkStore.nextImportTimer);
+const nextImportTimer = computed(() => icsLinkStore.timers.nextImport);
 
 const fetchAll = async () => {
   await icsLinkStore.fetchIcsLinks();
-  await icsLinkStore.fetchNextImportTimer();
+  await icsLinkStore.fetchTimers();
 };
 
 const saveIcsLink = async () => {
