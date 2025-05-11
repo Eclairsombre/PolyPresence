@@ -5,6 +5,7 @@
       <div class="register-form-select">
         <label for="year-select">Choisissez votre année :</label>
         <select v-model="selectedYear" id="year-select" class="register-input" style="max-width:200px;margin-bottom:20px;">
+          <option value="ADMIN">Admin</option> 
           <option value="3A">3A</option>
           <option value="4A">4A</option>
           <option value="5A">5A</option>
@@ -33,7 +34,7 @@ import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { useStudentsStore } from '../../stores/studentsStore.js';
 
-const studentsByYear = ref({ '3A': [], '4A': [], '5A': [] });
+const studentsByYear = ref({'ADMIN':[], '3A': [], '4A': [], '5A': [] });
 const studentsStore = useStudentsStore();
 const selectedYear = ref('3A');
 const selectedStudentNumber = ref('');
@@ -44,9 +45,18 @@ const router = useRouter();
 const API_URL = import.meta.env.VITE_API_URL;
 
 const fetchAllStudents = async () => {
-  for (const year of ['3A', '4A', '5A']) {
+  for (const year of ['ADMIN','3A', '4A', '5A']) {
     const students = await studentsStore.fetchStudents(year);
-    studentsByYear.value[year] = students.sort((a, b) => a.name.localeCompare(b.name));
+    var tempStudents = [];
+    for (const student of students) {
+      console.log(await studentsStore.havePasword(student.studentNumber));
+      if (await studentsStore.havePasword(student.studentNumber) === true) {
+        continue;
+      }
+      tempStudents.push(student);
+    }
+    console.log(tempStudents);
+    studentsByYear.value[year] = tempStudents.sort((a, b) => a.name.localeCompare(b.name));
   }
 };
 

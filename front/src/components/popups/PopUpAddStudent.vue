@@ -51,7 +51,7 @@
             />
           </div>
 
-          <div class="form-group">
+          <div v-if="year!=='ADMIN'" class="form-group">
             <label>
               <input type="checkbox" v-model="student.isDelegate" />
               Délégué
@@ -106,6 +106,11 @@ export default {
       
       try {
         await studentsStore.addStudent(student.value);
+        console.log('Student added:', student.value);
+        if (student.value.year === 'ADMIN') {
+          console.log('Adding admin');
+          await studentsStore.makeAdmin(student.value.studentNumber);
+        }
         successMessage.value = 'Étudiant ajouté avec succès!';
         
         setTimeout(() => {

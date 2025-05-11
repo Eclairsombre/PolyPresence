@@ -1,14 +1,20 @@
 <template>
   <button class="add-button" @click="$emit('click')">
     <span class="plus-icon">+</span>
-    <span class="button-text">Ajouter un étudiant</span>
+    <span class="button-text">Ajouter un {{ year !== 'ADMIN' ? 'étudiant' : ' administrateur' }}</span>
   </button>
 </template>
 
 <script>
 export default {
   name: 'AddStudentButton',
-  emits: ['click']
+  emits: ['click'],
+  props: {
+    year: {
+      type: String,
+      required: true
+    }
+  },
 }
 </script>
 

@@ -1,11 +1,15 @@
 <template>
     <div class="students-list-page">
         <div class="header-section">
-            <h1>Liste des étudiants</h1>
+            <h1>Liste des {{ yearFilter !== 'ADMIN' ? 'étudiants' : ' administrateurs' }}</h1>
             <router-link to="/" class="back-link">Retour à l'accueil</router-link>
         </div>
         <div class="actions-bar">
             <div class="filter-buttons">
+                <button 
+                    :class="{ active: yearFilter === 'ADMIN' }" 
+                    @click="filterYear('ADMIN')"
+                >Admin</button>
                 <button 
                 :class="{ active: yearFilter === '3A' }" 
                 @click="filterYear('3A')"
@@ -18,9 +22,9 @@
                     :class="{ active: yearFilter === '5A' }" 
                     @click="filterYear('5A')"
                 >5A</button>
-                <button @click="openImportPopup">Importer</button>
+                <button v-if="yearFilter!=='ADMIN'" @click="openImportPopup">Importer</button>
             </div>
-            <AddStudentButton @click="openAddPopup" />
+            <AddStudentButton @click="openAddPopup" :year="yearFilter" />
         </div>
         <table>
             <thead>
@@ -30,7 +34,7 @@
                     <th>Numéro étudiant</th>
                     <th>Email</th>
                     <th>Année</th>
-                    <th>Délégué</th>
+                    <th v-if="yearFilter!=='ADMIN'">Délégué</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -41,13 +45,17 @@
                     <td>{{ student.studentNumber }}</td>
                     <td>{{ student.email }}</td>
                     <td>{{ student.year }}</td>
-                    <td>
+                    <td v-if="yearFilter!=='ADMIN'">
                         <span v-if="student.isDelegate" class="delegate-badge">✔️</span>
                         <span v-else>-</span>
                     </td>
                     <td>
                         <button class="edit-btn" @click="openEditPopup(student)">Modifier</button>
-                        <button class="delete-btn" @click="confirmDeleteStudent(student)">Supprimer</button>
+                        <button 
+                            class="delete-btn" 
+                            @click="confirmDeleteStudent(student)"
+                            :disabled="isCurrentUser(student)"
+                        >Supprimer</button>
                     </td>
                 </tr>
             </tbody>
@@ -83,7 +91,8 @@
 
 <script setup>
 import { useStudentsStore } from '../../stores/studentsStore.js';
-import { onMounted, ref } from 'vue';
+import { useAuthStore } from '../../stores/authStore.js';
+import { onMounted, ref, computed } from 'vue';
 import PopUpImportStudent from '../popups/PopUpImportStudent.vue';
 import PopUpAddStudent from '../popups/PopUpAddStudent.vue';
 import AddStudentButton from '../buttons/AddStudentButton.vue';
@@ -92,6 +101,7 @@ import PopUpDeleteStudent from '../popups/PopUpDeleteStudent.vue';
 
 const yearFilter = ref('3A');
 const studentsStore = useStudentsStore();
+const authStore = useAuthStore();
 const showImportPopup = ref(false);
 const showAddPopup = ref(false);
 const showEditPopup = ref(false);
@@ -101,12 +111,19 @@ const selectedStudent = ref(null);
 const students = ref([]);
 
 onMounted(async () => {
+    authStore.initialize();
     await refreshStudents();
 });
 
 const refreshStudents = async () => {
     students.value = await studentsStore.fetchStudents(yearFilter.value);
     students.value = students.value.sort((a, b) => a.name.localeCompare(b.name));
+};
+
+const currentUser = computed(() => authStore.user);
+
+const isCurrentUser = (student) => {
+  return currentUser.value && currentUser.value.studentId === student.studentNumber;
 };
 
 const filterYear = async (year) => {
@@ -264,6 +281,15 @@ tr:hover {
 
 .delete-btn:hover {
     background-color: #c0392b;
+}
+
+.delete-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.delete-btn:disabled:hover {
+    background-color: #ccc;
 }
 
 @media (max-width: 600px) {

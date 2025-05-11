@@ -158,7 +158,6 @@ namespace backend.Controllers
         public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year)
         {
             var users = await _context.Users
-                .Where(s => s.IsAdmin == false)
                 .Where(s => s.Year == year)
                 .ToListAsync();
 
@@ -337,5 +336,26 @@ namespace backend.Controllers
         {
             return _context.Users.Any(e => e.Id == id);
         }
+
+        [HttpGet("have-password/{studentNumber}")]
+        public async Task<IActionResult> HavePassword(string studentNumber)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+            if (user == null)
+                return NotFound(new { message = "Étudiant introuvable." });
+            return Ok(new { havePassword = !string.IsNullOrEmpty(user.PasswordHash) });
+        }
+
+        [HttpPost("make-admin/{studentNumber}")]
+        public async Task<IActionResult> MakeAdmin(string studentNumber)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+            if (user == null)
+                return NotFound(new { message = "Étudiant introuvable." });
+            user.IsAdmin = true;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "L'étudiant a été promu administrateur." });
+        }
+
     }
 }

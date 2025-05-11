@@ -154,5 +154,28 @@ export const useStudentsStore = defineStore("students", {
         throw error;
       }
     },
+    async havePasword(studentNumber) {
+      try {
+        const response = await axios.get(
+          `${API_URL}/User/have-password/${encodeURIComponent(studentNumber)}`
+        );
+        return response.data.havePassword;
+      } catch (error) {
+        console.error("Erreur lors de la récupération du mot de passe:", error);
+        throw error;
+      }
+    },
+    async makeAdmin(studentNumber) {
+      try {
+        const response = await axios.post(
+          `${API_URL}/User/make-admin/${encodeURIComponent(studentNumber)}`
+        );
+        console.log("Réponse de la promotion:", response.data);
+        return response.data;
+      } catch (error) {
+        console.error("Erreur lors de la promotion de l'étudiant:", error);
+        throw error;
+      }
+    },
   },
 });
