@@ -61,13 +61,13 @@ namespace backend.Controllers
 
                         column.Item().Background("#f8f9fa").Padding(10).Border(1).BorderColor("#e0e4ea").Column(infoCol =>
                         {
-                            infoCol.Item().Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
+                            infoCol.Item().Padding(5).Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
                             if (!string.IsNullOrWhiteSpace(session.Name))
-                                infoCol.Item().Text($"Nom de la session : {session.Name}").FontSize(12).Italic();
-                            infoCol.Item().Text($"Horaires : {horaires}").FontSize(12);
-                            infoCol.Item().Text($"Salle : {session.Room}").FontSize(12);
-                            infoCol.Item().Text("");
-                            infoCol.Item().Text($"Professeur : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
+                                infoCol.Item().Padding(5).Text($"Nom de la session : {session.Name}").FontSize(12).Italic();
+                            infoCol.Item().Padding(5).Text($"Horaires : {horaires}").FontSize(12);
+                            infoCol.Item().Padding(5).Text($"Salle : {session.Room}").FontSize(12);
+                            infoCol.Item().Padding(5).Text("");
+                            infoCol.Item().Padding(5).Text($"Professeur : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
                             if (!string.IsNullOrWhiteSpace(session.ProfSignature))
                             {
                                 var base64 = session.ProfSignature;
@@ -77,7 +77,7 @@ namespace backend.Controllers
                                     try
                                     {
                                         byte[] imageBytes = Convert.FromBase64String(base64Data);
-                                        infoCol.Item().Row(row =>
+                                        infoCol.Item().Padding(5).Row(row =>
                                         {
                                             row.RelativeItem().Text("Signature :").FontSize(12);
                                             row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
@@ -85,17 +85,17 @@ namespace backend.Controllers
                                     }
                                     catch
                                     {
-                                        infoCol.Item().Text("Signature du professeur : Erreur image");
+                                        infoCol.Item().Padding(5).Text("Signature du professeur : Erreur image");
                                     }
                                 }
                                 else
                                 {
-                                    infoCol.Item().Text("Signature du professeur : Format inconnu");
+                                    infoCol.Item().Padding(5).Text("Signature du professeur : Format inconnu");
                                 }
                             }
                             else
                             {
-                                infoCol.Item().Text(text =>
+                                infoCol.Item().Padding(5).Text(text =>
                                 {
                                     text.Span("Signature du professeur : ").Italic().FontColor("#888");
                                     text.Span("Non signée");
@@ -129,11 +129,11 @@ namespace backend.Controllers
                             int idx = 1;
                             foreach (var (student, status) in sortedAttendances)
                             {
-                                table.Cell().Element(CellStyle).Text(idx.ToString());
-                                table.Cell().Element(CellStyle).Text(student.Name);
-                                table.Cell().Element(CellStyle).Text(student.Firstname);
+                                table.Cell().Element(CellStyle).Padding(5).Text(idx.ToString());
+                                table.Cell().Element(CellStyle).Padding(5).Text(student.Name);
+                                table.Cell().Element(CellStyle).Padding(5).Text(student.Firstname);
                                 var isPresent = status == 0;
-                                table.Cell().Element(CellStyle).Text(isPresent ? "Présent" : "Absent").FontColor(isPresent ? "#27ae60" : "#c0392b");
+                                table.Cell().Element(CellStyle).Padding(5).Text(isPresent ? "Présent" : "Absent").FontColor(isPresent ? "#27ae60" : "#c0392b");
 
                                 if (isPresent && !string.IsNullOrEmpty(student.Signature))
                                 {
@@ -144,21 +144,21 @@ namespace backend.Controllers
                                         try
                                         {
                                             byte[] imageBytes = Convert.FromBase64String(base64Data);
-                                            table.Cell().Element(CellStyle).Element(container => container.Height(30).Image(imageBytes));
+                                            table.Cell().Element(CellStyle).Padding(5).Element(container => container.Height(30).Image(imageBytes));
                                         }
                                         catch
                                         {
-                                            table.Cell().Element(CellStyle).Text("Erreur image");
+                                            table.Cell().Element(CellStyle).Padding(5).Text("Erreur image");
                                         }
                                     }
                                     else
                                     {
-                                        table.Cell().Element(CellStyle).Text("Format inconnu");
+                                        table.Cell().Element(CellStyle).Padding(5).Text("Format inconnu");
                                     }
                                 }
                                 else
                                 {
-                                    table.Cell().Element(CellStyle).Text(string.Empty);
+                                    table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
                                 }
                                 idx++;
                             }
