@@ -98,14 +98,18 @@ const generateSessionHtml = async (session) => {
     const html = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h1 style="text-align: center; color: #2c3e50;">Liste de présence</h1>
-        <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
-          <h2 style="margin: 0 0 10px 0;">${formatDate(session.date)} - ${session.year}</h2>
+        <div style="background-color: #eaf6fb; border-left: 4px solid #3498db; padding: 12px 18px; border-radius: 6px; margin-bottom: 10px; font-size: 1.08em; color: #2c3e50; box-shadow: 0 2px 6px rgba(52, 152, 219, 0.07);">
+          <p style="margin: 0 0 4px 0; font-weight: 500;">Etablissement de formation : UCBL1 - EPUL</p>
+          <p style="margin: 0 0 4px 0; font-weight: 500;">Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage</p>
+        </div>
+        <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+          <h2 style="margin: 0 0 10px 0; color: #2c3e50;">${formatDate(session.date)} - ${session.year}</h2>
           <p v-if="session.name"><strong>Nom de la session :</strong> ${session.name}</p>
           <p>Horaires: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}</p>
           <div style='margin-top:10px;'><strong>Professeur :</strong> ${session.profFirstname || ''} ${session.profName || ''} (${session.profEmail || ''})</div>
           <div style='margin-top:5px;'><strong>Signature :</strong> ${session.profSignature ? `<img src='${session.profSignature}' alt='Signature du professeur' style='max-height:60px;vertical-align:middle;margin-left:10px;'/>` : '<em>Non signée</em>'}</div>
         </div>
-        <table style="width: 100%; border-collapse: collapse;">
+        <table style="width: 100%; border-collapse: collapse; background-color: white;">
           <thead>
             <tr style="background-color: #f1f1f1;">
               <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">N°</th>

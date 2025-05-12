@@ -10,6 +10,10 @@
     <div v-else class="attendance-container">
       <div class="header-section">
         <h1>Liste de présence</h1>
+        <div class="school-info">
+          <p>Etablissement de formation : UCBL1 - EPUL</p>
+          <p>Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage</p>
+        </div>
         <div class="session-info">
           <h2>{{ formatDate(session?.date) }} - {{ session?.year }}</h2>
           <p>{{ formatTime(session?.startTime) }} - {{ formatTime(session?.endTime) }}</p>
@@ -261,6 +265,21 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.school-info {
+  background-color: #eaf6fb;
+  border-left: 4px solid #3498db;
+  padding: 12px 18px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 1.08em;
+  color: #2c3e50;
+  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.07);
+}
+.school-info p {
+  margin: 0 0 4px 0;
+  font-weight: 500;
 }
 
 .session-info {

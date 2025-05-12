@@ -51,6 +51,14 @@ namespace backend.Controllers
                         var dateStr = session.Date.ToString("dddd dd MMMM yyyy", new CultureInfo("fr-FR"));
                         var horaires = $"{session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm}";
 
+                        column.Item().Background("#eaf6fb").BorderLeft(4).BorderColor("#3498db").Padding(12).PaddingLeft(18).Column(schoolCol =>
+                        {
+                            schoolCol.Item().Text("Etablissement de formation : UCBL1 - EPUL").FontSize(12).FontColor("#2c3e50").Bold();
+                            schoolCol.Item().Text("Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage").FontSize(12).FontColor("#2c3e50").Bold();
+                        });
+
+                        column.Item().PaddingTop(2);
+
                         column.Item().Background("#f8f9fa").Padding(10).Border(1).BorderColor("#e0e4ea").Column(infoCol =>
                         {
                             infoCol.Item().Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
@@ -101,10 +109,10 @@ namespace backend.Controllers
                         {
                             table.ColumnsDefinition(columns =>
                             {
-                                columns.ConstantColumn(30); 
-                                columns.RelativeColumn(); 
-                                columns.RelativeColumn(); 
-                                columns.RelativeColumn(); 
+                                columns.ConstantColumn(30);
+                                columns.RelativeColumn();
+                                columns.RelativeColumn();
+                                columns.RelativeColumn();
                                 columns.RelativeColumn();
                             });
 
@@ -192,7 +200,7 @@ namespace backend.Controllers
             {
                 var prefs = user.MailPreferences;
                 var today = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", new CultureInfo("fr-FR")));
-                if (!prefs.Days.Contains(today)) continue;
+                if (prefs.Days == null || !prefs.Days.Contains(today)) continue;
 
                 var sessions = _context.Sessions
                     .Where(s => !_context.SessionSentToUsers.Any(ssu => ssu.SessionId == s.Id && ssu.UserId == user.Id) &&
