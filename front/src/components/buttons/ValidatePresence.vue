@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { ref, defineEmits } from 'vue';
+import { ref, defineEmits,onMounted,onUnmounted } from 'vue';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
@@ -23,6 +23,21 @@ const props = defineProps({
         type: Boolean,
         required: true,
     },
+});
+
+
+const handleKeyPress = (event) => {
+  if (event.key === 'Enter') {
+    validatePresence();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keypress', handleKeyPress);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keypress', handleKeyPress);
 });
 
 const emit = defineEmits(['presenceValidated']);

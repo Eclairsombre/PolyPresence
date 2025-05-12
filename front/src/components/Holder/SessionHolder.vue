@@ -104,7 +104,6 @@ const showCodePopup = ref(false);
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
-import axios from "axios";
 
 
 const formatDate = (dateString) => {
