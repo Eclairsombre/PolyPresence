@@ -53,6 +53,7 @@
               <th class="firstname-column">Prénom</th>
               <th class="status-column">Présent/Absent</th>
               <th class="signature-column">Signature</th>
+              <th class="comment-column">Commentaire</th>
             </tr>
           </thead>
           <tbody>
@@ -72,6 +73,11 @@
                   />
                 </div>
               </td>
+              <td class="comment-cell">
+                <div class="comment-content" :title="student.comment">
+                  {{student.comment}}
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -85,7 +91,6 @@ import { defineComponent, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useStudentsStore } from '../../stores/studentsStore';
-import axios from 'axios';
 import SignatureDisplay from '../signature/SignatureDisplay.vue';
 import html2pdf from 'html2pdf.js';
 
@@ -116,12 +121,14 @@ export default defineComponent({
         const sessionData = await sessionStore.fetchSessionById(sessionId);
         session.value = sessionData;
         const attendances = await sessionStore.getSessionAttendances(sessionId);
+        console.log("Liste des présences:", attendances);
         students.value = attendances.map((student, index) => ({
           id: student.item1.id,
           name: student.item1.name,
           firstname: student.item1.firstname,
           status: student.item2 === 0 ? 'Present' : 'Absent',
-          signature: student.item1.signature || ''
+          signature: student.item1.signature || '',
+          comment: student.item1.comment || ''
         })).sort((a,b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
@@ -172,8 +179,19 @@ export default defineComponent({
       try {
         const element = document.querySelector('.attendance-container');
         const clonedElement = element.cloneNode(true);
+        
+        // Retirer les boutons du clone
         const buttons = clonedElement.querySelectorAll('button');
         buttons.forEach(button => button.remove());
+        
+        // Assurer que les commentaires sont entièrement visibles pour l'export PDF
+        const commentContents = clonedElement.querySelectorAll('.comment-content');
+        commentContents.forEach(commentContent => {
+          commentContent.style.maxHeight = 'none';
+          commentContent.style.whiteSpace = 'normal';
+          commentContent.style.overflow = 'visible';
+          commentContent.style.textOverflow = 'clip';
+        });
         
         if (!clonedElement) {
           throw new Error("Élément non trouvé pour l'exportation");
@@ -388,6 +406,45 @@ export default defineComponent({
   width: 20%;
 }
 
+.comment-column {
+  width: 20%;
+  background-color: #f7fbfd;
+}
+
+.comment-cell {
+  background-color: #f7fbfd;
+  vertical-align: top;
+  padding: 10px;
+}
+
+.comment-content {
+  font-style: italic;
+  color: #576574;
+  background-color: #fff;
+  border-left: 3px solid #3498db;
+  padding: 8px;
+  border-radius: 3px;
+  max-height: 100px;
+  overflow-y: auto;
+  font-size: 0.95em;
+  line-height: 1.4;
+  word-break: break-word;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s;
+}
+
+.comment-content:hover {
+  background-color: #f8f9fa;
+}
+
+.comment-content:empty {
+  display: none;
+  background-color: transparent;
+  box-shadow: none;
+  border-left: none;
+  padding: 0;
+}
+
 .status-cell {
   text-align: center;
 }
@@ -410,6 +467,11 @@ export default defineComponent({
 @media (max-width: 768px) {
   .attendance-table {
     min-width: 600px;
+  }
+  
+  .comment-content {
+    font-size: 0.9em;
+    max-height: 60px;
   }
 }
 
@@ -440,5 +502,16 @@ export default defineComponent({
     flex-direction: column;
     gap: 6px;
   }
+  
+  .comment-column, .comment-cell {
+    min-width: 100px;
+  }
+  
+  .comment-content {
+    padding: 4px;
+    font-size: 0.85em;
+    max-height: 50px;
+  }
 }
 </style>
+

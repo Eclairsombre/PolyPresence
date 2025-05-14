@@ -359,7 +359,8 @@ namespace backend.Controllers
                             name = student.Name,
                             firstname = student.Firstname,
                             studentNumber = student.StudentNumber,
-                            signature = student.Signature
+                            signature = student.Signature,
+                            comment = attendance.Comment
                         },
                         item2 = attendance.Status
                     });
@@ -752,6 +753,41 @@ Cordialement";
                 nextMail = mailTime,
                 mailRemaining = mailRemaining.ToString(@"hh\:mm\:ss")
             });
+        }
+
+
+        [HttpPost("{sessionId}/attendance-comment/{studentNumber}")]
+        public async Task<IActionResult> UpdateAttendanceComment(int sessionId, string studentNumber, [FromBody] CommentUpdateModel model)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
+            }
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+            if (user == null)
+            {
+                return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
+            }
+
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
+            if (attendance == null)
+            {
+                return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
+            }
+
+            attendance.Comment = model.Comment;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Commentaire mis à jour avec succès." });
+        }
+
+        public class CommentUpdateModel
+        {
+            public string Comment { get; set; }
         }
     }
 }

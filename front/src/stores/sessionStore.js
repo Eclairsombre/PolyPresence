@@ -445,6 +445,7 @@ export const useSessionStore = defineStore("session", {
         const response = await axios.get(
           `${API_URL}/Session/${sessionId}/attendances`
         );
+        console.log("Response data:", response.data);
         return response.data.$values || [];
       } catch (error) {
         this.error =
@@ -479,5 +480,20 @@ export const useSessionStore = defineStore("session", {
       this.loading = false;
       this.error = null;
     },
+
+    async updateAttendanceComment(sessionId, studentNumber, comment) {
+      try {
+        await axios.post(
+            `${API_URL}/Session/${sessionId}/attendance-comment/${studentNumber}`,
+            { comment }
+        );
+        return true;
+      } catch (error) {
+        this.error =
+            error.message || "Erreur lors de la mise à jour du commentaire.";
+        console.error("Erreur lors de la mise à jour du commentaire:", error);
+        return false;
+      }
+    }
   },
 });

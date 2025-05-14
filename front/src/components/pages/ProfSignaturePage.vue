@@ -52,6 +52,7 @@
               <th>Prénom</th>
               <th>Statut</th>
               <th>Action</th>
+              <th>Commentaire</th>
             </tr>
           </thead>
           <tbody>
@@ -68,6 +69,32 @@
                 <button @click="makeAction(attendance.item2,attendance.item1.studentNumber)" class="action-btn">
                   {{ attendance.item2 === 2 ? 'Marquer comme présent' : (attendance.item2 === 1 ? 'Marquer comme présent' : 'Annuler la présence') }}
                 </button>
+              </td>
+              <td class="comment-cell">
+                <div v-if="editingCommentFor === attendance.item1.studentNumber" class="comment-edit">
+                  <textarea
+                      v-model="editingComment"
+                      class="comment-input"
+                      placeholder="Ajouter un commentaire..."
+                      @keyup.esc="cancelCommentEdit"
+                  ></textarea>
+                  <div class="comment-actions">
+                    <button class="save-comment-btn" @click="saveComment(attendance.item1.studentNumber)">
+                      <span class="icon">✓</span> Enregistrer
+                    </button>
+                    <button class="cancel-comment-btn" @click="cancelCommentEdit">
+                      <span class="icon">✕</span> Annuler
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="comment-display">
+                  <span class="comment-text" :class="{ 'no-comment': !attendance.item1.comment }">
+                    {{ attendance.item1.comment || 'Aucun commentaire' }}
+                  </span>
+                  <button class="edit-comment-btn" @click="startCommentEdit(attendance.item1.studentNumber, attendance.item1.comment || '')">
+                    <span class="icon">✎</span>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -98,6 +125,8 @@ const profSignatureStore = useProfSignatureStore();
 const sessionStore = useSessionStore();
 const attendances = ref([]);
 const attendancesLoading = ref(false);
+const editingCommentFor = ref(null);
+const editingComment = ref('');
 
 async function loadAttendances() {
   if (!session.value?.id) return;
@@ -119,6 +148,45 @@ onMounted(async () => {
   }
 });
 
+const startCommentEdit = (studentNumber, currentComment) => {
+  editingCommentFor.value = studentNumber;
+  editingComment.value = currentComment;
+};
+
+const cancelCommentEdit = () => {
+  editingCommentFor.value = null;
+  editingComment.value = '';
+};
+
+const saveComment = async (studentNumber) => {
+  if (!session.value?.id) return;
+  
+  try {
+    const result = await sessionStore.updateAttendanceComment(
+      session.value.id,
+      studentNumber,
+      editingComment.value
+    );
+    
+    if (result) {
+      // Mise à jour locale du commentaire
+      const attendanceIndex = attendances.value.findIndex(
+        a => a.item1.studentNumber === studentNumber
+      );
+      
+      if (attendanceIndex !== -1) {
+        attendances.value[attendanceIndex].item1.comment = editingComment.value;
+      }
+      
+      // Fin du mode édition
+      editingCommentFor.value = null;
+      editingComment.value = '';
+    }
+  } catch (e) {
+    error.value = "Erreur lors de l'enregistrement du commentaire.";
+    console.error("Erreur lors de l'enregistrement du commentaire :", e);
+  }
+};
 
 const submitSignature = async () => {
   const signatureData = signaturePad.value.getSignature();
@@ -290,6 +358,9 @@ const makeAction = async (action, studentNumber) => {
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(52,152,219,0.08);
   padding: 24px 18px 18px 18px;
+  overflow: hidden; /* Empêche le contenu de déborder */
+  display: flex;
+  flex-direction: column; /* Organisation du contenu en colonne */
 }
 .attendances-header {
   display: flex;
@@ -416,13 +487,14 @@ input[type="text"]:focus {
   color: #fff;
   border: none;
   border-radius: 4px;
-  padding: 8px 18px;
-  font-size: 1em;
+  padding: 8px 12px;
+  font-size: 0.95em;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
   box-shadow: 0 1px 4px rgba(52,152,219,0.07);
   margin: 0 2px;
+  white-space: nowrap;
 }
 .action-btn:hover:not(:disabled) {
   background: #217dbb;
@@ -432,14 +504,135 @@ input[type="text"]:focus {
   color: #eee;
   cursor: not-allowed;
 }
+
+/* Conteneur de la table avec défilement */
+.attendances > table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Styles pour les commentaires */
+.comment-cell {
+  position: relative;
+  min-width: 200px;
+  word-break: break-word;
+}
+
+.comment-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.comment-text {
+  font-size: 0.95em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+
+.no-comment {
+  font-style: italic;
+  color: #aaa;
+}
+
+.edit-comment-btn {
+  background: none;
+  border: none;
+  color: #3498db;
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 2px 8px;
+  border-radius: 50%;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.edit-comment-btn:hover {
+  background: #eaf6fb;
+  color: #217dbb;
+}
+
+.icon {
+  font-size: 1em;
+  display: inline-block;
+}
+
+.comment-edit {
+  width: 100%;
+}
+
+.comment-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #bfc9d1;
+  border-radius: 4px;
+  font-size: 0.95em;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 70px;
+  margin-bottom: 8px;
+}
+
+.comment-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.comment-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.save-comment-btn, .cancel-comment-btn {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.save-comment-btn {
+  background: #3498db;
+  color: white;
+}
+
+.save-comment-btn:hover {
+  background: #217dbb;
+}
+
+.cancel-comment-btn {
+  background: #f1f2f6;
+  color: #576574;
+}
+
+.cancel-comment-btn:hover {
+  background: #dfe4ea;
+}
+
 @media (max-width: 1100px) {
   .prof-signature-page {
-    padding: 18px 4vw 18px 4vw;
+    padding: 24px 20px;
+    margin: 20px auto;
   }
   .prof-content-row {
     gap: 18px;
   }
+  
+  .comment-text {
+    max-width: 120px;
+  }
 }
+
 @media (max-width: 900px) {
   .prof-content-row {
     flex-direction: column;
@@ -449,23 +642,60 @@ input[type="text"]:focus {
     min-width: unset;
     width: 100%;
   }
+  
+  .comment-text {
+    max-width: 180px;
+  }
 }
+
+@media (max-width: 768px) {
+  .prof-signature-page {
+    padding: 16px 12px;
+    margin: 10px auto;
+    border-radius: 8px;
+  }
+  
+  .attendances-table th, .attendances-table td {
+    padding: 10px 8px;
+  }
+  
+  .action-btn {
+    padding: 6px 10px;
+    font-size: 0.9em;
+  }
+}
+
 @media (max-width: 600px) {
   .prof-signature-page {
-    padding: 8px 2vw;
+    padding: 12px 8px;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
   .prof-content-row {
     flex-direction: column;
     gap: 10px;
   }
   .prof-signature-form, .attendances {
-    padding: 8px 2vw;
+    padding: 12px 10px;
     min-width: unset;
     width: 100%;
   }
   .attendances-table th, .attendances-table td {
     padding: 6px 4px;
-    font-size: 0.98em;
+    font-size: 0.9em;
+  }
+  
+  .comment-cell {
+    min-width: 120px;
+  }
+  
+  .comment-text {
+    max-width: 80px;
+  }
+  
+  .comment-input {
+    min-height: 50px;
   }
 }
 </style>

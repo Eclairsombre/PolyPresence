@@ -79,6 +79,7 @@ const generateSessionHtml = async (session) => {
         const student = attendance.item1;
         const status = attendance.item2 === 0 ? 'Présent' : 'Absent';
         const statusClass = status === 'Présent' ? 'status-present' : 'status-absent';
+        const comment = student.comment ? student.comment : '';
         
         tableRows += `
           <tr>
@@ -90,6 +91,7 @@ const generateSessionHtml = async (session) => {
               `<img src="${student.signature}" alt="Signature" style="max-height: 60px;">` : 
               ''}
             </td>
+            <td style="max-width: 200px; word-wrap: break-word;">${comment}</td>
           </tr>
         `;
       });
@@ -117,6 +119,7 @@ const generateSessionHtml = async (session) => {
               <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Prénom</th>
               <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Présent/Absent</th>
               <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Signature</th>
+              <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Commentaire</th>
             </tr>
           </thead>
           <tbody>
@@ -281,3 +284,4 @@ onMounted(() => {
   border: 1px solid #f5c6cb;
 }
 </style>
+

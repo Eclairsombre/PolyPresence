@@ -16,5 +16,8 @@ namespace backend.Models
         public int StudentId { get; set; }
         public User User { get; set; } = null!; 
         public AttendanceStatus Status { get; set; }
+
+        public string? Comment { get; set; }
+
     }
 }
