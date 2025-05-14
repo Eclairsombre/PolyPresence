@@ -80,11 +80,20 @@
               <router-link :to="`/sessions/${session.id}`" class="view-attendance-btn">
                 Voir les présences
               </router-link>
+              <button v-if="session.name && session.name.toLowerCase().includes('travail personnel')" class="view-attendance-btn" @click="openEditSessionModal(session)" style="min-width: 90px;">
+                Signer
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+    <PopUpSignSession
+      v-if="showEditSessionModal"
+      :session="selectedSession"
+      @close="showEditSessionModal = false"
+      @sessionUpdated="handleSessionUpdated"
+    />
   </div>
 </template>
 
@@ -92,20 +101,19 @@
 import { defineComponent, ref, computed, onMounted, reactive } from 'vue';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useStudentsStore } from '../../stores/studentsStore';
-import { useAuthStore } from '../../stores/authStore';
-import axios from 'axios';
 import ExportSessionsPdf from '../exports/ExportSessionsPdf.vue';
 import PopUpCreateSession from '../popups/PopUpCreateSession.vue';
+import PopUpSignSession from '../popups/PopUpSignSession.vue';
 
 export default defineComponent({
   name: 'StudentsSessionPage',
   components: {
     ExportSessionsPdf,
-    PopUpCreateSession
+    PopUpCreateSession,
+    PopUpSignSession: PopUpSignSession
   },
   setup() {
     const sessionStore = useSessionStore();
-    const authStore = useAuthStore();
     const studentsStore = useStudentsStore();
     const selectedYear = ref('');
     const showCreateSessionForm = ref(false);
@@ -114,6 +122,8 @@ export default defineComponent({
     const students = ref([]);
     const isFiltering = ref(false);
     const showCreateSessionModal = ref(false);
+    const showEditSessionModal = ref(false);
+    const selectedSession = ref(null);
     
     const filters = reactive({
       startDate: '',
@@ -250,6 +260,16 @@ export default defineComponent({
       loadSessions();
     };
 
+    const openEditSessionModal = (session) => {
+      selectedSession.value = { ...session };
+      showEditSessionModal.value = true;
+    };
+
+    const handleSessionUpdated = () => {
+      showEditSessionModal.value = false;
+      loadSessions();
+    };
+
     onMounted(() => {
       loadSessions();
     });
@@ -273,7 +293,11 @@ export default defineComponent({
       clearFilters,
       isFiltering,
       showCreateSessionModal,
-      handleSessionCreated
+      handleSessionCreated,
+      showEditSessionModal,
+      selectedSession,
+      openEditSessionModal,
+      handleSessionUpdated
     };
   }
 });
@@ -452,6 +476,10 @@ export default defineComponent({
   border-radius: 4px;
   text-decoration: none;
   transition: background-color 0.3s;
+  margin-left: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
 }
 
 .view-attendance-btn:hover {
@@ -473,13 +501,6 @@ export default defineComponent({
   background-color: #219653;
 }
 
-.session-form-container {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  margin-bottom: 30px;
-}
 
 .session-form-container h2 {
   margin-bottom: 20px;
@@ -487,67 +508,11 @@ export default defineComponent({
   font-size: 1.4rem;
 }
 
-.session-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
 .form-group label {
   margin-bottom: 5px;
   font-weight: 500;
 }
 
-.form-control {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-}
-
-.form-actions {
-  grid-column: 1 / -1;
-  margin-top: 10px;
-}
-
-.submit-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  width: 100%;
-  transition: background-color 0.3s;
-}
-
-.submit-button:hover {
-  background-color: #2980b9;
-}
-
-.submit-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-.loading-info, .student-count-info {
-  grid-column: 1 / -1;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  text-align: center;
-}
-
-.student-count-info.warning {
-  background-color: #ffe6e6;
-  color: #c0392b;
-}
 
 .success-message {
   background-color: #d4edda;
@@ -576,23 +541,27 @@ export default defineComponent({
   .session-header, .session-details {
     padding: 8px;
   }
-  .session-form-container {
-    padding: 8px;
-  }
-  .form-group label, .form-control {
+
+  .form-group label{
     font-size: 0.98em;
   }
-  .export-section {
-    padding: 8px;
-    font-size: 0.95em;
-  }
+
 }
 
-.export-section {
-  margin-bottom: 20px;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
+.view-attendance-btn {
+  background-color: #3498db;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.3s;
+  margin-left: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+}
+.view-attendance-btn:hover {
+  background-color: #2980b9;
 }
 </style>
+
