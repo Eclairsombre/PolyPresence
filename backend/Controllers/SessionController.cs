@@ -570,7 +570,8 @@ namespace backend.Controllers
                         {
                             SessionId = sessionId,
                             StudentId = student.Id,
-                            Status = AttendanceStatus.Absent
+                            Status = AttendanceStatus.Absent,
+                            Comment = string.Empty
                         };
                         _context.Attendances.Add(attendance);
                     }
