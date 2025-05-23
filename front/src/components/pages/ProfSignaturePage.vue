@@ -169,7 +169,6 @@ const saveComment = async (studentNumber) => {
     );
     
     if (result) {
-      // Mise à jour locale du commentaire
       const attendanceIndex = attendances.value.findIndex(
         a => a.item1.studentNumber === studentNumber
       );
@@ -178,7 +177,6 @@ const saveComment = async (studentNumber) => {
         attendances.value[attendanceIndex].item1.comment = editingComment.value;
       }
       
-      // Fin du mode édition
       editingCommentFor.value = null;
       editingComment.value = '';
     }
@@ -267,14 +265,7 @@ const makeAction = async (action, studentNumber) => {
   box-shadow: 0 4px 24px rgba(52,152,219,0.10);
   padding: 36px 32px 32px 32px;
 }
-.main-title {
-  text-align: center;
-  margin-bottom: 32px;
-  color: #217dbb;
-  font-size: 2em;
-  letter-spacing: 1px;
-  font-weight: 700;
-}
+
 .validation-code-row {
   display: flex;
   align-items: center;
@@ -395,14 +386,7 @@ const makeAction = async (action, studentNumber) => {
   font-weight: 500;
   letter-spacing: 0.5px;
 }
-.present {
-  color: #27ae60;
-  font-weight: bold;
-}
-.absent {
-  color: #e74c3c;
-  font-weight: bold;
-}
+
 .annule {
   color: #888;
   font-weight: bold;

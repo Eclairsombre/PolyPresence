@@ -140,7 +140,7 @@ namespace backend.Controllers
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
-                                columns.RelativeColumn(2);  // Colonne pour les commentaires - plus large
+                                columns.RelativeColumn(2);
                             });
 
                             table.Header(header =>
@@ -189,7 +189,6 @@ namespace backend.Controllers
                                     table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
                                 }
                                 
-                                // Ajout de la colonne commentaire
                                 table.Cell().Element(CellStyle).Padding(5).Text(comment ?? string.Empty).FontSize(10).FontColor("#576574");
                                 
                                 idx++;
