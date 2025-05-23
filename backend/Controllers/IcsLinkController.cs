@@ -7,6 +7,12 @@ using Microsoft.EntityFrameworkCore;
 namespace backend.Controllers
 {
     [ApiController]
+
+    /**
+     * IcsLinkController
+     *
+     * This controller handles CRUD operations for IcsLink entities.
+     */
     [Route("api/[controller]")]
     public class IcsLinkController : ControllerBase
     {
@@ -16,12 +22,22 @@ namespace backend.Controllers
             _context = context;
         }
 
+        /*
+         * GetAll
+         *
+         * This method retrieves all IcsLink entities from the database.
+         */
         [HttpGet]
         public async Task<ActionResult<IEnumerable<IcsLink>>> GetAll()
         {
             return await _context.IcsLinks.ToListAsync();
         }
 
+        /*
+        * Create
+        *
+        * This method creates a new IcsLink entity in the database.
+        */
         [HttpPost]
         public async Task<ActionResult<IcsLink>> Create(IcsLink link)
         {
@@ -30,6 +46,11 @@ namespace backend.Controllers
             return CreatedAtAction(nameof(GetAll), new { id = link.Id }, link);
         }
 
+        /*
+        * Update
+        *
+        * This method updates an existing IcsLink entity in the database.
+        */
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, IcsLink link)
         {
@@ -39,6 +60,11 @@ namespace backend.Controllers
             return NoContent();
         }
 
+        /*
+        * Delete
+        *
+        * This method deletes an existing IcsLink entity from the database.
+        */
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {

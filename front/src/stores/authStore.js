@@ -8,25 +8,41 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 const COOKIE_SECRET = import.meta.env.VITE_COOKIE_SECRET;
 const COOKIE_EXPIRATION_MINUTES = 30;
 
+/**
+ * Authentication store for managing user authentication state and actions
+ */
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null,
   }),
 
   actions: {
+    /**
+     * Initialize the auth store by checking for existing session
+     */
     initialize() {
       this.checkSession();
     },
 
+    /**
+     * Redirects user to the login page
+     */
     login() {
       window.location.href = `${BASE_URL}/login`;
     },
 
+    /**
+     * Logs out the current user by removing user data and cookie
+     */
     async logout() {
       this.user = null;
       Cookies.remove("user");
     },
 
+    /**
+     * Checks for existing user session in cookies and loads user data if available
+     * Updates delegate status if needed
+     */
     checkSession() {
       const encrypted = Cookies.get("user");
       if (encrypted) {
@@ -60,6 +76,11 @@ export const useAuthStore = defineStore("auth", {
         }
       }
     },
+
+    /**
+     * Checks if the current user exists in the database
+     * @returns {Promise<Object|Boolean>} User data if found, false otherwise
+     */
     async checkIfUserExists() {
       if (!this.user || !this.user.studentId) return false;
 
@@ -81,6 +102,11 @@ export const useAuthStore = defineStore("auth", {
         return false;
       }
     },
+
+    /**
+     * Checks if the current user is an administrator
+     * @returns {Promise<Boolean>} True if user is admin, false otherwise
+     */
     async isAdmin() {
       if (!this.user || !this.user.studentId) return false;
       if (this.user.isAdmin !== undefined) return this.user.isAdmin;
@@ -101,6 +127,13 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
+    /**
+     * Authenticates user with credentials (username and password)
+     * @param {string} username - Student ID/number
+     * @param {string} password - User password
+     * @returns {Promise<Object>} User data if authentication successful
+     * @throws {Error} If authentication fails
+     */
     async loginWithCredentials(username, password) {
       if (!username || !password)
         throw new Error("Identifiant ou mot de passe manquant");
@@ -124,6 +157,10 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
+    /**
+     * Updates user data in local storage and cookies
+     * @param {Object} user - User data to store
+     */
     async updateUserLocalStorage(user) {
       this.user = user;
       const encrypted = CryptoJS.AES.encrypt(

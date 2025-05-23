@@ -4,12 +4,20 @@ import { useAuthStore } from "./authStore";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+/**
+ * Store for managing student data and operations
+ */
 export const useStudentsStore = defineStore("students", {
   state: () => ({
     students: [],
   }),
 
   actions: {
+    /**
+     * Adds a new student to the system
+     * @param {Object} student - Student data (name, firstname, studentNumber, email, year)
+     * @returns {Promise<Object|boolean>} Created student data or false if error
+     */
     async addStudent(student) {
       try {
         const response = await axios.post(`${API_URL}/User`, student);
@@ -28,6 +36,12 @@ export const useStudentsStore = defineStore("students", {
         throw error;
       }
     },
+
+    /**
+     * Fetches all students for a specific academic year
+     * @param {string} year - Academic year ('3A', '4A', '5A')
+     * @returns {Promise<Array>} Array of student objects
+     */
     async fetchStudents(year) {
       try {
         const response = await axios.get(`${API_URL}/User/year/${year}`);
@@ -61,6 +75,12 @@ export const useStudentsStore = defineStore("students", {
         return [];
       }
     },
+
+    /**
+     * Deletes a student by their student number
+     * @param {string} studentNumber - Student ID number to delete
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
     async deleteStudent(studentNumber) {
       try {
         const response = await axios.delete(
@@ -87,6 +107,12 @@ export const useStudentsStore = defineStore("students", {
         return false;
       }
     },
+
+    /**
+     * Gets a student by their student number
+     * @param {string} studentNumber - Student ID number
+     * @returns {Promise<Object|null>} Student data or null if not found
+     */
     async getStudent(studentNumber) {
       try {
         const response = await axios.get(
@@ -115,6 +141,12 @@ export const useStudentsStore = defineStore("students", {
         return null;
       }
     },
+
+    /**
+     * Gets a student by their database ID
+     * @param {number} id - Database ID of the student
+     * @returns {Promise<Object|null>} Student data or null if not found
+     */
     async getStudentById(id) {
       try {
         const response = await axios.get(`${API_URL}/User/${id}`);
@@ -124,6 +156,12 @@ export const useStudentsStore = defineStore("students", {
         return null;
       }
     },
+
+    /**
+     * Updates an existing student's information
+     * @param {Object} student - Student data with studentNumber
+     * @returns {Promise<Object>} Updated student data
+     */
     async updateStudent(student) {
       try {
         const response = await axios.put(
@@ -154,6 +192,12 @@ export const useStudentsStore = defineStore("students", {
         throw error;
       }
     },
+
+    /**
+     * Checks if a student has set a password
+     * @param {string} studentNumber - Student ID number
+     * @returns {Promise<boolean>} True if student has a password, false otherwise
+     */
     async havePasword(studentNumber) {
       try {
         const response = await axios.get(
@@ -165,12 +209,17 @@ export const useStudentsStore = defineStore("students", {
         throw error;
       }
     },
+
+    /**
+     * Makes a student an administrator
+     * @param {string} studentNumber - Student ID number
+     * @returns {Promise<Object>} Response data from the API
+     */
     async makeAdmin(studentNumber) {
       try {
         const response = await axios.post(
           `${API_URL}/User/make-admin/${encodeURIComponent(studentNumber)}`
         );
-        console.log("Réponse de la promotion:", response.data);
         return response.data;
       } catch (error) {
         console.error("Erreur lors de la promotion de l'étudiant:", error);
@@ -179,3 +228,4 @@ export const useStudentsStore = defineStore("students", {
     },
   },
 });
+

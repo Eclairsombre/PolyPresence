@@ -3,6 +3,9 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+/**
+ * Store for managing ICS calendar links and imports
+ */
 export const useIcsLinkStore = defineStore("icsLink", {
   state: () => ({
     icsLinks: [],
@@ -14,6 +17,9 @@ export const useIcsLinkStore = defineStore("icsLink", {
     timers: null,
   }),
   actions: {
+    /**
+     * Fetches all ICS calendar links
+     */
     async fetchIcsLinks() {
       this.loading = true;
       this.error = null;
@@ -27,6 +33,12 @@ export const useIcsLinkStore = defineStore("icsLink", {
         this.loading = false;
       }
     },
+
+    /**
+     * Adds a new ICS calendar link
+     * @param {string} year - Academic year ('3A', '4A', '5A')
+     * @param {string} url - ICS calendar URL
+     */
     async addIcsLink(year, url) {
       this.loading = true;
       this.error = null;
@@ -43,6 +55,13 @@ export const useIcsLinkStore = defineStore("icsLink", {
         this.loading = false;
       }
     },
+
+    /**
+     * Updates an existing ICS calendar link
+     * @param {number} id - Link ID
+     * @param {string} year - Academic year ('3A', '4A', '5A')
+     * @param {string} url - ICS calendar URL
+     */
     async updateIcsLink(id, year, url) {
       this.loading = true;
       this.error = null;
@@ -60,6 +79,11 @@ export const useIcsLinkStore = defineStore("icsLink", {
         this.loading = false;
       }
     },
+
+    /**
+     * Deletes an ICS calendar link
+     * @param {number} id - Link ID to delete
+     */
     async deleteIcsLink(id) {
       this.loading = true;
       this.error = null;
@@ -77,6 +101,12 @@ export const useIcsLinkStore = defineStore("icsLink", {
         this.loading = false;
       }
     },
+
+    /**
+     * Imports sessions from an ICS calendar
+     * @param {string} icsUrl - ICS calendar URL
+     * @param {string} year - Academic year to associate with imported sessions
+     */
     async importIcs(icsUrl, year) {
       this.loading = true;
       this.error = null;
@@ -92,6 +122,10 @@ export const useIcsLinkStore = defineStore("icsLink", {
         this.loading = false;
       }
     },
+
+    /**
+     * Fetches timer data for scheduled imports
+     */
     async fetchTimers() {
       try {
         const res = await axios.get(`${API_URL}/Session/timers`);
@@ -100,6 +134,10 @@ export const useIcsLinkStore = defineStore("icsLink", {
         this.timers = null;
       }
     },
+
+    /**
+     * Resets status message
+     */
     resetMessage() {
       this.message = "";
       this.success = false;

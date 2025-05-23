@@ -49,13 +49,11 @@ const fetchAllStudents = async () => {
     const students = await studentsStore.fetchStudents(year);
     var tempStudents = [];
     for (const student of students) {
-      console.log(await studentsStore.havePasword(student.studentNumber));
       if (await studentsStore.havePasword(student.studentNumber) === true) {
         continue;
       }
       tempStudents.push(student);
     }
-    console.log(tempStudents);
     studentsByYear.value[year] = tempStudents.sort((a, b) => a.name.localeCompare(b.name));
   }
 };
@@ -141,20 +139,6 @@ const sendRegisterMail = async () => {
   margin-top: 18px;
   font-weight: 500;
 }
-.back-login-link {
-  display: block;
-  margin-top: 18px;
-  color: #3498db;
-  text-decoration: underline;
-  font-size: 1rem;
-}
-.students-list-register {
-  margin-top: 40px;
-  text-align: left;
-}
-.students-year-section {
-  margin-bottom: 24px;
-}
 .students-year-section h3 {
   margin-bottom: 8px;
 }
@@ -196,8 +180,6 @@ const sendRegisterMail = async () => {
     padding: 10px;
     font-size: 0.98em;
   }
-  .students-list-register {
-    margin-top: 18px;
-  }
+
 }
 </style>

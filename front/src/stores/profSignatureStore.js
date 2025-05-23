@@ -3,6 +3,9 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+/**
+ * Store for managing professor signatures on sessions
+ */
 export const useProfSignatureStore = defineStore("profSignature", {
   state: () => ({
     session: null,
@@ -11,6 +14,11 @@ export const useProfSignatureStore = defineStore("profSignature", {
     success: false,
   }),
   actions: {
+    /**
+     * Fetches session information using a professor signature token
+     * @param {string} token - The unique signature token
+     * @returns {Promise<Object|null>} Session data if found, null otherwise
+     */
     async fetchSessionByProfSignatureToken(token) {
       this.loading = true;
       this.error = null;
@@ -27,6 +35,13 @@ export const useProfSignatureStore = defineStore("profSignature", {
         this.loading = false;
       }
     },
+
+    /**
+     * Saves a professor signature for a session
+     * @param {string} token - The unique signature token
+     * @param {Object} signatureData - The signature data to save
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
     async saveProfSignature(token, signatureData) {
       this.loading = true;
       this.error = null;
@@ -45,6 +60,10 @@ export const useProfSignatureStore = defineStore("profSignature", {
         this.loading = false;
       }
     },
+
+    /**
+     * Resets the store state
+     */
     reset() {
       this.session = null;
       this.loading = false;

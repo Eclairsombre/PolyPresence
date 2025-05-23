@@ -13,6 +13,11 @@ using System.Net.Mail;
 
 namespace backend.Controllers
 {
+    /**
+     * UserController
+     *
+     * This controller handles CRUD operations for User entities.
+     */
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
@@ -25,41 +30,55 @@ namespace backend.Controllers
             _context = context;
             _logger = logger;
         }
-
-
+        /**
+         * GetUsers
+         *
+         * This method retrieves all User entities from the database.
+         */
         [HttpGet]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
             return await _context.Users.ToListAsync();
         }
 
+        /**
+         * GetUser
+         *
+         * This method retrieves a User entity by its ID.
+         */
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> GetUser(int id)
         {
             var user = await _context.Users.FindAsync(id);
-
             if (user == null)
             {
                 return NotFound();
             }
-
             return user;
         }
 
+        /**
+         * GetUserByStudentNumber
+         *
+         * This method retrieves a User entity by its student number.
+         */
         [HttpGet("search/{studentNumber}")]
         public async Task<ActionResult<object>> SearchUserByNumber(string studentNumber)
         {
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
-
             if (user == null)
             {
                 return NotFound(new { exists = false });
             }
-
             return new { exists = true, user };
         }
 
+        /**
+         * IsUserAdmin
+         *
+         * This method checks if a user is an admin.
+         */
         [HttpGet("IsUserAdmin/{username}")]
         public IActionResult IsUserAdmin(string username)
         {
@@ -67,6 +86,11 @@ namespace backend.Controllers
             return Ok(new { IsAdmin = isAdmin });
         }
 
+        /**
+         * PostUser
+         *
+         * This method creates a new User entity in the database.
+         */
         [HttpPost]
         public async Task<ActionResult<User>> PostUser(User user)
         {
@@ -96,6 +120,11 @@ namespace backend.Controllers
             return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
         }
 
+        /**
+         * PutUser
+         *
+         * This method updates an existing User entity in the database.
+         */
         [HttpPut("{studentNumber}")]
         public async Task<IActionResult> PutUser(string studentNumber, User user)
         {
@@ -117,8 +146,6 @@ namespace backend.Controllers
             existingUser.Email = user.Email;
             existingUser.Year = user.Year;
             existingUser.IsDelegate = user.IsDelegate;
-
-
             try
             {
                 await _context.SaveChangesAsync();
@@ -127,10 +154,14 @@ namespace backend.Controllers
             {
                 return StatusCode(500, "Erreur lors de la mise à jour de l'utilisateur.");
             }
-
             return NoContent();
         }
 
+        /**
+         * DeleteUser
+         *
+         * This method deletes a User entity from the database.
+         */
         [HttpDelete("{studentNumber}")]
         public async Task<IActionResult> DeleteUser(string studentNumber)
         {
@@ -153,7 +184,11 @@ namespace backend.Controllers
             return NoContent();
         }
 
-
+        /**
+         * GetUserByYear
+         *
+         * This method retrieves all User entities for a specific year.
+         */
         [HttpGet("year/{year}")]
         public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year)
         {
@@ -169,6 +204,11 @@ namespace backend.Controllers
             return users;
         }
 
+        /**
+        * SendRegisterLink
+        *
+        * This method sends a registration link to the user's email address.
+        */
         [HttpPost("send-register-link")]
         public async Task<IActionResult> SendRegisterLink([FromBody] RegisterLinkRequest request)
         {
@@ -232,6 +272,11 @@ namespace backend.Controllers
             return Ok(new { message = "Mail envoyé." });
         }
 
+        /**
+         * SetPassword
+         *
+         * This method sets the password for the user.
+         */
         [HttpPost("set-password")]
         public async Task<IActionResult> SetPassword([FromBody] SetPasswordRequest request)
         {
@@ -247,13 +292,28 @@ namespace backend.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "Mot de passe défini avec succès." });
         }
+        /**
+         * SetPasswordRequest
+         *
+         * This class represents the request body for setting a password.
+         */
         public class SetPasswordRequest { public string Token { get; set; } public string Password { get; set; } }
 
+        /**
+         * RegisterLinkRequest
+         *
+         * This class represents the request body for sending a registration link.
+         */
         public class RegisterLinkRequest
         {
             public string StudentNumber { get; set; }
         }
 
+        /**
+         * Login
+         *
+         * This method handles user login.
+         */
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -273,8 +333,18 @@ namespace backend.Controllers
                 existsInDb = true
             });
         }
+        /**
+         * LoginRequest
+         *
+         * This class represents the request body for user login.
+         */
         public class LoginRequest { public string StudentNumber { get; set; } public string Password { get; set; } }
 
+        /**
+         * ForgotPassword
+         *
+         * This method handles the forgot password functionality.
+         */
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] RegisterLinkRequest request)
         {
@@ -331,12 +401,21 @@ namespace backend.Controllers
 
             return Ok(new { message = "Si un compte existe, un mail de réinitialisation a été envoyé." });
         }
-
+        /**
+         * UserExists
+         *
+         * This method checks if a user exists by ID.
+         */
         private bool UserExists(int id)
         {
             return _context.Users.Any(e => e.Id == id);
         }
 
+        /**
+         * UserExistsByStudentNumber
+         *
+         * This method checks if a user exists by student number.
+         */
         [HttpGet("have-password/{studentNumber}")]
         public async Task<IActionResult> HavePassword(string studentNumber)
         {
@@ -346,6 +425,11 @@ namespace backend.Controllers
             return Ok(new { havePassword = !string.IsNullOrEmpty(user.PasswordHash) });
         }
 
+        /**
+         * MakeAdmin
+         *
+         * This method promotes a user to admin.
+         */
         [HttpPost("make-admin/{studentNumber}")]
         public async Task<IActionResult> MakeAdmin(string studentNumber)
         {

@@ -106,9 +106,7 @@ export default {
       
       try {
         await studentsStore.addStudent(student.value);
-        console.log('Student added:', student.value);
         if (student.value.year === 'ADMIN') {
-          console.log('Adding admin');
           await studentsStore.makeAdmin(student.value.studentNumber);
         }
         successMessage.value = 'Étudiant ajouté avec succès!';

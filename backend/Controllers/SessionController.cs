@@ -12,6 +12,11 @@ using System.Net;
 
 namespace backend.Controllers
 {
+    /**
+     * SessionController
+     *
+     * This controller handles CRUD operations for Session entities.
+     */
     [Route("api/[controller]")]
     [ApiController]
     public class SessionController : ControllerBase
@@ -27,7 +32,11 @@ namespace backend.Controllers
             _serviceScopeFactory = serviceScopeFactory;
         }
 
-
+        /**
+         * ImportAllIcsLinks
+         *
+         * This method imports all ICS links from the database and processes them.
+         */
         public async Task ImportAllIcsLinks(ApplicationDbContext context, ILogger logger)
         {
             var icsLinks = await context.IcsLinks.ToListAsync();
@@ -47,7 +56,11 @@ namespace backend.Controllers
             }
         }
 
-
+        /**
+         * CheckAndSendSessionMails
+         *
+         * This method checks for sessions that need to send emails to professors and sends them.
+         */
         public async Task CheckAndSendSessionMails()
         {
             using (var scope = _serviceScopeFactory.CreateScope())
@@ -79,12 +92,22 @@ namespace backend.Controllers
             }
         }
 
+        /**
+         * GetAllSessions
+         *
+         * This method retrieves all sessions from the database.
+         */
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Session>>> GetSessions()
         {
             return await _context.Sessions.ToListAsync();
         }
 
+        /**
+         * GetSession
+         *
+         * This method retrieves a session by its ID from the database.
+         */
         [HttpGet("{id}")]
         public async Task<ActionResult<Session>> GetSession(int id)
         {
@@ -98,6 +121,11 @@ namespace backend.Controllers
             return session;
         }
 
+        /**
+         * GetSessionsByYear
+         *
+         * This method retrieves sessions by year from the database.
+         */
         [HttpGet("year/{year}")]
         public async Task<ActionResult<IEnumerable<Session>>> GetSessionsByYear(string year)
         {
@@ -113,6 +141,11 @@ namespace backend.Controllers
             return sessions;
         }
 
+        /**
+         * PostSession
+         *
+         * This method creates a new session in the database.
+         */
         [HttpPost]
         public async Task<ActionResult<Session>> PostSession(Session session)
         {
@@ -123,6 +156,11 @@ namespace backend.Controllers
             return CreatedAtAction(nameof(GetSession), new { id = session.Id }, session);
         }
 
+        /**
+         * GetSessionByProfSignatureToken
+         *
+         * This method retrieves a session by its professor signature token from the database.
+         */
         [HttpGet("prof-signature/{token}")]
         public async Task<ActionResult<Session>> GetSessionByProfSignatureToken(string token)
         {
@@ -134,6 +172,11 @@ namespace backend.Controllers
             return session;
         }
 
+        /**
+         * SaveProfSignature
+         *
+         * This method saves the professor's signature for a session.
+         */
         [HttpPost("prof-signature/{token}")]
         public async Task<IActionResult> SaveProfSignature(string token, [FromBody] SignatureModel signatureData)
         {
@@ -151,6 +194,11 @@ namespace backend.Controllers
             return Ok(new { message = "Signature du professeur enregistrée avec succès." });
         }
 
+        /**
+         * PutSession
+         *
+         * This method updates an existing session in the database.
+         */
         [HttpPut("{id}")]
         public async Task<IActionResult> PutSession(int id, Session session)
         {
@@ -180,6 +228,11 @@ namespace backend.Controllers
             return NoContent();
         }
 
+        /**
+         * DeleteSession
+         *
+         * This method deletes a session from the database.
+         */
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSession(int id)
         {
@@ -198,6 +251,11 @@ namespace backend.Controllers
             return NoContent();
         }
 
+        /**
+         * GetCurrentSession
+         *
+         * This method retrieves the current session for a given year.
+         */
         [HttpGet("current/{year}")]
         public async Task<ActionResult<Session>> GetCurrentSession(string year)
         {
@@ -219,6 +277,11 @@ namespace backend.Controllers
             return currentSession;
         }
 
+        /**
+         * AddStudentsToSession
+         *
+         * This method adds a student to a session.
+         */
         [HttpPost("{sessionId}/student/{studentNumber}")]
         public async Task<IActionResult> AddStudentsToSession(int sessionId, string studentNumber)
         {
@@ -262,6 +325,11 @@ namespace backend.Controllers
             return Ok(new { message = "Étudiant ajouté à la session avec succès." });
         }
 
+        /**
+         * ValidateSession
+         *
+         * This method validates a session for a student.
+         */
         [HttpPost("{sessionId}/validate/{studentNumber}")]
         public async Task<IActionResult> ValidateSession(int sessionId, string studentNumber)
         {
@@ -294,8 +362,12 @@ namespace backend.Controllers
             return Ok(new { message = "Présence validée avec succès." });
         }
 
+        /**
+         * GetAttendance
+         *
+         * This method retrieves the attendance for a specific session and student.
+         */
         [HttpGet("{sessionId}/attendance/{studentNumber}")]
-
         public async Task<IActionResult> GetAttendance(int sessionId, string studentNumber)
         {
             var session = await _context.Sessions.FindAsync(sessionId);
@@ -324,6 +396,11 @@ namespace backend.Controllers
             return Ok(attendance);
         }
 
+        /**
+         * GetSessionAttendances
+         *
+         * This method retrieves all attendances for a specific session.
+         */
         [HttpGet("{sessionId}/attendances")]
         public async Task<IActionResult> GetSessionAttendances(int sessionId)
         {
@@ -374,6 +451,11 @@ namespace backend.Controllers
             return Ok(result);
         }
 
+        /**
+         * SaveSignature
+         *
+         * This method saves the signature for a student.
+         */
         [HttpPost("signature/{studentNumber}")]
         public async Task<IActionResult> SaveSignature(string studentNumber, [FromBody] SignatureModel signatureData)
         {
@@ -390,6 +472,11 @@ namespace backend.Controllers
             return Ok(new { message = "Signature enregistrée avec succès." });
         }
 
+        /**
+         * GetSignature
+         *
+         * This method retrieves the signature for a student.
+         */
         [HttpGet("signature/{studentNumber}")]
         public async Task<IActionResult> GetSignature(string studentNumber)
         {
@@ -404,8 +491,12 @@ namespace backend.Controllers
             return Ok(new { signature = student.Signature });
         }
 
+        /**
+         * GetNotSendSessions
+         *
+         * This method retrieves all sessions that have not been sent.
+         */
         [HttpGet("not-send")]
-
         public async Task<IActionResult> GetNotSendSessions()
         {
             var sessions = await _context.Sessions
@@ -420,6 +511,11 @@ namespace backend.Controllers
             return Ok(sessions);
         }
 
+        /**
+         * SetProfEmail
+         *
+         * This method sets the professor's email for a session.
+         */
         [HttpPost("{sessionId}/set-prof-email")]
         public async Task<IActionResult> SetProfEmail(int sessionId, [FromBody] SetProfEmailModel model)
         {
@@ -428,15 +524,16 @@ namespace backend.Controllers
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
                 return NotFound(new { error = true, message = "Session non trouvée." });
-
-
             session.ProfEmail = model.ProfEmail;
             await _context.SaveChangesAsync();
-
-
             return Ok(new { message = "Email du professeur enregistré et mail envoyé." });
         }
 
+        /**
+         * ResendProfMail
+         *
+         * This method resends the email to the professor for a session.
+         */
         [HttpPost("{sessionId}/resend-prof-mail")]
         public async Task<IActionResult> ResendProfMail(int sessionId)
         {
@@ -447,6 +544,11 @@ namespace backend.Controllers
             return Ok(new { message = "Mail renvoyé au professeur." });
         }
 
+        /**
+         * ImportIcs
+         *
+         * This method imports ICS data from a URL and processes it.
+         */
         [HttpPost("import-ics")]
         public async Task<IActionResult> ImportIcs([FromBody] ImportIcsModel model)
         {
@@ -599,6 +701,11 @@ namespace backend.Controllers
             return await MergeSameSessions(model.Year);
 
         }
+        /**
+         * MergeSameSessions
+         *
+         * This method merges sessions that are the same.
+         */
         public async Task<IActionResult> MergeSameSessions(string year)
         {
             var sessions = await _context.Sessions
@@ -628,6 +735,11 @@ namespace backend.Controllers
             return Ok(new { message = "Sessions fusionnées avec succès." });
         }
 
+        /**
+         * ImportIcsModel
+         *
+         * This model is used for importing ICS data.
+         */
         public class ImportIcsModel
         {
             public string IcsUrl { get; set; } = string.Empty;
@@ -636,6 +748,11 @@ namespace backend.Controllers
             public string? ProfFirstname { get; set; }
         }
 
+        /**
+         * SendProfSignatureMail
+         *
+         * This method sends an email to the professor for signing the attendance sheet.
+         */
         private async Task SendProfSignatureMail(Session session)
         {
             if (session == null || string.IsNullOrWhiteSpace(session.ProfEmail) || string.IsNullOrWhiteSpace(session.ProfSignatureToken))
@@ -692,11 +809,21 @@ Cordialement";
             }
         }
 
+        /**
+         * SetProfEmailModel
+         *
+         * This model is used for setting the professor's email.
+         */
         public class SetProfEmailModel
         {
             public string ProfEmail { get; set; } = string.Empty;
         }
 
+        /**
+         * SignatureModel
+         *
+         * This model is used for saving the professor's signature.
+         */
         public class SignatureModel
         {
             public string Signature { get; set; } = string.Empty;
@@ -704,13 +831,21 @@ Cordialement";
             public string Firstname { get; set; } = string.Empty;
         }
 
+        /**
+         * SessionExists
+         *
+         * This method checks if a session exists in the database.
+         */
         private bool SessionExists(int id)
         {
             return _context.Sessions.Any(e => e.Id == id);
         }
 
-
-
+        /**
+         * ChangeAttendanceStatus
+         *
+         * This method changes the attendance status for a student in a session.
+         */
         [HttpPost("{sessionId}/attendance-status/{studentNumber}")]
         public async Task<IActionResult> ChangeAttendanceStatus(int sessionId, string studentNumber, [FromBody] ChangeAttendanceStatusModel model)
         {
@@ -734,11 +869,21 @@ Cordialement";
             return Ok(new { message = "Statut de présence mis à jour avec succès." });
         }
 
+        /**
+         * ChangeAttendanceStatusModel
+         *
+         * This model is used for changing the attendance status.
+         */
         public class ChangeAttendanceStatusModel
         {
             public int Status { get; set; }
         }
 
+        /**
+         * GetTimers
+         *
+         * This method retrieves the next execution times for the import and mail timers.
+         */
         [HttpGet("timers")]
         public IActionResult GetTimers()
         {
@@ -757,6 +902,11 @@ Cordialement";
         }
 
 
+        /**
+         * UpdateAttendanceComment
+         *
+         * This method updates the comment for a student's attendance in a session.
+         */
         [HttpPost("{sessionId}/attendance-comment/{studentNumber}")]
         public async Task<IActionResult> UpdateAttendanceComment(int sessionId, string studentNumber, [FromBody] CommentUpdateModel model)
         {
@@ -786,6 +936,11 @@ Cordialement";
             return Ok(new { message = "Commentaire mis à jour avec succès." });
         }
 
+        /**
+         * CommentUpdateModel
+         *
+         * This model is used for updating the attendance comment.
+         */
         public class CommentUpdateModel
         {
             public string Comment { get; set; }

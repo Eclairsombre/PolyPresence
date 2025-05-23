@@ -121,7 +121,6 @@ export default defineComponent({
         const sessionId = route.params.id;
         session.value = await sessionStore.fetchSessionById(sessionId);
         const attendances = await sessionStore.getSessionAttendances(sessionId);
-        console.log("Liste des présences:", attendances);
         students.value = attendances.map((student, index) => ({
           id: student.item1.id,
           name: student.item1.name,
@@ -174,8 +173,7 @@ export default defineComponent({
     const exportToPDF = async () => {
       if (!session.value) return;
       exporting.value = true;
-      console.log(session.value)
-      
+
       try {
           await mailStore.getSessionPdf(session)
       } finally {

@@ -1,8 +1,11 @@
-import { defineStore } from "pinia";
+import {defineStore} from "pinia";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+/**
+ * Store for managing sessions (classes/courses) and student attendance
+ */
 export const useSessionStore = defineStore("session", {
   state: () => ({
     sessions: [],
@@ -13,11 +16,20 @@ export const useSessionStore = defineStore("session", {
   }),
 
   getters: {
+    /**
+     * Filters sessions by academic year
+     * @param {string} year - Academic year ('3A', '4A', '5A')
+     * @returns {Array} Filtered sessions
+     */
     getSessionsByYear: (state) => (year) => {
       if (!year) return state.sessions;
       return state.sessions.filter((session) => session.year === year);
     },
 
+    /**
+     * Returns all upcoming/future sessions based on current date
+     * @returns {Array} Upcoming sessions
+     */
     getUpcomingSessions: (state) => {
       const now = new Date();
       return state.sessions.filter((session) => {
@@ -26,6 +38,10 @@ export const useSessionStore = defineStore("session", {
       });
     },
 
+    /**
+     * Returns all past sessions based on current date
+     * @returns {Array} Past sessions
+     */
     getPastSessions: (state) => {
       const now = new Date();
       return state.sessions.filter((session) => {
@@ -34,6 +50,12 @@ export const useSessionStore = defineStore("session", {
       });
     },
 
+    /**
+     * Filters sessions by date range
+     * @param {string} startDate - Start date in ISO format
+     * @param {string} endDate - End date in ISO format
+     * @returns {Array} Filtered sessions in the specified date range
+     */
     getSessionsByDateRange: (state) => (startDate, endDate) => {
       if (!startDate && !endDate) return state.sessions;
 
@@ -55,6 +77,10 @@ export const useSessionStore = defineStore("session", {
   },
 
   actions: {
+    /**
+     * Fetches all sessions from the API
+     * @returns {Promise<Array|null>} Array of sessions or null if error
+     */
     async fetchAllSessions() {
       this.loading = true;
       this.error = null;
@@ -73,6 +99,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Fetches sessions filtered by academic year
+     * @param {string} year - Academic year ('3A', '4A', '5A')
+     * @returns {Promise<Array|null>} Array of sessions or null if error
+     */
     async fetchSessionsByYear(year) {
       if (!year) return this.fetchAllSessions();
 
@@ -102,6 +133,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Creates a new session
+     * @param {Object} sessionData - Session data
+     * @returns {Promise<Object|null>} Created session or null if error
+     */
     async createSession(sessionData) {
       this.loading = true;
       this.error = null;
@@ -127,6 +163,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Fetches a specific session by ID
+     * @param {number} id - Session ID
+     * @returns {Promise<Object|null>} Session data or null if error
+     */
     async fetchSessionById(id) {
       this.loading = true;
       this.error = null;
@@ -145,6 +186,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Updates an existing session
+     * @param {Object} sessionData - Session data with ID
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
     async updateSession(sessionData) {
       this.loading = true;
       this.error = null;
@@ -172,6 +218,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Deletes a session by ID
+     * @param {number} id - Session ID to delete
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
     async deleteSession(id) {
       this.loading = true;
       this.error = null;
@@ -195,6 +246,12 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Adds multiple students to a session by their student numbers
+     * @param {number} sessionId - Session ID
+     * @param {Array<Object>} students - Array of student objects with studentNumber property
+     * @returns {Promise<Object>} Results with success and failed arrays
+     */
     async addStudentsToSessionByNumber(sessionId, students) {
       try {
         if (!Array.isArray(students) || students.length === 0) {
@@ -256,6 +313,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Gets the current active session for a specific academic year
+     * @param {string} year - Academic year ('3A', '4A', '5A')
+     * @returns {Promise<Object|null>} Current session or null if none found
+     */
     async getCurrentSession(year) {
       this.loading = true;
       this.error = null;
@@ -282,6 +344,13 @@ export const useSessionStore = defineStore("session", {
         this.loading = false;
       }
     },
+
+    /**
+     * Validates a student's presence in a session
+     * @param {string} studentNumber - Student ID number
+     * @param {number} sessionId - Session ID
+     * @returns {Promise<Object|null>} Validation result or null if error
+     */
     async validatePresence(studentNumber, sessionId) {
       this.loading = true;
       this.error = null;
@@ -300,6 +369,13 @@ export const useSessionStore = defineStore("session", {
         this.loading = false;
       }
     },
+
+    /**
+     * Gets attendance status for a specific student and session
+     * @param {string} studentNumber - Student ID number
+     * @param {number} sessionId - Session ID
+     * @returns {Promise<Object|null>} Attendance data or null if error
+     */
     async getAttendance(studentNumber, sessionId) {
       this.loading = true;
       this.error = null;
@@ -319,16 +395,21 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Saves a student's signature
+     * @param {string} studentNumber - Student ID number
+     * @param {string} signatureData - Base64 encoded signature data
+     * @returns {Promise<Object|null>} API response or null if error
+     */
     async saveSignature(studentNumber, signatureData) {
       this.loading = true;
       this.error = null;
 
       try {
-        const response = await axios.post(
-          `${API_URL}/Session/signature/${studentNumber}`,
-          { signature: signatureData }
+        return await axios.post(
+            `${API_URL}/Session/signature/${studentNumber}`,
+            {signature: signatureData}
         );
-        return response;
       } catch (error) {
         this.error =
           error.message || "Erreur lors de l'enregistrement de la signature";
@@ -342,6 +423,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Gets a student's signature
+     * @param {string} studentNumber - Student ID number
+     * @returns {Promise<Object|null>} Signature data or null if error
+     */
     async getSignature(studentNumber) {
       this.loading = true;
       this.error = null;
@@ -361,6 +447,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Gets session data with attendance information for export
+     * @param {number} sessionId - Session ID
+     * @returns {Promise<Object|null>} Session and attendance data or null if error
+     */
     async getSessionExportData(sessionId) {
       this.loading = true;
       this.error = null;
@@ -375,12 +466,10 @@ export const useSessionStore = defineStore("session", {
           `${API_URL}/Session/${sessionId}/attendances`
         );
 
-        const exportData = {
+        return {
           session: sessionData,
           attendances: attendanceResponse.data || [],
         };
-
-        return exportData;
       } catch (error) {
         this.error =
           error.message ||
@@ -395,6 +484,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Fetches sessions based on multiple filter criteria
+     * @param {Object} filters - Filter criteria (year, startDate, endDate)
+     * @returns {Promise<Array>} Filtered sessions
+     */
     async fetchSessionsByFilters(filters = {}) {
       const { year, startDate, endDate } = filters;
       this.loading = true;
@@ -419,6 +513,12 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Sets the professor's email for a session
+     * @param {number} sessionId - Session ID
+     * @param {string} profEmail - Professor's email address
+     * @returns {Promise<boolean>} True if successful
+     */
     async setProfEmail(sessionId, profEmail) {
       try {
         await axios.post(`${API_URL}/Session/${sessionId}/set-prof-email`, {
@@ -429,6 +529,12 @@ export const useSessionStore = defineStore("session", {
         throw e;
       }
     },
+
+    /**
+     * Resends the professor signature email for a session
+     * @param {number} sessionId - Session ID
+     * @returns {Promise<boolean>} True if successful
+     */
     async resendProfMail(sessionId) {
       try {
         await axios.post(`${API_URL}/Session/${sessionId}/resend-prof-mail`);
@@ -438,6 +544,11 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Gets all attendance records for a specific session
+     * @param {number} sessionId - Session ID
+     * @returns {Promise<Array>} Array of attendance records
+     */
     async getSessionAttendances(sessionId) {
       this.loading = true;
       this.error = null;
@@ -445,7 +556,6 @@ export const useSessionStore = defineStore("session", {
         const response = await axios.get(
           `${API_URL}/Session/${sessionId}/attendances`
         );
-        console.log("Response data:", response.data);
         return response.data.$values || [];
       } catch (error) {
         this.error =
@@ -456,6 +566,13 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Changes attendance status for a student in a session
+     * @param {number} sessionId - Session ID
+     * @param {string} studentNumber - Student ID number
+     * @param {string} status - New attendance status
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
     async changeAttendanceStatus(sessionId, studentNumber, status) {
       try {
         await axios.post(
@@ -474,6 +591,9 @@ export const useSessionStore = defineStore("session", {
       }
     },
 
+    /**
+     * Resets the store to its initial state
+     */
     resetStore() {
       this.sessions = [];
       this.currentSession = null;
@@ -481,6 +601,13 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
     },
 
+    /**
+     * Updates comment for student attendance
+     * @param {number} sessionId - Session ID
+     * @param {string} studentNumber - Student ID number
+     * @param {string} comment - Comment text
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
     async updateAttendanceComment(sessionId, studentNumber, comment) {
       try {
         await axios.post(

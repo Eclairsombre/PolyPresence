@@ -11,6 +11,11 @@ using System.Globalization;
 
 namespace backend.Controllers
 {
+    /*
+    * MailPreferencesController
+    *
+    * This controller handles CRUD operations for MailPreferences entities.
+    */
     [ApiController]
     [Route("api/[controller]")]
     public class MailPreferencesController : ControllerBase
@@ -29,6 +34,11 @@ namespace backend.Controllers
 
         }
 
+        /*
+        * GetPdf
+        *
+        * This method generates a PDF for a specific session and returns it as a file.
+        */
         [HttpGet("pdf/{sessionId}")]
         public async Task<IActionResult> GetPdf(int sessionId)
         {
@@ -55,7 +65,11 @@ namespace backend.Controllers
             return File(pdfBytes, "application/pdf", filename);
         }
 
-
+        /*
+        * GenerateSessionPdf
+        *
+        * This method generates a PDF for a specific session and its attendances.
+        */
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
         {
             using var ms = new MemoryStream();
@@ -218,6 +232,11 @@ namespace backend.Controllers
             }
         }
 
+        /*
+        * GenerateAndSendZip
+        *
+        * This method generates a ZIP file containing PDFs of sessions for users with active mail preferences and sends it via email.
+        */
         public async Task GenerateAndSendZip()
         {
 
@@ -317,6 +336,11 @@ namespace backend.Controllers
             }
         }
 
+        /*
+        * GetPreferences
+        *
+        * This method retrieves the mail preferences for a specific user.
+        */
         [HttpGet("{userId}")]
         public IActionResult GetPreferences(string userId)
         {
@@ -349,6 +373,11 @@ namespace backend.Controllers
             return Ok(preferences);
         }
 
+        /*
+        * UpdatePreferences
+        *
+        * This method updates the mail preferences for a specific user.
+        */
         [HttpPut("{userId}")]
         public IActionResult UpdatePreferences(string userId, [FromBody] MailPreferences preferences)
         {
@@ -384,6 +413,11 @@ namespace backend.Controllers
             return NoContent();
         }
 
+        /*
+        * TestMail
+        *
+        * This method sends a test email to the specified address.
+        */
         [HttpPost("test/{mail}")]
         public IActionResult TestMail(string mail)
         {
@@ -428,8 +462,6 @@ namespace backend.Controllers
                 return StatusCode(500, "Une erreur est survenue lors de l'envoi du mail.");
             }
         }
-
-
     }
 }
 
