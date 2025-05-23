@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import {defineStore} from "pinia";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -66,5 +66,71 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
       this.successMessage = "";
       this.testMessage = "";
     },
+     async getSessionPdf(session) {
+          this.loading = true;
+          this.error = null;
+          console.log("session", session.value.id);
+         const sessionId = session.value.id;
+
+         try {
+              const response = await axios.get(
+                  `${API_URL}/MailPreferences/pdf/${sessionId}`,
+                  {
+                      responseType: "blob",
+                  }
+              );
+
+              const filename = `session_${session.value.year}_${session.value.date.split("T")[0]}_${session.value.startTime.replace(/:/g, "-")}.pdf`;
+              const url = window.URL.createObjectURL(new Blob([response.data]));
+              const link = document.createElement("a");
+              link.href = url;
+              link.setAttribute("download", filename);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+          } catch (error) {
+              this.error = error;
+          } finally {
+              this.loading = false;
+          }
+      },
+      async getPdfBlob(session) {
+          this.loading = true;
+          this.error = null;
+          try {
+              let sessionId;
+
+              if (!session) {
+                  throw new Error("Session non définie");
+              } else if (typeof session === 'number') {
+                  sessionId = session;
+              } else if (session.id) {
+                  sessionId = session.id;
+              } else if (session.value && session.value.id) {
+                  sessionId = session.value.id;
+              } else if (session.Id) {
+                  sessionId = session.Id;
+              } else {
+                  throw new Error("Format de session non reconnu");
+              }
+
+              console.log("sessionId extrait:", sessionId);
+
+              const response = await axios.get(
+                  `${API_URL}/MailPreferences/pdf/${sessionId}`,
+                  {
+                      responseType: "blob",
+                  }
+              );
+              return new Blob([response.data], {type: "application/pdf"});
+          }
+          catch (error) {
+              this.error = error;
+              throw error;
+          } finally {
+              this.loading = false;
+          }
+      }
   },
 });

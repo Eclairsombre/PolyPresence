@@ -20,11 +20,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import html2pdf from 'html2pdf.js';
-import { useSessionStore } from '../../stores/sessionStore';
-import axios from 'axios';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import {useMailPreferencesStore} from "../../stores/mailPreferencesStore.js";
 
 const props = defineProps({
   sessions: {
@@ -37,104 +35,26 @@ const props = defineProps({
   }
 });
 
-const sessionStore = useSessionStore();
+const mailStore = useMailPreferencesStore();
 const exporting = ref(false);
 const exportMessage = ref('');
 const exportError = ref(false);
 
 const createPdfFileName = (session) => {
   const date = new Date(session.date);
-  const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   
   const folderStructure = `${session.year}/${month}/${day}`;
-  const fileName = `session_${session.id}_${year}_${month}_${day}.pdf`;
+  const filename = `session_${session.year}_${session.date.split("T")[0]}_${session.startTime.replace(/:/g, "-")}.pdf`;
   
   return {
     folderPath: folderStructure,
-    fileName: fileName,
-    fullPath: `${folderStructure}/${fileName}`
+    fileName: filename,
+    fullPath: `${folderStructure}/${filename}`
   };
 };
-const API_URL = import.meta.env.VITE_API_URL;
 
-const generateSessionHtml = async (session) => {
-  try {
-    const response = await axios.get(`${API_URL}/Session/${session.id}/attendances`);
-    const attendances = response.data.$values;
-    
-    const formatDate = (dateString) => {
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      return new Date(dateString).toLocaleDateString('fr-FR', options);
-    };
-    
-    const formatTime = (timeString) => {
-      return timeString.substring(0, 5);
-    };
-
-    let tableRows = '';
-    if (attendances && attendances.length > 0) {
-      attendances.forEach((attendance, index) => {
-        const student = attendance.item1;
-        const status = attendance.item2 === 0 ? 'Présent' : 'Absent';
-        const statusClass = status === 'Présent' ? 'status-present' : 'status-absent';
-        const comment = student.comment ? student.comment : '';
-        
-        tableRows += `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${student.name}</td>
-            <td>${student.firstname}</td>
-            <td class="${statusClass}">${status}</td>
-            <td>${student.signature && status === 'Présent' ? 
-              `<img src="${student.signature}" alt="Signature" style="max-height: 60px;">` : 
-              ''}
-            </td>
-            <td style="max-width: 200px; word-wrap: break-word;">${comment}</td>
-          </tr>
-        `;
-      });
-    }
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h1 style="text-align: center; color: #2c3e50;">Liste de présence</h1>
-        <div style="background-color: #eaf6fb; border-left: 4px solid #3498db; padding: 12px 18px; border-radius: 6px; margin-bottom: 10px; font-size: 1.08em; color: #2c3e50; box-shadow: 0 2px 6px rgba(52, 152, 219, 0.07);">
-          <p style="margin: 0 0 4px 0; font-weight: 500;">Etablissement de formation : UCBL1 - EPUL</p>
-          <p style="margin: 0 0 4px 0; font-weight: 500;">Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage</p>
-        </div>
-        <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-          <h2 style="margin: 0 0 10px 0; color: #2c3e50;">${formatDate(session.date)} - ${session.year}</h2>
-          <p v-if="session.name"><strong>Nom de la session :</strong> ${session.name}</p>
-          <p>Horaires: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}</p>
-          <div style='margin-top:10px;'><strong>Professeur :</strong> ${session.profFirstname || ''} ${session.profName || ''} (${session.profEmail || ''})</div>
-          <div style='margin-top:5px;'><strong>Signature :</strong> ${session.profSignature ? `<img src='${session.profSignature}' alt='Signature du professeur' style='max-height:60px;vertical-align:middle;margin-left:10px;'/>` : '<em>Non signée</em>'}</div>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; background-color: white;">
-          <thead>
-            <tr style="background-color: #f1f1f1;">
-              <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">N°</th>
-              <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Nom</th>
-              <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Prénom</th>
-              <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Présent/Absent</th>
-              <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Signature</th>
-              <th style="padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0;">Commentaire</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-      </div>
-    `;
-    
-    return html;
-  } catch (error) {
-    console.error(`Erreur lors de la génération du HTML pour la session ${session.id}:`, error);
-    throw error;
-  }
-};
 
 const exportSessionsToPDF = async () => {
   if (exporting.value) return;
@@ -160,7 +80,7 @@ const exportSessionsToPDF = async () => {
       
       exportMessage.value = `Export en cours... (${i+1}/${props.sessions.length})`;
       
-      const pdfBlob = await generateSessionPDF(session);
+      const pdfBlob = await mailStore.getPdfBlob(session);
       
       const { folderPath, fileName } = createPdfFileName(session);
       zip.file(`${folderPath}/${fileName}`, pdfBlob);
@@ -190,26 +110,6 @@ const exportSessionsToPDF = async () => {
   }
 };
 
-const generateSessionPDF = async (session) => {
-  try {
-    const html = await generateSessionHtml(session);
-    
-    const opt = {
-      margin: 10,
-      filename: 'temp.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    
-    const pdf = await html2pdf().from(html).set(opt).outputPdf('blob');
-    
-    return pdf;
-  } catch (error) {
-    console.error(`Erreur lors de la génération du PDF pour la session ${session.id}:`, error);
-    throw error;
-  }
-};
 
 onMounted(() => {
   exportMessage.value = "";
@@ -272,16 +172,5 @@ onMounted(() => {
   text-align: center;
 }
 
-.export-message.success {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.export-message.error {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
 </style>
 

@@ -87,12 +87,12 @@
 </template>
 
 <script>
-import { defineComponent, ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useSessionStore } from '../../stores/sessionStore';
-import { useStudentsStore } from '../../stores/studentsStore';
+import {defineComponent, onMounted, ref} from 'vue';
+import {useRoute, useRouter} from 'vue-router';
+import {useSessionStore} from '../../stores/sessionStore';
+import {useStudentsStore} from '../../stores/studentsStore';
 import SignatureDisplay from '../signature/SignatureDisplay.vue';
-import html2pdf from 'html2pdf.js';
+import {useMailPreferencesStore} from "../../stores/mailPreferencesStore.js";
 
 
 export default defineComponent({
@@ -106,6 +106,7 @@ export default defineComponent({
     const router = useRouter();
     const sessionStore = useSessionStore();
     const studentsStore = useStudentsStore();
+    const mailStore = useMailPreferencesStore()
     
     const session = ref(null);
     const students = ref([]);
@@ -118,8 +119,7 @@ export default defineComponent({
       error.value = null;
       try {
         const sessionId = route.params.id;
-        const sessionData = await sessionStore.fetchSessionById(sessionId);
-        session.value = sessionData;
+        session.value = await sessionStore.fetchSessionById(sessionId);
         const attendances = await sessionStore.getSessionAttendances(sessionId);
         console.log("Liste des présences:", attendances);
         students.value = attendances.map((student, index) => ({
@@ -173,53 +173,17 @@ export default defineComponent({
 
     const exportToPDF = async () => {
       if (!session.value) return;
-      
       exporting.value = true;
+      console.log(session.value)
       
       try {
-        const element = document.querySelector('.attendance-container');
-        const clonedElement = element.cloneNode(true);
-        
-        // Retirer les boutons du clone
-        const buttons = clonedElement.querySelectorAll('button');
-        buttons.forEach(button => button.remove());
-        
-        // Assurer que les commentaires sont entièrement visibles pour l'export PDF
-        const commentContents = clonedElement.querySelectorAll('.comment-content');
-        commentContents.forEach(commentContent => {
-          commentContent.style.maxHeight = 'none';
-          commentContent.style.whiteSpace = 'normal';
-          commentContent.style.overflow = 'visible';
-          commentContent.style.textOverflow = 'clip';
-        });
-        
-        if (!clonedElement) {
-          throw new Error("Élément non trouvé pour l'exportation");
-        }
-        
-        const options = {
-          margin: 10,
-          filename: `presence_${session.value.year}_${formatDateForFilename(session.value.date)}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        
-        await html2pdf().from(clonedElement).set(options).save();
-      } catch (err) {
-        console.error("Erreur lors de l'export PDF:", err);
-        error.value = "Impossible d'exporter le PDF.";
+          await mailStore.getSessionPdf(session)
       } finally {
         exporting.value = false;
       }
     };
 
-    const formatDateForFilename = (dateString) => {
-      if (!dateString) return 'unknown-date';
-      const date = new Date(dateString);
-      return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-    };
-    
+
     onMounted(() => {
       loadSessionData();
     });
@@ -459,10 +423,6 @@ export default defineComponent({
   font-weight: bold;
 }
 
-.signature-placeholder {
-  height: 20px;
-  border-bottom: 1px solid #ccc;
-}
 
 @media (max-width: 768px) {
   .attendance-table {
