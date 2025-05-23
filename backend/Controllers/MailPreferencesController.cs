@@ -29,6 +29,32 @@ namespace backend.Controllers
 
         }
 
+        [HttpGet("pdf/{sessionId}")]
+        public async Task<IActionResult> GetPdf(int sessionId)
+        {
+            var session = _context.Sessions
+                .Include(s => s.Attendances)
+                .ThenInclude(a => a.User)
+                .FirstOrDefault(s => s.Id == sessionId);
+
+            if (session == null) return NotFound("Session non trouvée.");
+
+            var attendances = await _context.Attendances
+                .Where(a => a.SessionId == session.Id)
+                .Include(a => a.User)
+                .Select(a => new { a.User, a.Status, a.Comment })
+                .ToListAsync();
+
+            var attendanceList = attendances
+                .Select(a => ((User)a.User, (int)a.Status, a.Comment))
+                .ToList();
+
+            var pdfBytes = GenerateSessionPdf(session, attendanceList);
+            var filename = $"session_{session.Year}_{session.Date:yyyy-MM-dd}_{session.StartTime:hh\\-mm}.pdf";
+
+            return File(pdfBytes, "application/pdf", filename);
+        }
+
 
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
         {
