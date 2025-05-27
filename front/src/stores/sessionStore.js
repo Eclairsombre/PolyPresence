@@ -1,4 +1,4 @@
-import {defineStore} from "pinia";
+import { defineStore } from "pinia";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -407,8 +407,8 @@ export const useSessionStore = defineStore("session", {
 
       try {
         return await axios.post(
-            `${API_URL}/Session/signature/${studentNumber}`,
-            {signature: signatureData}
+          `${API_URL}/Session/signature/${studentNumber}`,
+          { signature: signatureData }
         );
       } catch (error) {
         this.error =
@@ -611,16 +611,32 @@ export const useSessionStore = defineStore("session", {
     async updateAttendanceComment(sessionId, studentNumber, comment) {
       try {
         await axios.post(
-            `${API_URL}/Session/${sessionId}/attendance-comment/${studentNumber}`,
-            { comment }
+          `${API_URL}/Session/${sessionId}/attendance-comment/${studentNumber}`,
+          { comment }
         );
         return true;
       } catch (error) {
         this.error =
-            error.message || "Erreur lors de la mise à jour du commentaire.";
+          error.message || "Erreur lors de la mise à jour du commentaire.";
         console.error("Erreur lors de la mise à jour du commentaire:", error);
         return false;
       }
-    }
+    },
+    async haveComment(sessionId) {
+      try {
+        const response = await axios.get(
+          `${API_URL}/Session/have-comment/${sessionId}`
+        );
+        return response.data.haveComment || false;
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors de la vérification des commentaires.";
+        console.error(
+          "Erreur lors de la vérification des commentaires:",
+          error
+        );
+        return false;
+      }
+    },
   },
 });

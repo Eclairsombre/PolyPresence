@@ -936,6 +936,26 @@ Cordialement";
             return Ok(new { message = "Commentaire mis à jour avec succès." });
         }
 
+        [HttpGet("have-comment/{sessionId}")]
+        public async Task<IActionResult> HaveComment(int sessionId)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null)
+            {
+                return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
+            }
+
+            var attendances = await _context.Attendances
+                .Where(a => a.SessionId == sessionId && !string.IsNullOrEmpty(a.Comment))
+                .ToListAsync();
+
+            if (attendances.Count > 0)
+            {
+                return Ok(new { haveComment = true });
+            }
+            return Ok(new { haveComment = false });
+        }
+
         /**
          * CommentUpdateModel
          *

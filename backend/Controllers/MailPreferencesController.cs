@@ -73,7 +73,7 @@ namespace backend.Controllers
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
         {
             using var ms = new MemoryStream();
-            var document = QuestPDF.Fluent.Document.Create(container =>
+            var document = Document.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -147,6 +147,8 @@ namespace backend.Controllers
 
                         column.Item().Table(table =>
                         {
+                            var sortedAttendances = attendances.OrderBy(a => a.User.Name).ToList();
+                            bool haveComment = sortedAttendances.Any(a => !string.IsNullOrEmpty(a.comment));
                             table.ColumnsDefinition(columns =>
                             {
                                 columns.ConstantColumn(30);
@@ -154,8 +156,10 @@ namespace backend.Controllers
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
-                                columns.RelativeColumn(2);
+                                if (haveComment)
+                                    columns.RelativeColumn(2);
                             });
+
 
                             table.Header(header =>
                             {
@@ -164,10 +168,10 @@ namespace backend.Controllers
                                 header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Prénom");
                                 header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Présent/Absent");
                                 header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Signature");
-                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Commentaire");
+                                if (haveComment)
+                                    header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Commentaire");
                             });
 
-                            var sortedAttendances = attendances.OrderBy(a => a.User.Name).ToList();
                             int idx = 1;
                             foreach (var (student, status, comment) in sortedAttendances)
                             {
@@ -202,9 +206,9 @@ namespace backend.Controllers
                                 {
                                     table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
                                 }
-                                
-                                table.Cell().Element(CellStyle).Padding(5).Text(comment ?? string.Empty).FontSize(10).FontColor("#576574");
-                                
+                                if (haveComment)
+                                    table.Cell().Element(CellStyle).Padding(5).Text(comment ?? string.Empty).FontSize(10).FontColor("#576574");
+
                                 idx++;
                             }
                         });

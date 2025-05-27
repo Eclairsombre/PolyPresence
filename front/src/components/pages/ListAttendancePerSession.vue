@@ -53,7 +53,7 @@
               <th class="firstname-column">Prénom</th>
               <th class="status-column">Présent/Absent</th>
               <th class="signature-column">Signature</th>
-              <th class="comment-column">Commentaire</th>
+              <th v-if="hasComments === true" class="comment-column">Commentaire</th>
             </tr>
           </thead>
           <tbody>
@@ -73,7 +73,7 @@
                   />
                 </div>
               </td>
-              <td class="comment-cell">
+              <td v-if="hasComments === true" class="comment-cell">
                 <div class="comment-content" :title="student.comment">
                   {{student.comment}}
                 </div>
@@ -113,6 +113,7 @@ export default defineComponent({
     const loading = ref(true);
     const error = ref(null);
     const exporting = ref(false);
+    const hasComments = ref(false);
     
     const loadSessionData = async () => {
       loading.value = true;
@@ -121,7 +122,7 @@ export default defineComponent({
         const sessionId = route.params.id;
         session.value = await sessionStore.fetchSessionById(sessionId);
         const attendances = await sessionStore.getSessionAttendances(sessionId);
-        students.value = attendances.map((student, index) => ({
+        students.value = attendances.map((student) => ({
           id: student.item1.id,
           name: student.item1.name,
           firstname: student.item1.firstname,
@@ -129,6 +130,9 @@ export default defineComponent({
           signature: student.item1.signature || '',
           comment: student.item1.comment || ''
         })).sort((a,b) => a.name.localeCompare(b.name));
+
+        hasComments.value = await sessionStore.haveComment(route.params.id);
+
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
         error.value = "Impossible de charger les données de présence.";
@@ -181,17 +185,17 @@ export default defineComponent({
       }
     };
 
-
     onMounted(() => {
       loadSessionData();
     });
-    
+
     return {
       session,
       students,
       loading,
       error,
       exporting,
+      hasComments,
       loadSessionData,
       goBack,
       formatDate,
