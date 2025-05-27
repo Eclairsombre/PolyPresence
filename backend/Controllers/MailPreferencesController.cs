@@ -119,8 +119,8 @@ namespace backend.Controllers
                                         byte[] imageBytes = Convert.FromBase64String(base64Data);
                                         infoCol.Item().Padding(5).Row(row =>
                                         {
-                                            row.RelativeItem().Text("Signature :").FontSize(12);
-                                            row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
+                                            row.ConstantItem(80).AlignMiddle().Text("Signature :").FontSize(12);
+                                            row.RelativeItem().Height(40).AlignMiddle().Image(imageBytes).FitArea();
                                         });
                                     }
                                     catch
@@ -156,20 +156,18 @@ namespace backend.Controllers
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
-                                if (haveComment)
-                                    columns.RelativeColumn(2);
+                                columns.RelativeColumn(2);
                             });
 
 
                             table.Header(header =>
                             {
-                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("N°");
-                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Nom");
-                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Prénom");
-                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Présent/Absent");
-                                header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Signature");
-                                if (haveComment)
-                                    header.Cell().Element(CellStyle).Background("#f1f1f1").Text("Commentaire");
+                                header.Cell().Element(CellStyle).PaddingLeft(2).PaddingRight(2).Text("N°");
+                                header.Cell().Element(CellStyle).Padding(5).Text("Nom");
+                                header.Cell().Element(CellStyle).Padding(5).Text("Prénom");
+                                header.Cell().Element(CellStyle).Padding(5).Text("Présent/Absent");
+                                header.Cell().Element(CellStyle).Padding(5).Text("Signature");
+                                header.Cell().Element(CellStyle).Padding(5).Text("Retard/Commentaire");
                             });
 
                             int idx = 1;

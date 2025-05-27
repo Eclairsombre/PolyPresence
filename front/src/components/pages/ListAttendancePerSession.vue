@@ -53,7 +53,7 @@
               <th class="firstname-column">Prénom</th>
               <th class="status-column">Présent/Absent</th>
               <th class="signature-column">Signature</th>
-              <th v-if="hasComments === true" class="comment-column">Commentaire</th>
+              <th class="comment-column">Retard/Commentaire</th>
             </tr>
           </thead>
           <tbody>
@@ -73,7 +73,7 @@
                   />
                 </div>
               </td>
-              <td v-if="hasComments === true" class="comment-cell">
+              <td class="comment-cell">
                 <div class="comment-content" :title="student.comment">
                   {{student.comment}}
                 </div>
@@ -113,7 +113,6 @@ export default defineComponent({
     const loading = ref(true);
     const error = ref(null);
     const exporting = ref(false);
-    const hasComments = ref(false);
     
     const loadSessionData = async () => {
       loading.value = true;
@@ -131,7 +130,6 @@ export default defineComponent({
           comment: student.item1.comment || ''
         })).sort((a,b) => a.name.localeCompare(b.name));
 
-        hasComments.value = await sessionStore.haveComment(route.params.id);
 
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
@@ -195,7 +193,6 @@ export default defineComponent({
       loading,
       error,
       exporting,
-      hasComments,
       loadSessionData,
       goBack,
       formatDate,

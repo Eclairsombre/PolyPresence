@@ -622,21 +622,5 @@ export const useSessionStore = defineStore("session", {
         return false;
       }
     },
-    async haveComment(sessionId) {
-      try {
-        const response = await axios.get(
-          `${API_URL}/Session/have-comment/${sessionId}`
-        );
-        return response.data.haveComment || false;
-      } catch (error) {
-        this.error =
-          error.message || "Erreur lors de la vérification des commentaires.";
-        console.error(
-          "Erreur lors de la vérification des commentaires:",
-          error
-        );
-        return false;
-      }
-    },
   },
 });
