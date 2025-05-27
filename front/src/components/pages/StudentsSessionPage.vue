@@ -124,9 +124,10 @@ export default defineComponent({
     const showCreateSessionModal = ref(false);
     const showEditSessionModal = ref(false);
     const selectedSession = ref(null);
+    const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
     
     const filters = reactive({
-      startDate: '',
+      startDate: today,
       endDate: '',
     });
     
@@ -164,9 +165,8 @@ export default defineComponent({
     const applyFilters = async () => {
       await loadSessions();
     };
-    
-    const clearFilters = () => {
-      filters.startDate = '';
+      const clearFilters = () => {
+      filters.startDate = new Date().toISOString().split('T')[0]; // Réinitialise à la date d'aujourd'hui
       filters.endDate = '';
       selectedYear.value = '';
       loadSessions();
