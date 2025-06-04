@@ -120,7 +120,7 @@ namespace backend.Controllers
                                         infoCol.Item().Padding(5).Row(row =>
                                         {
                                             row.ConstantItem(80).AlignMiddle().Text("Signature :").FontSize(12);
-                                            row.RelativeItem().Height(40).AlignMiddle().Image(imageBytes).FitArea();
+                                            row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
                                         });
                                     }
                                     catch
