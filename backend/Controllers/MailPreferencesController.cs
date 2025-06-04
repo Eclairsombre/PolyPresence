@@ -204,8 +204,8 @@ namespace backend.Controllers
                                 {
                                     table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
                                 }
-                                if (haveComment)
-                                    table.Cell().Element(CellStyle).Padding(5).Text(comment ?? string.Empty).FontSize(10).FontColor("#576574");
+
+                                table.Cell().Element(CellStyle).Padding(5).Text(comment ?? string.Empty).FontSize(10).FontColor("#576574");
 
                                 idx++;
                             }
