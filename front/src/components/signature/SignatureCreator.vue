@@ -4,7 +4,7 @@
         <canvas ref="signaturePad" class="signature-pad"></canvas>
       </div>
       <div class="signature-actions">
-        <button class="clear-button" @click="clearSignature">Effacer</button>
+        <button class="clear-button" @click.prevent="clearSignature" >Effacer</button>
         <button v-if="!$attrs.hideSaveButton" class="save-button" @click="saveSignature" :disabled="isEmpty">Sauvegarder</button>
       </div>
     </div>
