@@ -33,7 +33,10 @@ if (string.IsNullOrWhiteSpace(databasePath))
 {
     throw new Exception("La variable d'environnement STORAGE_PATH n'est pas définie !");
 }
-
+if (!Directory.Exists(databasePath))
+{
+    Directory.CreateDirectory(databasePath);
+}
 databasePath = System.IO.Path.Combine(databasePath, "polytechpresence.db");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
