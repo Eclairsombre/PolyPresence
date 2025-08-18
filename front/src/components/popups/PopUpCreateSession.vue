@@ -3,51 +3,149 @@
     <div class="modal-content">
       <h2>Nouvelle Session</h2>
       <form @submit.prevent="handleSubmit" class="session-form">
-        <div class="form-group">
-          <label for="session-date">Date:</label>
-          <input type="date" id="session-date" v-model="form.date" required class="form-control">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="session-name">Nom de la session :</label>
+            <input
+              type="text"
+              id="session-name"
+              v-model="form.name"
+              class="form-control"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="session-date">Date:</label>
+            <input
+              type="date"
+              id="session-date"
+              v-model="form.date"
+              required
+              class="form-control"
+            >
+          </div>
         </div>
-        <div class="form-group">
-          <label for="session-start">Heure de début:</label>
-          <input type="time" id="session-start" v-model="form.startTime" required class="form-control">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="session-room">Salle :</label>
+            <input
+              type="text"
+              id="session-room"
+              v-model="form.room"
+              class="form-control"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="session-year">Année:</label>
+            <select
+              id="session-year"
+              v-model="form.year"
+              required
+              class="form-control"
+              @change="loadStudentsByYear"
+            >
+              <option value="">Sélectionner une année</option>
+              <option value="3A">3A</option>
+              <option value="4A">4A</option>
+              <option value="5A">5A</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="session-end">Heure de fin:</label>
-          <input type="time" id="session-end" v-model="form.endTime" required class="form-control">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="session-start">Heure de début:</label>
+            <input
+              type="time"
+              id="session-start"
+              v-model="form.startTime"
+              required
+              class="form-control"
+            >
+          </div>
+          <div class="form-group">
+            <label for="session-end">Heure de fin:</label>
+            <input
+              type="time"
+              id="session-end"
+              v-model="form.endTime"
+              required
+              class="form-control"
+            >
+          </div>
         </div>
-        <div class="form-group">
-          <label for="session-year">Année:</label>
-          <select id="session-year" v-model="form.year" required class="form-control" @change="loadStudentsByYear">
-            <option value="">Sélectionner une année</option>
-            <option value="3A">3A</option>
-            <option value="4A">4A</option>
-            <option value="5A">5A</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prof-name">Nom du professeur :</label>
+            <input
+              type="text"
+              id="prof-name"
+              v-model="form.profName"
+              class="form-control"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="prof-firstname">Prénom du professeur :</label>
+            <input
+              type="text"
+              id="prof-firstname"
+              v-model="form.profFirstname"
+              class="form-control"
+              required
+            >
+          </div>
         </div>
-        <div class="form-group">
-          <label for="prof-name">Nom du professeur :</label>
-          <input type="text" id="prof-name" v-model="form.profName" class="form-control" required>
-        </div>
-        <div class="form-group">
-          <label for="prof-firstname">Prénom du professeur :</label>
-          <input type="text" id="prof-firstname" v-model="form.profFirstname" class="form-control" required>
-        </div>
-        <div class="form-group">
-          <label for="prof-email">Email du professeur :</label>
-          <input type="email" id="prof-email" v-model="form.profEmail" class="form-control" required>
-        </div>
-        <div v-if="studentLoading" class="loading-info">
-          Chargement des étudiants...
-        </div>
-        <div v-else-if="students && students.length > 0" class="student-count-info">
-          {{ students.length }} étudiants seront ajoutés à cette session.
-        </div>
-        <div v-else-if="form.year && !studentLoading" class="student-count-info warning">
-          Aucun étudiant trouvé pour l'année {{ form.year }}.
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label for="prof-email">Email du professeur :</label>
+            <input
+              type="email"
+              id="prof-email"
+              v-model="form.profEmail"
+              class="form-control"
+              required
+            >
+          </div>
+          <div style="flex:1;display:flex;align-items:center;">
+            <div
+              v-if="studentLoading"
+              class="loading-info"
+              style="width:100%;"
+            >
+              Chargement des étudiants...
+            </div>
+            <div
+              v-else-if="students && students.length > 0"
+              class="student-count-info"
+              style="width:100%;"
+            >
+              {{ students.length }} étudiants seront ajoutés à cette session.
+            </div>
+            <div
+              v-else-if="form.year && !studentLoading"
+              class="student-count-info warning"
+              style="width:100%;"
+            >
+              Aucun étudiant trouvé pour l'année {{ form.year }}.
+            </div>
+          </div>
         </div>
         <div class="form-actions">
-          <button type="submit" class="submit-button" :disabled="loading || studentLoading">Créer la session</button>
-          <button type="button" class="cancel-button" @click="close">Annuler</button>
+          <button
+            type="submit"
+            class="submit-button"
+            :disabled="loading || studentLoading"
+          >
+            Créer la session
+          </button>
+          <button
+            type="button"
+            class="cancel-button"
+            @click="close"
+          >
+            Annuler
+          </button>
         </div>
       </form>
     </div>
@@ -71,6 +169,8 @@ const studentLoading = ref(false);
 const students = ref([]);
 
 const form = reactive({
+  name: '',
+  room: '',
   date: '',
   startTime: '',
   endTime: '',
@@ -103,7 +203,7 @@ const loadStudentsByYear = async () => {
 };
 
 async function handleSubmit() {
-  if (!form.date || !form.startTime || !form.endTime || !form.year || !form.profName || !form.profFirstname || !form.profEmail) {
+  if (!form.date || !form.startTime || !form.endTime || !form.year || !form.profName || !form.profFirstname || !form.profEmail || !form.name || !form.room) {
     return;
   }
   loading.value = true;
@@ -112,6 +212,8 @@ async function handleSubmit() {
     validationCode += Math.floor(Math.random() * 10).toString();
   }
   const sessionData = {
+    name: form.name,
+    room: form.room,
     date: form.date,
     startTime: form.startTime,
     endTime: form.endTime,
@@ -153,14 +255,17 @@ async function handleSubmit() {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
 .modal-content {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-  padding: 32px 28px 24px 28px;
-  min-width: 340px;
-  max-width: 95vw;
-  width: 400px;
+  padding: 28px 28px 22px 28px;
+  min-width: 320px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 95vh;
+  overflow-y: auto;
   animation: popIn 0.25s cubic-bezier(.68,-0.55,.27,1.55);
   position: relative;
 }
@@ -178,11 +283,16 @@ async function handleSubmit() {
 .session-form {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+.form-row {
+  display: flex;
   gap: 16px;
 }
 .form-group {
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 .form-group label {
   margin-bottom: 5px;
@@ -246,20 +356,19 @@ async function handleSubmit() {
 .student-count-info.warning {
   color: #c0392b;
 }
-@media (max-width: 500px) {
-  .modal-content {
-    width: 98vw;
-    min-width: unset;
-    padding: 18px 6vw 18px 6vw;
-  }
-}
 @media (max-width: 600px) {
   .modal-content {
-    padding: 10px 2vw;
+    width: 99vw;
     min-width: unset;
-    width: 98vw;
+    max-width: 99vw;
+    padding: 10px 2vw;
+    max-height: 98vh;
   }
   .session-form {
+    gap: 8px;
+  }
+  .form-row {
+    flex-direction: column;
     gap: 8px;
   }
   .form-group label, .form-control {
