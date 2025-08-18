@@ -81,9 +81,28 @@ namespace backend.Controllers
                     page.Margin(20);
                     page.DefaultTextStyle(x => x.FontSize(12));
 
-                    page.Header().Background("#f6f8fa").Padding(10).Column(headerCol =>
+                    page.Header().Background("#f6f8fa").Padding(10).Row(row =>
                     {
-                        headerCol.Item().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50").AlignCenter();
+                        row.ConstantItem(100).Height(70).AlignMiddle().AlignLeft().Element(left =>
+                        {
+                            string logoRelativePath = Path.Combine("Assets", "polytech_Lyon_logo.png");
+                            string logoPath = logoRelativePath;
+                            if (!System.IO.File.Exists(logoPath))
+                            {
+                                logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_lyon_logo.png");
+                            }
+                            if (System.IO.File.Exists(logoPath))
+                            {
+                                byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
+                                left.Image(logoBytes).FitArea();
+                            }
+                            else
+                            {
+                                left.Text("");
+                            }
+                        });
+                        row.RelativeItem().AlignMiddle().AlignCenter().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50");
+                        row.ConstantItem(100).Height(70).AlignMiddle().AlignRight().Text("");
                     });
 
                     page.Content().Column(column =>
