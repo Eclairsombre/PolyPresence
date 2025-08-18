@@ -98,6 +98,8 @@ onMounted(loadSignature);
 .signature-header h1 {
   margin: 0;
   color: #2c3e50;
+  width: 100%;
+  text-align: center;
 }
 
 .back-button {

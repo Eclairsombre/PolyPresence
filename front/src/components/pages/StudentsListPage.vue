@@ -2,7 +2,6 @@
     <div class="students-list-page">
         <div class="header-section">
             <h1>Liste des {{ yearFilter !== 'ADMIN' ? 'étudiants' : ' administrateurs' }}</h1>
-            <router-link to="/" class="back-link">Retour à l'accueil</router-link>
         </div>
         <div class="actions-bar">
             <div class="filter-buttons">
@@ -185,15 +184,6 @@ const cancelDelete = () => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-}
-
-.back-link {
-    background-color: #2c3e50;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 4px;
-    text-decoration: none;
-    font-size: 14px;
 }
 
 .actions-bar {
