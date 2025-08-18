@@ -158,7 +158,15 @@ export default defineComponent({
       }
     };
     const goBack = () => {
-      router.push('/sessions');
+      const { year, startDate, endDate } = route.query;
+      router.push({
+        path: '/sessions',
+        query: {
+          year,
+          startDate,
+          endDate
+        }
+      });
     };
     
     const formatDate = (dateString) => {

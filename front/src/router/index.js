@@ -16,7 +16,7 @@ const routes = [
   {
     path: "/sessions",
     name: "sessions",
-    component: () => import("../components/pages/StudentsSessionPage.vue"),
+    component: () => import("../components/pages/SessionListPage.vue"),
     beforeEnter: requiresAdmin,
   },
   {
