@@ -1,5 +1,8 @@
 backend/bin/*
 backend/obj/*
+backend/polytechpresence.db
+backend/polytechpresence.db-shm
+backend/polytechpresence.db-wal
 
 .env
 backend/.env
