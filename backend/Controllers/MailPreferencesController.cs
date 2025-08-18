@@ -73,6 +73,7 @@ namespace backend.Controllers
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
         {
             using var ms = new MemoryStream();
+            string promo = GetPromoYears(session.Year);
             var document = Document.Create(container =>
             {
                 container.Page(page =>
@@ -81,28 +82,32 @@ namespace backend.Controllers
                     page.Margin(20);
                     page.DefaultTextStyle(x => x.FontSize(12));
 
-                    page.Header().Background("#f6f8fa").Padding(10).Row(row =>
+                    page.Header().Background("#f6f8fa").Padding(10).Column(headerCol =>
                     {
-                        row.ConstantItem(100).Height(70).AlignMiddle().AlignLeft().Element(left =>
+                        headerCol.Item().Row(row =>
                         {
-                            string logoRelativePath = Path.Combine("Assets", "polytech_Lyon_logo.png");
-                            string logoPath = logoRelativePath;
-                            if (!System.IO.File.Exists(logoPath))
+                            row.ConstantItem(100).Height(70).AlignMiddle().AlignLeft().Element(left =>
                             {
-                                logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_lyon_logo.png");
-                            }
-                            if (System.IO.File.Exists(logoPath))
-                            {
-                                byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
-                                left.Image(logoBytes).FitArea();
-                            }
-                            else
-                            {
-                                left.Text("");
-                            }
+                                string logoRelativePath = Path.Combine("Assets", "polytech_Lyon_logo.png");
+                                string logoPath = logoRelativePath;
+                                if (!System.IO.File.Exists(logoPath))
+                                {
+                                    logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_lyon_logo.png");
+                                }
+                                if (System.IO.File.Exists(logoPath))
+                                {
+                                    byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
+                                    left.Image(logoBytes).FitArea();
+                                }
+                                else
+                                {
+                                    left.Text("");
+                                }
+                            });
+                            row.RelativeItem().AlignMiddle().AlignCenter().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50");
+                            row.ConstantItem(100).Height(70).AlignMiddle().AlignRight().Text("");
                         });
-                        row.RelativeItem().AlignMiddle().AlignCenter().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50");
-                        row.ConstantItem(100).Height(70).AlignMiddle().AlignRight().Text("");
+                        headerCol.Item().AlignCenter().PaddingTop(4).Text(session.Year + " Promotion " + promo).FontSize(12).FontColor("#34495e");
                     });
 
                     page.Content().Column(column =>
@@ -482,6 +487,36 @@ namespace backend.Controllers
                 _logger.LogError($"Erreur lors de l'envoi du mail de test : {ex.Message}");
                 return StatusCode(500, "Une erreur est survenue lors de l'envoi du mail.");
             }
+        }
+        /*
+        * GetPromoYears
+        *
+        * This method calculates the school years for a given promotion.
+        */
+        public static string GetPromoYears(string promo)
+        {
+            var now = DateTime.Now;
+            int schoolYearStart = now.Month >= 9 ? now.Year : now.Year - 1;
+            int startYear = 0, endYear = 0;
+
+            switch (promo)
+            {
+                case "3A":
+                    startYear = schoolYearStart;
+                    endYear = schoolYearStart + 3;
+                    break;
+                case "4A":
+                    startYear = schoolYearStart - 1;
+                    endYear = schoolYearStart + 2;
+                    break;
+                case "5A":
+                    startYear = schoolYearStart - 2;
+                    endYear = schoolYearStart + 1;
+                    break;
+                default:
+                    return "";
+            }
+            return $"{startYear}-{endYear}";
         }
     }
 }
