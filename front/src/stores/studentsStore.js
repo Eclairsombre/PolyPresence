@@ -14,13 +14,53 @@ export const useStudentsStore = defineStore("students", {
 
   actions: {
     /**
+     * Creates a configuration object with admin token in headers
+     * @returns {Object} Axios configuration object with admin token header
+     */
+    _createAdminConfig() {
+      const authStore = useAuthStore();
+
+      if (!authStore.user?.isAdmin) {
+        console.error(
+          "Seuls les administrateurs peuvent effectuer cette action"
+        );
+        throw new Error("Non autorisé : action réservée aux administrateurs");
+      }
+
+      const adminToken = authStore.getAdminToken();
+
+      if (!adminToken) {
+        console.error("Token d'authentification manquant");
+        authStore.logout();
+        throw new Error("Session expirée, veuillez vous reconnecter");
+      }
+
+      return {
+        headers: {
+          "Admin-Token": adminToken,
+        },
+      };
+    },
+
+    /**
      * Adds a new student to the system
      * @param {Object} student - Student data (name, firstname, studentNumber, email, year)
      * @returns {Promise<Object|boolean>} Created student data or false if error
      */
     async addStudent(student) {
       try {
-        const response = await axios.post(`${API_URL}/User`, student);
+        const authStore = useAuthStore();
+
+        if (!authStore.user || !authStore.user.studentId) {
+          console.error("Vous devez être connecté pour ajouter un étudiant");
+          throw new Error(
+            "Non autorisé : vous devez être connecté pour ajouter un étudiant"
+          );
+        }
+
+        const config = this._createAdminConfig();
+
+        const response = await axios.post(`${API_URL}/User`, student, config);
 
         if (response.data) {
           this.students.push(response.data);
@@ -30,6 +70,12 @@ export const useStudentsStore = defineStore("students", {
       } catch (error) {
         if (error.response?.status === 409) {
           console.error("L'étudiant existe déjà.");
+          return false;
+        }
+        if (error.response?.status === 401) {
+          console.error(
+            "Non autorisé : seuls les administrateurs peuvent ajouter des étudiants."
+          );
           return false;
         }
         console.error("Erreur lors de l'ajout de l'étudiant:", error);
@@ -83,8 +129,11 @@ export const useStudentsStore = defineStore("students", {
      */
     async deleteStudent(studentNumber) {
       try {
+        const config = this._createAdminConfig();
+
         const response = await axios.delete(
-          `${API_URL}/User/${encodeURIComponent(studentNumber)}`
+          `${API_URL}/User/${encodeURIComponent(studentNumber)}`,
+          config
         );
         if (response.status === 204 || response.status === 200) {
           this.students = this.students.filter(
@@ -164,9 +213,22 @@ export const useStudentsStore = defineStore("students", {
      */
     async updateStudent(student) {
       try {
+        const authStore = useAuthStore();
+
+        let config = {};
+
+        if (authStore.user?.isAdmin) {
+          try {
+            config = this._createAdminConfig();
+          } catch (e) {
+            console.warn("Mise à jour sans privilèges administrateur", e);
+          }
+        }
+
         const response = await axios.put(
           `${API_URL}/User/${encodeURIComponent(student.studentNumber)}`,
-          student
+          student,
+          config
         );
         if (response.data) {
           const idx = this.students.findIndex(
@@ -217,15 +279,21 @@ export const useStudentsStore = defineStore("students", {
      */
     async makeAdmin(studentNumber) {
       try {
-        const response = await axios.post(
-          `${API_URL}/User/make-admin/${encodeURIComponent(studentNumber)}`
-        );
+        const config = this._createAdminConfig();
+        const url = `${API_URL}/User/make-admin/${encodeURIComponent(
+          studentNumber
+        )}`;
+
+        const response = await axios.post(url, {}, config);
         return response.data;
       } catch (error) {
         console.error("Erreur lors de la promotion de l'étudiant:", error);
+        if (error.response) {
+          console.error("Statut:", error.response.status);
+          console.error("Détails de l'erreur:", error.response.data);
+        }
         throw error;
       }
     },
   },
 });
-

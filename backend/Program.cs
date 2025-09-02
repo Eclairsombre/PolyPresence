@@ -53,6 +53,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<TimerService>();
+builder.Services.AddSingleton<AdminTokenService>();
 
 builder.Services.AddSingleton(new HttpClient(new HttpClientHandler
 {

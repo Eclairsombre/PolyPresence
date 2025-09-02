@@ -33,8 +33,26 @@ export const useAuthStore = defineStore("auth", {
 
     /**
      * Logs out the current user by removing user data and cookie
+     * Also revokes admin token if available
      */
     async logout() {
+      // Si l'utilisateur est admin et possède un token, le révoquer
+      if (this.hasValidAdminToken()) {
+        try {
+          await axios.post(
+            `${API_URL}/Token/revoke`,
+            {},
+            {
+              headers: {
+                "Admin-Token": this.getAdminToken(),
+              },
+            }
+          );
+        } catch (error) {
+          console.error("Erreur lors de la révocation du token admin:", error);
+        }
+      }
+
       this.user = null;
       Cookies.remove("user");
     },
@@ -143,6 +161,12 @@ export const useAuthStore = defineStore("auth", {
           password: password,
         });
         const userdata = response.data;
+
+        if (userdata.isAdmin) {
+          const adminToken = await this.generateAdminToken(username, password);
+          userdata.adminToken = adminToken;
+        }
+
         this.updateUserLocalStorage(userdata);
         return userdata;
       } catch (error) {
@@ -154,6 +178,28 @@ export const useAuthStore = defineStore("auth", {
           throw new Error(error.response.data.message);
         }
         throw new Error("Erreur lors de la connexion.");
+      }
+    },
+
+    /**
+     * Génère un token d'authentification admin sécurisé
+     * @param {string} username - Numéro d'étudiant de l'administrateur
+     * @param {string} password - Mot de passe de l'administrateur
+     * @returns {Promise<string>} Token d'authentification
+     */
+    async generateAdminToken(username, password) {
+      try {
+        const response = await axios.post(
+          `${API_URL}/User/generate-admin-token`,
+          {
+            studentNumber: username,
+            password: password,
+          }
+        );
+        return response.data.token;
+      } catch (error) {
+        console.error("Erreur lors de la génération du token admin:", error);
+        return null;
       }
     },
 
@@ -170,6 +216,24 @@ export const useAuthStore = defineStore("auth", {
       Cookies.set("user", encrypted, {
         expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
       });
+    },
+
+    /**
+     * Vérifie si l'utilisateur possède un token administrateur valide
+     * @returns {boolean} True si un token admin valide est disponible
+     */
+    hasValidAdminToken() {
+      const hasToken = this.user && this.user.isAdmin && this.user.adminToken;
+      return hasToken;
+    },
+
+    /**
+     * Récupère le token d'authentification admin
+     * @returns {string|null} Token administrateur ou null si non disponible
+     */
+    getAdminToken() {
+      const token = this.hasValidAdminToken() ? this.user.adminToken : null;
+      return token;
     },
   },
 });

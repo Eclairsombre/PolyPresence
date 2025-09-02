@@ -2,13 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Text.Json.Serialization;
-using System.Text.Json;
-using System.Security.Cryptography;
-using System.Text;
+using backend.Services;
 using System.Net.Mail;
 
 namespace backend.Controllers
@@ -85,41 +79,6 @@ namespace backend.Controllers
             var isAdmin = _context.Users.Any(u => u.StudentNumber == username && u.IsAdmin);
             return Ok(new { IsAdmin = isAdmin });
         }
-
-        /**
-         * PostUser
-         *
-         * This method creates a new User entity in the database.
-         */
-        [HttpPost]
-        public async Task<ActionResult<User>> PostUser(User user)
-        {
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            var today = DateTime.Today;
-            var futureSessions = await _context.Sessions
-                .Where(s => s.Year == user.Year && s.Date >= today)
-                .ToListAsync();
-            foreach (var session in futureSessions)
-            {
-                var alreadyExists = await _context.Attendances.AnyAsync(a => a.SessionId == session.Id && a.StudentId == user.Id);
-                if (!alreadyExists)
-                {
-                    var attendance = new Attendance
-                    {
-                        SessionId = session.Id,
-                        StudentId = user.Id,
-                        Status = AttendanceStatus.Absent
-                    };
-                    _context.Attendances.Add(attendance);
-                }
-            }
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
-        }
-
         /**
          * PutUser
          *
@@ -133,6 +92,17 @@ namespace backend.Controllers
             if (studentNumber != user.StudentNumber)
             {
                 return BadRequest();
+            }
+
+            if (Request.Headers.ContainsKey("Admin-Token"))
+            {
+                var (adminUser, errorResult) = await GetAdminUserFromToken();
+                if (errorResult != null)
+                {
+                    return errorResult;
+                }
+
+                _logger.LogInformation($"Admin user {adminUser!.StudentNumber} authorized the update");
             }
 
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
@@ -165,6 +135,14 @@ namespace backend.Controllers
         [HttpDelete("{studentNumber}")]
         public async Task<IActionResult> DeleteUser(string studentNumber)
         {
+            var (adminUser, errorResult) = await GetAdminUserFromToken();
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
+
+            _logger.LogInformation($"Admin user {adminUser!.StudentNumber} authorized the deletion");
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
             if (user == null)
             {
@@ -252,9 +230,9 @@ namespace backend.Controllers
                         Environment.GetEnvironmentVariable("SMTP_PASSWORD")
                     )
                 };
-                var mailMessage = new System.Net.Mail.MailMessage
+                var mailMessage = new MailMessage
                 {
-                    From = new System.Net.Mail.MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
+                    From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
                     Subject = "Création de votre mot de passe PolytechPresence",
                     Body = body,
                     IsBodyHtml = true
@@ -297,7 +275,11 @@ namespace backend.Controllers
          *
          * This class represents the request body for setting a password.
          */
-        public class SetPasswordRequest { public string Token { get; set; } public string Password { get; set; } }
+        public class SetPasswordRequest
+        {
+            public required string Token { get; set; }
+            public required string Password { get; set; }
+        }
 
         /**
          * RegisterLinkRequest
@@ -306,7 +288,7 @@ namespace backend.Controllers
          */
         public class RegisterLinkRequest
         {
-            public string StudentNumber { get; set; }
+            public required string StudentNumber { get; set; }
         }
 
         /**
@@ -338,7 +320,11 @@ namespace backend.Controllers
          *
          * This class represents the request body for user login.
          */
-        public class LoginRequest { public string StudentNumber { get; set; } public string Password { get; set; } }
+        public class LoginRequest
+        {
+            public required string StudentNumber { get; set; }
+            public required string Password { get; set; }
+        }
 
         /**
          * ForgotPassword
@@ -381,9 +367,9 @@ namespace backend.Controllers
                         Environment.GetEnvironmentVariable("SMTP_PASSWORD")
                     )
                 };
-                var mailMessage = new System.Net.Mail.MailMessage
+                var mailMessage = new MailMessage
                 {
-                    From = new System.Net.Mail.MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
+                    From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
                     Subject = "Réinitialisation de votre mot de passe PolytechPresence",
                     Body = body,
                     IsBodyHtml = true
@@ -400,15 +386,6 @@ namespace backend.Controllers
             }
 
             return Ok(new { message = "Si un compte existe, un mail de réinitialisation a été envoyé." });
-        }
-        /**
-         * UserExists
-         *
-         * This method checks if a user exists by ID.
-         */
-        private bool UserExists(int id)
-        {
-            return _context.Users.Any(e => e.Id == id);
         }
 
         /**
@@ -433,6 +410,14 @@ namespace backend.Controllers
         [HttpPost("make-admin/{studentNumber}")]
         public async Task<IActionResult> MakeAdmin(string studentNumber)
         {
+            var (adminUser, errorResult) = await GetAdminUserFromToken();
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
+
+            _logger.LogInformation($"Admin user {adminUser!.StudentNumber} is promoting user {studentNumber} to admin");
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
             if (user == null)
                 return NotFound(new { message = "Étudiant introuvable." });
@@ -441,5 +426,127 @@ namespace backend.Controllers
             return Ok(new { message = "L'étudiant a été promu administrateur." });
         }
 
+        /**
+         * GenerateAdminToken
+         *
+         * This method generates a secure authentication token for admin operations.
+         */
+        [HttpPost("generate-admin-token")]
+        public async Task<IActionResult> GenerateAdminToken([FromBody] LoginRequest request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+            if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
+            if (!user.IsAdmin)
+                return Unauthorized(new { message = "Seuls les administrateurs peuvent générer des tokens." });
+
+            // Utilisation du service pour générer un token
+            var tokenService = HttpContext.RequestServices.GetRequiredService<AdminTokenService>();
+            var tokenValue = tokenService.GenerateToken(user.Id);
+            var tokenExpiration = DateTime.UtcNow.AddHours(24);
+
+            _logger.LogInformation($"Admin token generated for user {user.StudentNumber}");
+
+            return Ok(new { token = tokenValue, expiresAt = tokenExpiration });
+        }        /**
+         * PostUserWithToken
+         *
+         * This method creates a new User entity in the database using admin token authentication.
+         */
+        [HttpPost]
+        public async Task<IActionResult> PostUser([FromBody] User user)
+        {
+            var (adminUser, errorResult) = await GetAdminUserFromToken();
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
+
+            _logger.LogInformation($"Admin user {adminUser!.StudentNumber} is creating a new user");
+
+            if (await _context.Users.AnyAsync(u => u.StudentNumber == user.StudentNumber))
+            {
+                return Conflict(new { error = true, message = "Un utilisateur avec ce numéro étudiant existe déjà." });
+            }
+
+            _context.Users.Add(user);
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var today = DateTime.Today;
+            var futureSessions = await _context.Sessions
+                .Where(s => s.Year == user.Year && s.Date >= today)
+                .ToListAsync();
+
+            foreach (var session in futureSessions)
+            {
+                var alreadyExists = await _context.Attendances.AnyAsync(a => a.SessionId == session.Id && a.StudentId == user.Id);
+                if (!alreadyExists)
+                {
+                    var attendance = new Attendance
+                    {
+                        SessionId = session.Id,
+                        StudentId = user.Id,
+                        Status = AttendanceStatus.Absent
+                    };
+                    _context.Attendances.Add(attendance);
+                }
+            }
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+        }
+
+        /**
+         * ValidateAdminToken
+         *
+         * Helper method to validate admin token and get the associated user
+         */
+        private async Task<User?> ValidateAdminToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+                return null;
+
+            // Utilisation du service pour valider le token
+            var tokenService = HttpContext.RequestServices.GetRequiredService<AdminTokenService>();
+            var userId = tokenService.ValidateToken(token);
+
+            if (userId == null)
+                return null;
+
+            // Récupérer l'utilisateur par son ID
+            var adminUser = await _context.Users.FirstOrDefaultAsync(u =>
+                u.Id == userId &&
+                u.IsAdmin);
+
+            return adminUser;
+        }
+
+        /**
+         * GetAdminUserFromToken
+         *
+         * Helper method to get and validate admin user from request headers
+         */
+        private async Task<(User? AdminUser, IActionResult? ErrorResult)> GetAdminUserFromToken()
+        {
+            string? adminToken = Request.Headers["Admin-Token"].FirstOrDefault();
+            if (string.IsNullOrEmpty(adminToken))
+            {
+                return (null, Unauthorized(new { message = "Token d'authentification manquant. Veuillez fournir un token admin." }));
+            }
+
+            _logger.LogInformation($"Validating admin token: {adminToken.Substring(0, 8)}...");
+            var adminUser = await ValidateAdminToken(adminToken);
+            if (adminUser == null)
+            {
+                _logger.LogWarning("Token admin invalide ou expiré");
+                return (null, Unauthorized(new { message = "Token d'authentification invalide ou expiré." }));
+            }
+
+            _logger.LogInformation($"Admin token validated for user: {adminUser.StudentNumber}");
+            return (adminUser, null);
+        }
     }
 }

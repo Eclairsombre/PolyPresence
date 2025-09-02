@@ -106,9 +106,19 @@ export default {
       
       try {
         await studentsStore.addStudent(student.value);
+        
         if (student.value.year === 'ADMIN') {
-          await studentsStore.makeAdmin(student.value.studentNumber);
+          try {
+            await studentsStore.makeAdmin(student.value.studentNumber);
+          } catch (adminError) {
+            console.error("Erreur lors de la promotion en administrateur:", adminError);
+            errorMessage.value = "L'étudiant a été ajouté mais n'a pas pu être promu administrateur: " + 
+              (adminError.message || "Erreur inconnue");
+            isSubmitting.value = false;
+            return;
+          }
         }
+        
         successMessage.value = 'Étudiant ajouté avec succès!';
         
         setTimeout(() => {
@@ -117,6 +127,7 @@ export default {
         }, 1000);
         
       } catch (error) {
+        console.error("Erreur complète lors de l'ajout:", error);
         errorMessage.value = error.message || 'Une erreur est survenue lors de l\'ajout de l\'étudiant';
       } finally {
         isSubmitting.value = false;
