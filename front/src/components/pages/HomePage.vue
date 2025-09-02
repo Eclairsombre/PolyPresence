@@ -12,7 +12,7 @@
           <router-link to="/admin/import-edt" class="btn-primary">Importer l’EDT</router-link>
         </div>
       </div>
-      <div class="student-dashboard" v-if="user && !user.isAdmin">
+      <div class="student-dashboard" v-else-if="user && !user.isAdmin">
         <div class="attendance-section">
           <StudentsAttendanceSheetPage />
         </div>
