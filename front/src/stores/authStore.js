@@ -8,6 +8,51 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 const COOKIE_SECRET = import.meta.env.VITE_COOKIE_SECRET;
 const COOKIE_EXPIRATION_MINUTES = 30;
 
+// Configuration de l'intercepteur Axios pour ajouter l'identifiant de l'utilisateur à toutes les requêtes
+axios.interceptors.request.use(
+  (config) => {
+    // Récupération du cookie utilisateur
+    const encrypted = Cookies.get("user");
+    if (encrypted) {
+      try {
+        const bytes = CryptoJS.AES.decrypt(encrypted, COOKIE_SECRET);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+        const user = JSON.parse(decrypted);
+
+        if (user && user.studentId) {
+          config.headers["X-User-Id"] = user.studentId;
+        }
+
+        if (user && user.adminToken) {
+          config.headers["Admin-Token"] = user.adminToken;
+        }
+      } catch (e) {
+        console.error("Erreur lors de la lecture du cookie utilisateur:", e);
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+axios.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      console.log(
+        "Session expirée ou non autorisé. Redirection vers la page de connexion."
+      );
+      Cookies.remove("user");
+      window.location.href = `/login`;
+    }
+    return Promise.reject(error);
+  }
+);
+
 /**
  * Authentication store for managing user authentication state and actions
  */

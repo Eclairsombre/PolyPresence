@@ -3,6 +3,7 @@ using backend.Data;
 using Microsoft.AspNetCore.Http;
 using backend;
 using backend.Services;
+using backend.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddConsole();
@@ -108,6 +109,9 @@ app.UseSession();
 app.UseRouting();
 app.UseHttpsRedirection();
 app.UseAuthorization();
+
+app.UseAuthMiddleware();
+
 app.MapControllers();
 
 app.Run();
