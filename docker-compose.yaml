@@ -1,0 +1,39 @@
+services:
+    backend:
+        container_name: backend
+        build: backend
+        restart: always
+        env_file: backend/.env
+        networks:
+            - app_network
+        volumes:
+            - ./backend_data:/data
+
+    frontend:
+        container_name: frontend
+        build:
+            context: front
+        restart: always
+        depends_on:
+            - backend
+        ports:
+            - 3000:80
+        networks:
+            - app_network
+            - app_network_web
+    
+    cloudflared:
+        container_name: cloudflared
+        image: cloudflare/cloudflared:latest
+        command: tunnel --no-autoupdate run
+        restart: always
+        networks:
+            - app_network_web
+        environment:
+            - "TUNNEL_TOKEN=${TUNNEL_TOKEN}"
+
+networks:
+    app_network:
+        driver: bridge
+    app_network_web:
+        driver: bridge

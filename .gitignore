@@ -10,3 +10,4 @@ frontend/.env
 
 .direnv
 result
+backend_data/
