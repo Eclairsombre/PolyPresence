@@ -8,12 +8,11 @@ jobs:
   build-and-deploy:
     runs-on: self-hosted
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Build and start containers
         run: |
           cd /home/emargement/PolyPresence
+          git fetch origin
+          git reset --hard origin/main
           docker compose build
           docker compose up -d
 
