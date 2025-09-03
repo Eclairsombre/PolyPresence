@@ -271,7 +271,7 @@ namespace backend.Controllers
 
             if (currentSession == null)
             {
-                return NotFound(new { message = $"Aucune session trouvée pour l'année {year} aujourd'hui" });
+                return NotFound(new { message = $"Aucune session trouvée pour l'année {year} aujourd'hui pour l'heure {now}." });
             }
 
             return currentSession;
