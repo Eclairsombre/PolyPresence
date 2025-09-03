@@ -27,6 +27,7 @@ namespace backend.Middleware
                 "/api/User/register",
                 "/api/User/verify-token",
                 "/api/User/send-register-link",
+                "/api/User/set-password",
                 "/api/User/reset-password",
                 "/api/User/reset-password-request",
                 "/api/User/search",

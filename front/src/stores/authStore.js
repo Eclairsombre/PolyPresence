@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   "/api/User/register",
   "/api/User/verify-token",
   "/api/User/send-register-link",
+  "/api/User/set-password",
   "/api/User/reset-password",
   "/api/User/reset-password-request",
   "/api/User/search",
@@ -68,11 +69,22 @@ axios.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.log(
-        "Session expirée ou non autorisé. Redirection vers la page de connexion."
-      );
-      Cookies.remove("user");
-      window.location.href = `/login`;
+      // Ne pas rediriger automatiquement si c'est une erreur de login
+      // ou si on est déjà sur la page de login/register
+      const currentPath = window.location.pathname;
+      const isLoginAttempt = error.config && error.config.url && 
+                            error.config.url.includes('/api/User/login');
+      const isOnAuthPage = currentPath.includes('/login') || 
+                          currentPath.includes('/register') || 
+                          currentPath.includes('/set-password');
+      
+      if (!isLoginAttempt && !isOnAuthPage) {
+        console.log(
+          "Session expirée ou non autorisé. Redirection vers la page de connexion."
+        );
+        Cookies.remove("user");
+        window.location.href = `/login`;
+      }
     }
     return Promise.reject(error);
   }
