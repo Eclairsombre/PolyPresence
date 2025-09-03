@@ -481,65 +481,65 @@ export const useAuthStore = defineStore("auth", {
     async getAdminToken() {
       // Vérifier les privilèges d'admin
       if (!this.user || !this.user.isAdmin) {
-      throw new Error(
-        "Seuls les administrateurs peuvent effectuer cette action"
-      );
+        throw new Error(
+          "Seuls les administrateurs peuvent effectuer cette action"
+        );
       }
 
       try {
-      // Utiliser le token d'accès actuel de l'administrateur connecté
-      const currentToken = TokenManager.getAccessToken();
-      
-      if (!currentToken) {
-        throw new Error("Aucune session active trouvée");
-      }
+        // Utiliser le token d'accès actuel de l'administrateur connecté
+        const currentToken = TokenManager.getAccessToken();
 
-      console.log("Génération d'un nouveau token admin");
-
-      // Générer un nouveau token admin en utilisant le token actuel pour l'authentification
-      const response = await axios.post(
-        `${API_URL}/api/User/generate-admin-token`,
-        {},
-        {
-        headers: {
-          Authorization: `Bearer ${currentToken}`
+        if (!currentToken) {
+          throw new Error("Aucune session active trouvée");
         }
-        }
-      );
 
-      console.log("Statut de la réponse:", response.status);
+        console.log("Génération d'un nouveau token admin");
 
-      if (!response.data || !response.data.token) {
-        console.error("Format de réponse invalide:", response.data);
-        throw new Error("Impossible d'obtenir un token administrateur");
-      }
-
-      const adminTokenValue = response.data.token;
-      console.log(
-        "Token admin généré avec succès, premiers caractères:",
-        adminTokenValue.substring(0, 8),
-        "..."
-      );
-
-      return adminTokenValue;
-      } catch (error) {
-      console.error("Erreur lors de la génération du token admin:", error);
-
-      // Afficher un message d'erreur plus spécifique si possible
-      if (error.response) {
-        console.error("Statut de la réponse:", error.response.status);
-        console.error("Données de la réponse:", error.response.data);
-
-        if (error.response.data && error.response.data.message) {
-        throw new Error(
-          `Erreur d'authentification admin: ${error.response.data.message}`
+        // Générer un nouveau token admin en utilisant le token actuel pour l'authentification
+        const response = await axios.post(
+          `${API_URL}/api/User/generate-admin-token`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${currentToken}`,
+            },
+          }
         );
-        }
-      }
 
-      throw new Error(
-        "Impossible de générer le token administrateur. Vérifiez vos droits d'accès."
-      );
+        console.log("Statut de la réponse:", response.status);
+
+        if (!response.data || !response.data.token) {
+          console.error("Format de réponse invalide:", response.data);
+          throw new Error("Impossible d'obtenir un token administrateur");
+        }
+
+        const adminTokenValue = response.data.token;
+        console.log(
+          "Token admin généré avec succès, premiers caractères:",
+          adminTokenValue.substring(0, 8),
+          "..."
+        );
+
+        return adminTokenValue;
+      } catch (error) {
+        console.error("Erreur lors de la génération du token admin:", error);
+
+        // Afficher un message d'erreur plus spécifique si possible
+        if (error.response) {
+          console.error("Statut de la réponse:", error.response.status);
+          console.error("Données de la réponse:", error.response.data);
+
+          if (error.response.data && error.response.data.message) {
+            throw new Error(
+              `Erreur d'authentification admin: ${error.response.data.message}`
+            );
+          }
+        }
+
+        throw new Error(
+          "Impossible de générer le token administrateur. Vérifiez vos droits d'accès."
+        );
       }
     },
   },

@@ -412,8 +412,9 @@ namespace backend.Controllers
 
             try
             {
-                var userId = _jwtService.GetUserIdFromRefreshToken(request.RefreshToken);
-                if (userId == null)
+                var refreshedTokens = await _jwtService.RefreshTokenAsync(request.RefreshToken);
+
+                if (refreshedTokens == null)
                 {
                     _logger.LogWarning("Invalid refresh token attempt");
                     return Unauthorized(new LoginResponse
@@ -423,6 +424,18 @@ namespace backend.Controllers
                     });
                 }
 
+                var userId = _jwtService.GetUserIdFromRefreshToken(refreshedTokens.RefreshToken);
+                if (userId == null)
+                {
+                    _logger.LogWarning("User ID could not be retrieved from new refresh token");
+                    return Unauthorized(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Erreur lors du renouvellement du token."
+                    });
+                }
+
+                // Récupérer les données de l'utilisateur
                 var user = await _context.Users.FindAsync(userId.Value);
                 if (user == null)
                 {
@@ -434,7 +447,11 @@ namespace backend.Controllers
                     });
                 }
 
-                var tokenResponse = await _jwtService.GenerateTokensAsync(user);
+                // Générer uniquement un nouveau token d'accès sans créer un nouveau refresh token
+                var accessToken = await _jwtService.GenerateAccessTokenOnlyAsync(user);
+
+                // Mettre à jour les informations du token retourné
+                refreshedTokens.AccessToken = accessToken;
 
                 _logger.LogInformation("Token refreshed for user: {StudentNumber}", user.StudentNumber);
 
@@ -442,7 +459,7 @@ namespace backend.Controllers
                 {
                     Success = true,
                     Message = "Token renouvelé avec succès",
-                    Token = tokenResponse,
+                    Token = refreshedTokens,
                     User = new UserDto
                     {
                         Id = user.Id,
