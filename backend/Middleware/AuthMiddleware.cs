@@ -31,7 +31,12 @@ namespace backend.Middleware
                 "/api/User/reset-password-request",
                 "/api/User/search",
                 "/api/User/IsUserAdmin",
-                "/api/Status"
+                "/api/User/have-password",
+                "/api/Status",
+                "/api/User/year/3A",
+                "/api/User/year/4A",
+                "/api/User/year/5A",
+                "/api/User/year/ADMIN"
             };
 
             var path = context.Request.Path.Value?.ToLower();

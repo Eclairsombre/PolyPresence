@@ -2,7 +2,14 @@
   <div class="register-page">
     <div class="register-container">
       <h1>Créer un compte</h1>
-      <div class="register-form-select">
+      <div v-if="loading" class="loading-indicator">
+        Chargement des données...
+      </div>
+      <div v-else-if="loadingError" class="register-error" style="margin-bottom: 20px;">
+        {{ loadingError }}
+        <button class="retry-btn" @click="retryLoading">Réessayer</button>
+      </div>
+      <div v-else class="register-form-select">
         <label for="year-select">Choisissez votre année :</label>
         <select v-model="selectedYear" id="year-select" class="register-input" style="max-width:200px;margin-bottom:20px;">
           <option value="ADMIN">Admin</option> 
@@ -17,6 +24,9 @@
             {{ student.name }} {{ student.firstname }}
           </option>
         </select>
+        <div v-if="studentsByYear[selectedYear].length === 0" class="register-info">
+          Aucun étudiant disponible pour cette année ou tous les étudiants ont déjà un compte.
+        </div>
         <button class="register-btn" :disabled="!selectedStudentNumber || sending" @click="sendRegisterMail">
           {{ sending ? 'Envoi en cours...' : 'Recevoir un lien de création de mot de passe' }}
         </button>
@@ -41,20 +51,45 @@ const selectedStudentNumber = ref('');
 const errorMessage = ref('');
 const successMessage = ref('');
 const sending = ref(false);
+const loading = ref(true);
+const loadingError = ref('');
 const router = useRouter();
 const API_URL = import.meta.env.VITE_API_URL;
 
 const fetchAllStudents = async () => {
-  for (const year of ['ADMIN','3A', '4A', '5A']) {
-    const students = await studentsStore.fetchStudents(year);
-    var tempStudents = [];
-    for (const student of students) {
-      if (await studentsStore.havePasword(student.studentNumber) === true) {
-        continue;
+  errorMessage.value = '';
+  loadingError.value = '';
+  
+  try {
+    for (const year of ['ADMIN','3A', '4A', '5A']) {
+      const students = await studentsStore.fetchStudents(year);
+      const tempStudents = [];
+      
+      if (students && students.length > 0) {
+        for (const student of students) {
+          try {
+            try {
+              const hasPassword = await studentsStore.havePasword(student.studentNumber);
+              if (hasPassword !== true) {
+                tempStudents.push(student);
+              }
+            } catch (err) {
+              console.warn(`Erreur lors de la vérification du mot de passe pour ${student.studentNumber}, on l'ajoute par défaut:`, err);
+              tempStudents.push(student);
+            }
+          } catch (err) {
+            console.warn(`Erreur lors de la vérification du mot de passe pour ${student.studentNumber}:`, err);
+          }
+        }
       }
-      tempStudents.push(student);
+      
+      studentsByYear.value[year] = tempStudents.sort((a, b) => a.name.localeCompare(b.name));
     }
-    studentsByYear.value[year] = tempStudents.sort((a, b) => a.name.localeCompare(b.name));
+    loadingError.value = '';
+  } catch (error) {
+    loadingError.value = "Erreur lors du chargement des étudiants. Veuillez réessayer plus tard.";
+    console.error("Erreur lors de la récupération des étudiants:", error);
+    throw error; 
   }
 };
 
@@ -62,8 +97,19 @@ const goToLogin = () => {
   router.push('/login');
 };
 
-onMounted(async () => {
+const retryLoading = async () => {
+  loading.value = true;
+  loadingError.value = '';
   await fetchAllStudents();
+};
+
+onMounted(async () => {
+  try {
+    loading.value = true;
+    await fetchAllStudents();
+  } finally {
+    loading.value = false;
+  }
 });
 
 const sendRegisterMail = async () => {
@@ -97,6 +143,39 @@ const sendRegisterMail = async () => {
   min-height: 80vh;
   background: #f5f7fa;
 }
+.loading-indicator {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}
+
+.retry-btn {
+  margin-top: 10px;
+  padding: 8px 15px;
+  background-color: #5c6bc0;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.retry-btn:hover {
+  background-color: #3f51b5;
+}
+
+.register-info {
+  margin: 10px 0;
+  padding: 10px;
+  background-color: #f0f4ff;
+  border-radius: 4px;
+  border-left: 4px solid #3f51b5;
+  font-size: 14px;
+  color: #333;
+}
+
 .register-container {
   background: #fff;
   padding: 40px 30px;

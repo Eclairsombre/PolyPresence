@@ -8,9 +8,34 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 const COOKIE_SECRET = import.meta.env.VITE_COOKIE_SECRET;
 const COOKIE_EXPIRATION_MINUTES = 30;
 
-// Configuration de l'intercepteur Axios pour ajouter l'identifiant de l'utilisateur à toutes les requêtes
+const PUBLIC_ROUTES = [
+  "/api/User/login",
+  "/api/User/register",
+  "/api/User/verify-token",
+  "/api/User/send-register-link",
+  "/api/User/reset-password",
+  "/api/User/reset-password-request",
+  "/api/User/search",
+  "/api/User/IsUserAdmin",
+  "/api/User/year/3A",
+  "/api/User/year/4A",
+  "/api/User/year/5A",
+  "/api/User/year/ADMIN",
+  "/api/Status",
+];
+
 axios.interceptors.request.use(
   (config) => {
+    const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+      config.url
+        ? config.url.toLowerCase().includes(route.toLowerCase())
+        : false
+    );
+
+    if (isPublicRoute) {
+      return config;
+    }
+
     // Récupération du cookie utilisateur
     const encrypted = Cookies.get("user");
     if (encrypted) {
