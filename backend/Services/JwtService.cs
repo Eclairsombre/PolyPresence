@@ -10,6 +10,7 @@ namespace backend.Services
     public interface IJwtService
     {
         Task<TokenResponse> GenerateTokensAsync(User user);
+        Task<string> GenerateAccessTokenOnlyAsync(User user);
         Task<ClaimsPrincipal?> ValidateTokenAsync(string token);
         Task<TokenResponse?> RefreshTokenAsync(string refreshToken);
         Task RevokeTokenAsync(string token);
@@ -63,6 +64,13 @@ namespace backend.Services
                 ExpiresIn = _accessTokenExpiryMinutes * 60,
                 TokenType = "Bearer"
             });
+        }
+
+        public Task<string> GenerateAccessTokenOnlyAsync(User user)
+        {
+            var accessToken = GenerateAccessToken(user);
+            _logger.LogInformation("Generated access token only for user {UserId} ({StudentNumber})", user.Id, user.StudentNumber);
+            return Task.FromResult(accessToken);
         }
 
         public Task<ClaimsPrincipal?> ValidateTokenAsync(string token)
@@ -128,10 +136,26 @@ namespace backend.Services
                     return Task.FromResult<TokenResponse?>(null);
                 }
 
-                // In a real implementation, you would fetch the user from the database
-                // For now, we'll return null to indicate the user should be fetched
                 _logger.LogInformation("Refresh token validated for user {UserId}", tokenInfo.UserId);
-                return Task.FromResult<TokenResponse?>(null); // This should be handled by the controller with user lookup
+
+                // 1. Générer un nouveau refresh token pour remplacer l'ancien
+                var newRefreshToken = GenerateRefreshToken();
+                var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenExpiryDays);
+
+                // 2. Mettre à jour la collection de refresh tokens
+                _refreshTokens[newRefreshToken] = (tokenInfo.UserId, refreshTokenExpiry);
+                _refreshTokens.Remove(refreshToken);
+
+                // 3. Retourner le userId via une autre méthode
+                // Le contrôleur devra appeler GetUserIdFromRefreshToken après avoir reçu ce token
+                return Task.FromResult<TokenResponse?>(new TokenResponse
+                {
+                    RefreshToken = newRefreshToken,
+                    // L'AccessToken doit être généré par le contrôleur
+                    AccessToken = "", // Temporaire, sera remplacé par le contrôleur
+                    ExpiresIn = _accessTokenExpiryMinutes * 60,
+                    TokenType = "Bearer"
+                });
             }
             catch (Exception ex)
             {
