@@ -26,7 +26,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
       this.error = null;
       try {
         const response = await axios.get(
-          `${API_URL}/MailPreferences/${studentId}`
+          `${API_URL}/api/MailPreferences/${studentId}`
         );
         this.preferences = response.data;
         return response.data;
@@ -47,7 +47,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.put(`${API_URL}/MailPreferences/${studentId}`, preferences);
+        await axios.put(`${API_URL}/api/MailPreferences/${studentId}`, preferences);
         this.successMessage = "Préférences mises à jour avec succès !";
       } catch (error) {
         this.error = error;
@@ -65,7 +65,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
       this.loading = true;
       this.testMessage = "";
       try {
-        await axios.post(`${API_URL}/MailPreferences/test/${email}`);
+        await axios.post(`${API_URL}/api/MailPreferences/test/${email}`);
         this.testMessage = "Mail de test envoyé avec succès !";
       } catch (error) {
         this.testMessage = "Échec de l'envoi du mail de test.";
@@ -79,7 +79,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
      */
     async fetchTimers() {
       try {
-        const response = await axios.get(`${API_URL}/Session/timers`);
+        const response = await axios.get(`${API_URL}/api/Session/timers`);
         this.timerData = response.data;
       } catch (error) {
         this.timerData = null;
@@ -105,7 +105,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/MailPreferences/pdf/${sessionId}`,
+          `${API_URL}/api/MailPreferences/pdf/${sessionId}`,
           {
             responseType: "blob",
           }
@@ -154,7 +154,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
         }
 
         const response = await axios.get(
-          `${API_URL}/MailPreferences/pdf/${sessionId}`,
+          `${API_URL}/api/MailPreferences/pdf/${sessionId}`,
           {
             responseType: "blob",
           }

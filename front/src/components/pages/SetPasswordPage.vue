@@ -15,8 +15,8 @@
 
 <script setup>
 import { ref } from 'vue';
-import axios from 'axios';
 import { useRoute, useRouter } from 'vue-router';
+import { useAuthStore } from '../../stores/authStore';
 
 const password = ref('');
 const confirmPassword = ref('');
@@ -25,7 +25,7 @@ const successMessage = ref('');
 const loading = ref(false);
 const route = useRoute();
 const router = useRouter();
-const API_URL = import.meta.env.VITE_API_URL;
+const authStore = useAuthStore();
 const token = route.query.token;
 
 const submitPassword = async () => {
@@ -41,14 +41,12 @@ const submitPassword = async () => {
   }
   loading.value = true;
   try {
-    await axios.post(`${API_URL}/User/set-password`, {
-      token,
-      password: password.value,
-    });
+    await authStore.resetPassword(token, password.value);
     successMessage.value = 'Mot de passe défini avec succès. Vous pouvez maintenant vous connecter.';
     setTimeout(() => router.push('/login'), 2000);
   } catch (error) {
-    errorMessage.value = error?.response?.data?.message || 'Erreur lors de la définition du mot de passe.';
+    console.error('Erreur lors de la réinitialisation du mot de passe:', error);
+    errorMessage.value = error?.message || 'Erreur lors de la définition du mot de passe.';
   } finally {
     loading.value = false;
   }

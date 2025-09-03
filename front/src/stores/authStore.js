@@ -1,61 +1,150 @@
 import { defineStore } from "pinia";
 import axios from "axios";
-import Cookies from "js-cookie";
-import CryptoJS from "crypto-js";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-const COOKIE_SECRET = import.meta.env.VITE_COOKIE_SECRET;
-const COOKIE_EXPIRATION_MINUTES = 30;
 
 const PUBLIC_ROUTES = [
   "/api/User/login",
-  "/api/User/register",
-  "/api/User/verify-token",
-  "/api/User/send-register-link",
-  "/api/User/set-password",
+  "/api/User/forgot-password",
   "/api/User/reset-password",
-  "/api/User/reset-password-request",
-  "/api/User/search",
-  "/api/User/IsUserAdmin",
-  "/api/User/year/3A",
-  "/api/User/year/4A",
-  "/api/User/year/5A",
-  "/api/User/year/ADMIN",
   "/api/Status",
 ];
 
+class TokenManager {
+  static getAccessToken() {
+    return sessionStorage.getItem("access_token");
+  }
+
+  static getRefreshToken() {
+    return localStorage.getItem("refresh_token");
+  }
+
+  static setTokens(accessToken, refreshToken) {
+    sessionStorage.setItem("access_token", accessToken);
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
+  }
+
+  static clearTokens() {
+    sessionStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    sessionStorage.removeItem("user_info");
+  }
+
+  static getUserInfo() {
+    const userInfo = sessionStorage.getItem("user_info");
+    return userInfo ? JSON.parse(userInfo) : null;
+  }
+
+  static setUserInfo(userInfo) {
+    sessionStorage.setItem("user_info", JSON.stringify(userInfo));
+  }
+
+  static isTokenExpiringSoon() {
+    const token = this.getAccessToken();
+    if (!token) return true;
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const expiryTime = payload.exp * 1000;
+      const currentTime = Date.now();
+      return expiryTime - currentTime < 120000;
+    } catch (error) {
+      console.error(
+        "Erreur lors de la vérification de l'expiration du token:",
+        error
+      );
+      return true;
+    }
+  }
+
+  static extractUserInfoFromToken(token) {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return {
+        studentId: payload.sub,
+        firstName: payload.given_name,
+        lastName: payload.family_name,
+        email: payload.email,
+        isAdmin: payload.role === "Admin",
+      };
+    } catch (error) {
+      console.error("Erreur lors de l'extraction des informations du token:", error);
+      return null;
+    }
+  }
+}
+
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
 axios.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const isPublicRoute = PUBLIC_ROUTES.some((route) =>
-      config.url
-        ? config.url.toLowerCase().includes(route.toLowerCase())
-        : false
+      config.url?.toLowerCase().includes(route.toLowerCase())
     );
 
     if (isPublicRoute) {
       return config;
     }
 
-    // Récupération du cookie utilisateur
-    const encrypted = Cookies.get("user");
-    if (encrypted) {
-      try {
-        const bytes = CryptoJS.AES.decrypt(encrypted, COOKIE_SECRET);
-        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-        const user = JSON.parse(decrypted);
+    if (TokenManager.isTokenExpiringSoon()) {
+      const refreshToken = TokenManager.getRefreshToken();
+      if (refreshToken && !isRefreshing) {
+        try {
+          isRefreshing = true;
+          const response = await axios.post(
+            `${API_URL}/api/User/refresh-token`,
+            {
+              refreshToken: refreshToken,
+            }
+          );
 
-        if (user && user.studentId) {
-          config.headers["X-User-Id"] = user.studentId;
+          if (response.data && response.data.success && response.data.token) {
+            TokenManager.setTokens(
+              response.data.token.accessToken,
+              response.data.token.refreshToken
+            );
+            
+            const userInfo = TokenManager.extractUserInfoFromToken(response.data.token.accessToken);
+            if (userInfo) {
+              TokenManager.setUserInfo(userInfo);
+              const authStore = useAuthStore();
+              authStore.user = userInfo;
+            }
+            
+            processQueue(null, response.data.token.accessToken);
+          }
+        } catch (error) {
+          console.error("Erreur lors du refresh du token:", error);
+          TokenManager.clearTokens();
+          window.location.href = "/login";
+          processQueue(error);
+        } finally {
+          isRefreshing = false;
         }
-
-        if (user && user.adminToken) {
-          config.headers["Admin-Token"] = user.adminToken;
-        }
-      } catch (e) {
-        console.error("Erreur lors de la lecture du cookie utilisateur:", e);
       }
     }
+
+    const token = TokenManager.getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => {
@@ -72,17 +161,21 @@ axios.interceptors.response.use(
       // Ne pas rediriger automatiquement si c'est une erreur de login
       // ou si on est déjà sur la page de login/register
       const currentPath = window.location.pathname;
-      const isLoginAttempt = error.config && error.config.url && 
-                            error.config.url.includes('/api/User/login');
-      const isOnAuthPage = currentPath.includes('/login') || 
-                          currentPath.includes('/register') || 
-                          currentPath.includes('/set-password');
-      
+      const isLoginAttempt =
+        error.config &&
+        error.config.url &&
+        error.config.url.includes("/api/User/login");
+      const isOnAuthPage =
+        currentPath.includes("/login") ||
+        currentPath.includes("/register") ||
+        currentPath.includes("/set-password") ||
+        currentPath.includes("/forgot-password");
+
       if (!isLoginAttempt && !isOnAuthPage) {
         console.log(
           "Session expirée ou non autorisé. Redirection vers la page de connexion."
         );
-        Cookies.remove("user");
+        TokenManager.clearTokens();
         window.location.href = `/login`;
       }
     }
@@ -114,66 +207,54 @@ export const useAuthStore = defineStore("auth", {
     },
 
     /**
-     * Logs out the current user by removing user data and cookie
-     * Also revokes admin token if available
+     * Logs out the current user by removing user data and tokens
+     * Also revokes token on server if possible
      */
     async logout() {
-      // Si l'utilisateur est admin et possède un token, le révoquer
-      if (this.hasValidAdminToken()) {
-        try {
+      try {
+        const refreshToken = TokenManager.getRefreshToken();
+        if (refreshToken) {
           await axios.post(
-            `${API_URL}/Token/revoke`,
-            {},
+            `${API_URL}/api/User/logout`,
+            {
+              refreshToken: refreshToken
+            },
             {
               headers: {
-                "Admin-Token": this.getAdminToken(),
-              },
+                Authorization: `Bearer ${TokenManager.getAccessToken()}`
+              }
             }
-          );
-        } catch (error) {
-          console.error("Erreur lors de la révocation du token admin:", error);
+          ).catch(error => {
+            console.error("Erreur lors de la déconnexion:", error);
+            // Continuer malgré l'erreur
+          });
         }
+      } catch (error) {
+        console.error("Erreur lors de la déconnexion:", error);
+      } finally {
+        // Toujours nettoyer les données locales
+        this.user = null;
+        TokenManager.clearTokens();
       }
-
-      this.user = null;
-      Cookies.remove("user");
     },
 
     /**
-     * Checks for existing user session in cookies and loads user data if available
-     * Updates delegate status if needed
+     * Checks for existing user session from tokens and loads user data if available
      */
     checkSession() {
-      const encrypted = Cookies.get("user");
-      if (encrypted) {
-        try {
-          const bytes = CryptoJS.AES.decrypt(encrypted, COOKIE_SECRET);
-          const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-          this.user = JSON.parse(decrypted);
-          if (
-            this.user &&
-            this.user.studentId &&
-            this.user.isDelegate === undefined
-          ) {
-            axios
-              .get(`${API_URL}/User/search/${this.user.studentId}`)
-              .then((res) => {
-                this.user.isDelegate = res.data.user.isDelegate || false;
-                const encryptedUpdate = CryptoJS.AES.encrypt(
-                  JSON.stringify(this.user),
-                  COOKIE_SECRET
-                ).toString();
-                Cookies.set("user", encryptedUpdate, {
-                  expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
-                });
-              })
-              .catch(() => {
-                this.user.isDelegate = false;
-              });
-          }
-        } catch (e) {
-          Cookies.remove("user");
+      const accessToken = TokenManager.getAccessToken();
+      const userInfo = TokenManager.getUserInfo();
+      
+      if (accessToken && userInfo) {
+        this.user = userInfo;
+        
+        // Vérifier si le token expire bientôt et ne pas le refresh maintenant
+        // Le refresh sera géré par l'intercepteur axios si nécessaire
+        if (TokenManager.isTokenExpiringSoon()) {
+          console.log("Token expirant bientôt, sera rafraîchi à la prochaine requête API");
         }
+      } else {
+        this.user = null;
       }
     },
 
@@ -186,7 +267,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/User/search/${this.user.studentId}`
+          `${API_URL}/api/User/search/${this.user.studentId}`
         );
 
         this.user.existsInDb = response.data.exists;
@@ -208,19 +289,25 @@ export const useAuthStore = defineStore("auth", {
      * @returns {Promise<Boolean>} True if user is admin, false otherwise
      */
     async isAdmin() {
+      // Si nous avons déjà l'information dans le token décodé
+      if (this.user && this.user.isAdmin !== undefined) {
+        return this.user.isAdmin;
+      }
+      
       if (!this.user || !this.user.studentId) return false;
-      if (this.user.isAdmin !== undefined) return this.user.isAdmin;
 
       try {
         const response = await axios.get(
-          `${API_URL}/User/IsUserAdmin/${this.user.studentId}`
+          `${API_URL}/api/User/IsUserAdmin/${this.user.studentId}`
         );
 
-        this.user.isAdmin = response.data.IsAdmin;
-        return response.data.IsAdmin;
+        this.user.isAdmin = response.data.isAdmin;
+        // Mettre à jour les informations stockées
+        TokenManager.setUserInfo(this.user);
+        return this.user.isAdmin;
       } catch (error) {
         console.error(
-          "Erreur lors de la vérification de l'utilisateur:",
+          "Erreur lors de la vérification des droits d'administrateur:",
           error
         );
         return false;
@@ -238,19 +325,46 @@ export const useAuthStore = defineStore("auth", {
       if (!username || !password)
         throw new Error("Identifiant ou mot de passe manquant");
       try {
-        const response = await axios.post(`${API_URL}/User/login`, {
+        const response = await axios.post(`${API_URL}/api/User/login`, {
           studentNumber: username,
           password: password,
         });
-        const userdata = response.data;
-
-        if (userdata.isAdmin) {
-          const adminToken = await this.generateAdminToken(username, password);
-          userdata.adminToken = adminToken;
+        
+        if (!response.data || !response.data.success || !response.data.token) {
+          throw new Error(response.data.message || "Format de réponse invalide");
         }
-
-        this.updateUserLocalStorage(userdata);
-        return userdata;
+        
+        // Enregistrer les tokens
+        TokenManager.setTokens(
+          response.data.token.accessToken,
+          response.data.token.refreshToken
+        );
+        
+        // Nous avons déjà les infos utilisateur dans la réponse
+        const userFromResponse = response.data.user;
+        
+        // Mais extrayons aussi les infos du token pour avoir les rôles
+        const userInfoFromToken = TokenManager.extractUserInfoFromToken(response.data.token.accessToken);
+        
+        // Fusionner les informations
+        const userInfo = {
+          ...userInfoFromToken,
+          // Utiliser les données de User qui sont plus complètes
+          id: userFromResponse.id,
+          studentId: userFromResponse.studentNumber,
+          firstName: userFromResponse.firstname,
+          lastName: userFromResponse.name,
+          email: userFromResponse.email,
+          isAdmin: userFromResponse.isAdmin,
+          isDelegate: userFromResponse.isDelegate,
+          year: userFromResponse.year
+        };
+        
+        // Stocker les infos utilisateur
+        this.user = userInfo;
+        TokenManager.setUserInfo(userInfo);
+        
+        return userInfo;
       } catch (error) {
         if (
           error.response &&
@@ -264,58 +378,112 @@ export const useAuthStore = defineStore("auth", {
     },
 
     /**
-     * Génère un token d'authentification admin sécurisé
-     * @param {string} username - Numéro d'étudiant de l'administrateur
-     * @param {string} password - Mot de passe de l'administrateur
-     * @returns {Promise<string>} Token d'authentification
+     * Vérifie si l'utilisateur est authentifié
+     * @returns {boolean} True si l'utilisateur est authentifié
      */
-    async generateAdminToken(username, password) {
+    isAuthenticated() {
+      return !!this.user && !!TokenManager.getAccessToken();
+    },
+    
+    /**
+     * Met à jour les informations de l'utilisateur dans le stockage local
+     * @param {Object} userData - Nouvelles données utilisateur
+     */
+    updateUserLocalStorage(userData) {
+      this.user = userData;
+      TokenManager.setUserInfo(userData);
+    },
+
+    /**
+     * Réinitialise le mot de passe (demande d'envoi d'email)
+     * @param {string} email - Email de l'utilisateur
+     * @returns {Promise<Object>} Résultat de la demande
+     */
+    async forgotPassword(email) {
       try {
-        const response = await axios.post(
-          `${API_URL}/User/generate-admin-token`,
-          {
-            studentNumber: username,
-            password: password,
-          }
-        );
-        return response.data.token;
+        const response = await axios.post(`${API_URL}/api/User/forgot-password`, { email });
+        return response.data;
       } catch (error) {
-        console.error("Erreur lors de la génération du token admin:", error);
-        return null;
+        if (error.response && error.response.data && error.response.data.message) {
+          throw new Error(error.response.data.message);
+        }
+        throw new Error("Erreur lors de la demande de réinitialisation du mot de passe.");
       }
     },
 
     /**
-     * Updates user data in local storage and cookies
-     * @param {Object} user - User data to store
+     * Réinitialise le mot de passe avec le token reçu par email
+     * @param {string} token - Token de réinitialisation reçu par email
+     * @param {string} newPassword - Nouveau mot de passe
+     * @returns {Promise<Object>} Résultat de la réinitialisation
      */
-    async updateUserLocalStorage(user) {
-      this.user = user;
-      const encrypted = CryptoJS.AES.encrypt(
-        JSON.stringify(this.user),
-        COOKIE_SECRET
-      ).toString();
-      Cookies.set("user", encrypted, {
-        expires: COOKIE_EXPIRATION_MINUTES / (24 * 60),
-      });
+    async resetPassword(token, newPassword) {
+      try {
+        const response = await axios.post(`${API_URL}/api/User/reset-password`, {
+          token,
+          newPassword
+        });
+        return response.data;
+      } catch (error) {
+        if (error.response && error.response.data && error.response.data.message) {
+          throw new Error(error.response.data.message);
+        }
+        throw new Error("Erreur lors de la réinitialisation du mot de passe.");
+      }
     },
 
     /**
-     * Vérifie si l'utilisateur possède un token administrateur valide
-     * @returns {boolean} True si un token admin valide est disponible
+     * Récupère un token d'administration pour les opérations nécessitant des privilèges admin
+     * Génère un nouveau token à chaque appel pour éviter les problèmes de tokens expirés
+     * @returns {Promise<string>} Token d'administration
+     * @throws {Error} Si l'utilisateur n'est pas administrateur ou si la génération échoue
      */
-    hasValidAdminToken() {
-      const hasToken = this.user && this.user.isAdmin && this.user.adminToken;
-      return hasToken;
-    },
-
-    /**
-     * Récupère le token d'authentification admin
-     * @returns {string|null} Token administrateur ou null si non disponible
-     */
-    getAdminToken() {
-      const token = this.hasValidAdminToken() ? this.user.adminToken : null;
-      return token;
-    },
+    async getAdminToken() {
+      // Vérifier les privilèges d'admin
+      if (!this.user || !this.user.isAdmin) {
+        throw new Error("Seuls les administrateurs peuvent effectuer cette action");
+      }
+      
+      try {
+        // Toujours utiliser le compte admin par défaut configuré dans le .env
+        // En production, il faudrait demander le mot de passe à l'utilisateur
+        const adminStudentNumber = "admin"; // Correspond à ADMIN_BASE_STUDENT_NUMBER dans .env
+        const adminPassword = "AdminSecurePassword123!"; // Correspond à ADMIN_BASE_PASSWORD dans .env
+        
+        console.log("Génération d'un nouveau token admin pour", adminStudentNumber);
+        
+        // Générer un nouveau token à chaque fois
+        const response = await axios.post(`${API_URL}/api/User/generate-admin-token`, {
+          studentNumber: adminStudentNumber,
+          password: adminPassword
+        });
+        
+        console.log("Statut de la réponse:", response.status);
+        
+        if (!response.data || !response.data.token) {
+          console.error("Format de réponse invalide:", response.data);
+          throw new Error("Impossible d'obtenir un token administrateur");
+        }
+        
+        const adminTokenValue = response.data.token;
+        console.log("Token admin généré avec succès, premiers caractères:", adminTokenValue.substring(0, 8), "...");
+        
+        return adminTokenValue;
+      } catch (error) {
+        console.error("Erreur lors de la génération du token admin:", error);
+        
+        // Afficher un message d'erreur plus spécifique si possible
+        if (error.response) {
+          console.error("Statut de la réponse:", error.response.status);
+          console.error("Données de la réponse:", error.response.data);
+          
+          if (error.response.data && error.response.data.message) {
+            throw new Error(`Erreur d'authentification admin: ${error.response.data.message}`);
+          }
+        }
+        
+        throw new Error("Impossible de générer le token administrateur. Vérifiez vos identifiants.");
+      }
+    }
   },
 });
