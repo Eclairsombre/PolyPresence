@@ -5,7 +5,7 @@ export const requiresAuth = (to, from, next) => {
 
   if (!authStore.user) {
     next({
-      name: "not-found",
+      name: "unauthorized",
       query: { message: "Veuillez vous connecter pour accéder à cette page." },
     });
   } else {
