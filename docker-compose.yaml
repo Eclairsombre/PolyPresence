@@ -4,6 +4,8 @@ services:
         build: backend
         restart: always
         env_file: backend/.env
+        environment:
+            - TZ=Europe/Paris
         networks:
             - app_network
         volumes:
@@ -16,6 +18,8 @@ services:
         restart: always
         depends_on:
             - backend
+        environment:
+            - TZ=Europe/Paris
         ports:
             - 3000:80
         networks:
@@ -31,6 +35,7 @@ services:
             - app_network_web
         environment:
             - "TUNNEL_TOKEN=${TUNNEL_TOKEN}"
+            - TZ=Europe/Paris
 
 networks:
     app_network:
