@@ -41,7 +41,7 @@ export const useStudentsStore = defineStore("students", {
             "Admin-Token": adminToken,
           },
         };
-                
+
         return config;
       } catch (error) {
         console.error("Erreur lors de la récupération du token admin:", error);
