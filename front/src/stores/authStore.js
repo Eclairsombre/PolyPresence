@@ -82,6 +82,8 @@ class TokenManager {
 
 let isRefreshing = false;
 let failedQueue = [];
+// Référence au store qui sera initialisée plus tard
+let authStoreRef = null;
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
@@ -94,6 +96,11 @@ const processQueue = (error, token = null) => {
 
   failedQueue = [];
 };
+
+// Fonction pour définir la référence au store
+export function setAuthStoreReference(store) {
+  authStoreRef = store;
+}
 
 axios.interceptors.request.use(
   async (config) => {
@@ -128,8 +135,10 @@ axios.interceptors.request.use(
             );
             if (userInfo) {
               TokenManager.setUserInfo(userInfo);
-              const authStore = useAuthStore();
-              authStore.user = userInfo;
+              // Utiliser la référence au store au lieu d'en créer une nouvelle
+              if (authStoreRef) {
+                authStoreRef.user = userInfo;
+              }
             }
 
             processQueue(null, response.data.token.accessToken);
@@ -201,6 +210,8 @@ export const useAuthStore = defineStore("auth", {
      * Initialize the auth store by checking for existing session
      */
     initialize() {
+      // Stocker une référence à cette instance du store pour l'intercepteur
+      setAuthStoreReference(this);
       this.checkSession();
     },
 
