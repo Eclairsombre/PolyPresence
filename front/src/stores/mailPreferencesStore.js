@@ -1,4 +1,4 @@
-import {defineStore} from "pinia";
+import { defineStore } from "pinia";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -47,7 +47,10 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.put(`${API_URL}/api/MailPreferences/${studentId}`, preferences);
+        await axios.put(
+          `${API_URL}/api/MailPreferences/${studentId}`,
+          preferences
+        );
         this.successMessage = "Préférences mises à jour avec succès !";
       } catch (error) {
         this.error = error;
@@ -111,7 +114,9 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
           }
         );
 
-        const filename = `session_${session.value.year}_${session.value.date.split("T")[0]}_${session.value.startTime.replace(/:/g, "-")}.pdf`;
+        const filename = `session_${session.value.year}_${
+          session.value.date.split("T")[0]
+        }_${session.value.startTime.replace(/:/g, "-")}.pdf`;
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement("a");
         link.href = url;
@@ -141,7 +146,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
 
         if (!session) {
           throw new Error("Session non définie");
-        } else if (typeof session === 'number') {
+        } else if (typeof session === "number") {
           sessionId = session;
         } else if (session.id) {
           sessionId = session.id;
@@ -159,14 +164,13 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
             responseType: "blob",
           }
         );
-        return new Blob([response.data], {type: "application/pdf"});
-      }
-      catch (error) {
+        return new Blob([response.data], { type: "application/pdf" });
+      } catch (error) {
         this.error = error;
         throw error;
       } finally {
         this.loading = false;
       }
-    }
+    },
   },
 });

@@ -143,7 +143,10 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.post(`${API_URL}/api/Session`, sessionData);
+        const response = await axios.post(
+          `${API_URL}/api/Session`,
+          sessionData
+        );
 
         if (
           this.sessions.some((s) => s.year === sessionData.year) ||
@@ -196,7 +199,10 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        await axios.put(`${API_URL}/api/Session/${sessionData.id}`, sessionData);
+        await axios.put(
+          `${API_URL}/api/Session/${sessionData.id}`,
+          sessionData
+        );
 
         const index = this.sessions.findIndex((s) => s.id === sessionData.id);
         if (index !== -1) {
@@ -323,7 +329,9 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(`${API_URL}/api/Session/current/${year}`);
+        const response = await axios.get(
+          `${API_URL}/api/Session/current/${year}`
+        );
         this.currentSession = response.data;
         return this.currentSession;
       } catch (error) {
@@ -537,7 +545,9 @@ export const useSessionStore = defineStore("session", {
      */
     async resendProfMail(sessionId) {
       try {
-        await axios.post(`${API_URL}/api/Session/${sessionId}/resend-prof-mail`);
+        await axios.post(
+          `${API_URL}/api/Session/${sessionId}/resend-prof-mail`
+        );
         return true;
       } catch (e) {
         throw e;

@@ -28,9 +28,11 @@ export const requiresAdmin = async (to, from, next) => {
     try {
       const isAdmin = await authStore.isAdmin();
       if (!isAdmin) {
-        next({ 
+        next({
           name: "unauthorized",
-          query: { message: "Vous n'avez pas les droits d'administrateur nécessaires." },
+          query: {
+            message: "Vous n'avez pas les droits d'administrateur nécessaires.",
+          },
         });
         return;
       }
@@ -43,9 +45,11 @@ export const requiresAdmin = async (to, from, next) => {
       return;
     }
   } else if (authStore.user.isAdmin === false) {
-    next({ 
+    next({
       name: "unauthorized",
-      query: { message: "Vous n'avez pas les droits d'administrateur nécessaires." },
+      query: {
+        message: "Vous n'avez pas les droits d'administrateur nécessaires.",
+      },
     });
     return;
   }

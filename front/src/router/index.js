@@ -94,8 +94,15 @@ import { useAuthStore } from "../stores/authStore";
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   await authStore.initialize();
-  
-  const publicPages = ['login', 'register', 'forgot-password', 'set-password', 'unauthorized', 'not-found'];
+
+  const publicPages = [
+    "login",
+    "register",
+    "forgot-password",
+    "set-password",
+    "unauthorized",
+    "not-found",
+  ];
   if (
     publicPages.includes(to.name) ||
     to.name === "home" ||
@@ -103,32 +110,36 @@ router.beforeEach(async (to, from, next) => {
   ) {
     return next();
   }
-  
+
   if (!authStore.isAuthenticated()) {
-    return next({ 
+    return next({
       name: "unauthorized",
-      query: { message: "Veuillez vous connecter pour accéder à cette page." }
+      query: { message: "Veuillez vous connecter pour accéder à cette page." },
     });
   }
-  
+
   const userExists = await authStore.checkIfUserExists();
   if (userExists === false) {
-    return next({ 
+    return next({
       name: "unauthorized",
-      query: { message: "Votre compte n'existe pas dans notre base de données." }
+      query: {
+        message: "Votre compte n'existe pas dans notre base de données.",
+      },
     });
   }
-  
+
   if (to.meta && to.meta.requiresAdmin) {
     const isAdmin = await authStore.isAdmin();
     if (!isAdmin) {
-      return next({ 
+      return next({
         name: "unauthorized",
-        query: { message: "Vous n'avez pas les droits administrateur nécessaires." }
+        query: {
+          message: "Vous n'avez pas les droits administrateur nécessaires.",
+        },
       });
     }
   }
-  
+
   next();
 });
 
