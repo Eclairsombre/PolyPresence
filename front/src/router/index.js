@@ -94,17 +94,41 @@ import { useAuthStore } from "../stores/authStore";
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   await authStore.initialize();
+  
+  const publicPages = ['login', 'register', 'forgot-password', 'set-password', 'unauthorized', 'not-found'];
   if (
+    publicPages.includes(to.name) ||
     to.name === "home" ||
-    to.name === "unauthorized" ||
-    to.name === "not-found" ||
     to.path.startsWith("/prof-signature")
   ) {
     return next();
   }
-  if (authStore.user && authStore.user.existsInDb === false) {
-    return next({ name: "unauthorized" });
+  
+  if (!authStore.isAuthenticated()) {
+    return next({ 
+      name: "unauthorized",
+      query: { message: "Veuillez vous connecter pour accéder à cette page." }
+    });
   }
+  
+  const userExists = await authStore.checkIfUserExists();
+  if (userExists === false) {
+    return next({ 
+      name: "unauthorized",
+      query: { message: "Votre compte n'existe pas dans notre base de données." }
+    });
+  }
+  
+  if (to.meta && to.meta.requiresAdmin) {
+    const isAdmin = await authStore.isAdmin();
+    if (!isAdmin) {
+      return next({ 
+        name: "unauthorized",
+        query: { message: "Vous n'avez pas les droits administrateur nécessaires." }
+      });
+    }
+  }
+  
   next();
 });
 

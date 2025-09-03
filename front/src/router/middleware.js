@@ -3,7 +3,7 @@ import { useAuthStore } from "../stores/authStore";
 export const requiresAuth = (to, from, next) => {
   const authStore = useAuthStore();
 
-  if (!authStore.user) {
+  if (!authStore.isAuthenticated()) {
     next({
       name: "unauthorized",
       query: { message: "Veuillez vous connecter pour accéder à cette page." },
@@ -16,9 +16,10 @@ export const requiresAuth = (to, from, next) => {
 export const requiresAdmin = async (to, from, next) => {
   const authStore = useAuthStore();
 
-  if (!authStore.user) {
+  if (!authStore.isAuthenticated()) {
     next({
       name: "unauthorized",
+      query: { message: "Veuillez vous connecter pour accéder à cette page." },
     });
     return;
   }
@@ -27,7 +28,10 @@ export const requiresAdmin = async (to, from, next) => {
     try {
       const isAdmin = await authStore.isAdmin();
       if (!isAdmin) {
-        next({ name: "unauthorized" });
+        next({ 
+          name: "unauthorized",
+          query: { message: "Vous n'avez pas les droits d'administrateur nécessaires." },
+        });
         return;
       }
     } catch (error) {
@@ -39,7 +43,10 @@ export const requiresAdmin = async (to, from, next) => {
       return;
     }
   } else if (authStore.user.isAdmin === false) {
-    next({ name: "unauthorized" });
+    next({ 
+      name: "unauthorized",
+      query: { message: "Vous n'avez pas les droits d'administrateur nécessaires." },
+    });
     return;
   }
 

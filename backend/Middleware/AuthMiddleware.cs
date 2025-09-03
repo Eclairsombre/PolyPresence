@@ -2,11 +2,12 @@ using backend.Services;
 using backend.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Security.Claims;
 
 namespace backend.Middleware
 {
     /// <summary>
-    /// Middleware qui vérifie si l'utilisateur est connecté avant de traiter la requête
+    /// Middleware qui vérifie l'authentification JWT avant de traiter la requête
     /// </summary>
     public class AuthMiddleware
     {
@@ -19,69 +20,89 @@ namespace backend.Middleware
             _logger = logger;
         }
 
-        public async Task InvokeAsync(HttpContext context, ApplicationDbContext dbContext, AdminTokenService tokenService)
+        public async Task InvokeAsync(HttpContext context, ApplicationDbContext dbContext, IJwtService jwtService, IRateLimitService rateLimitService)
         {
-            var publicPaths = new List<string>
+            var publicPaths = new HashSet<string>
             {
                 "/api/User/login",
-                "/api/User/register",
-                "/api/User/verify-token",
-                "/api/User/send-register-link",
-                "/api/User/set-password",
+                "/api/User/forgot-password",
                 "/api/User/reset-password",
-                "/api/User/reset-password-request",
-                "/api/User/search",
-                "/api/User/IsUserAdmin",
-                "/api/User/have-password",
-                "/api/Status",
-                "/api/User/year/3A",
-                "/api/User/year/4A",
-                "/api/User/year/5A",
-                "/api/User/year/ADMIN"
+                "/api/Status"
             };
 
-            var path = context.Request.Path.Value?.ToLower();
-            if (path != null && (
-                publicPaths.Any(p => path.StartsWith(p.ToLower())) ||
-                path.StartsWith("/api/user/search/") ||
-                path.StartsWith("/api/user/isuseradmin/")))
+            var path = context.Request.Path.Value?.ToLowerInvariant();
+
+            if (publicPaths.Any(p => path?.StartsWith(p.ToLowerInvariant()) == true))
             {
                 await _next(context);
                 return;
             }
 
-            var adminToken = context.Request.Headers["Admin-Token"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(adminToken))
+            var userIdFromToken = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userIdFromToken) && !rateLimitService.IsApiCallAllowed(userIdFromToken))
             {
-                var adminUserId = tokenService.ValidateToken(adminToken);
-                if (adminUserId.HasValue)
-                {
-                    var adminUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == adminUserId.Value && u.IsAdmin);
-                    if (adminUser != null)
-                    {
-                        _logger.LogInformation("Accès administrateur autorisé pour {StudentNumber} à {Path}", adminUser.StudentNumber, context.Request.Path);
-                        await _next(context);
-                        return;
-                    }
-                }
+                _logger.LogWarning("Rate limit exceeded for user {UserId} on path {Path}", userIdFromToken, path);
+                context.Response.StatusCode = 429; 
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Rate limit exceeded" }));
+                return;
             }
 
-            var studentId = context.Request.Headers["X-User-Id"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(studentId))
+            var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
             {
-                var user = await dbContext.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentId);
-                if (user != null)
-                {
-                    _logger.LogInformation("Accès utilisateur autorisé pour {StudentNumber} à {Path}", studentId, context.Request.Path);
-                    await _next(context);
-                    return;
-                }
+                _logger.LogWarning("Missing or invalid Authorization header for path {Path}", path);
+                await UnauthorizedResponse(context, "Token d'accès requis");
+                return;
             }
 
-            _logger.LogWarning("Tentative d'accès non autorisé à {Path}", context.Request.Path);
-            context.Response.StatusCode = 401; // Unauthorized
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+
+            var principal = await jwtService.ValidateTokenAsync(token);
+            if (principal == null)
+            {
+                _logger.LogWarning("Invalid JWT token for path {Path}", path);
+                await UnauthorizedResponse(context, "Token d'accès invalide ou expiré");
+                return;
+            }
+
+            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                _logger.LogWarning("Invalid user ID in token for path {Path}", path);
+                await UnauthorizedResponse(context, "Token invalide");
+                return;
+            }
+
+            var user = await dbContext.Users.FindAsync(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found in database", userId);
+                await UnauthorizedResponse(context, "Utilisateur introuvable");
+                return;
+            }
+
+            context.User = principal;
+            context.Items["User"] = user;
+            context.Items["UserId"] = userId;
+
+            _logger.LogDebug("User {UserId} authenticated successfully for path {Path}", userId, path);
+
+            await _next(context);
+        }
+
+        private async Task UnauthorizedResponse(HttpContext context, string message)
+        {
+            context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { message = "Vous devez être connecté pour accéder à cette ressource" }));
+
+            var response = new
+            {
+                error = true,
+                message = message,
+                timestamp = DateTime.UtcNow
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
     }
 

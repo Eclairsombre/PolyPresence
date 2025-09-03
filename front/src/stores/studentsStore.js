@@ -17,7 +17,7 @@ export const useStudentsStore = defineStore("students", {
      * Creates a configuration object with admin token in headers
      * @returns {Object} Axios configuration object with admin token header
      */
-    _createAdminConfig() {
+    async _createAdminConfig() {
       const authStore = useAuthStore();
 
       if (!authStore.user?.isAdmin) {
@@ -27,19 +27,26 @@ export const useStudentsStore = defineStore("students", {
         throw new Error("Non autorisé : action réservée aux administrateurs");
       }
 
-      const adminToken = authStore.getAdminToken();
+      try {
+        const adminToken = await authStore.getAdminToken();
 
-      if (!adminToken) {
-        console.error("Token d'authentification manquant");
-        authStore.logout();
-        throw new Error("Session expirée, veuillez vous reconnecter");
+        if (!adminToken) {
+          console.error("Token d'authentification manquant");
+          authStore.logout();
+          throw new Error("Session expirée, veuillez vous reconnecter");
+        }
+
+        const config = {
+          headers: {
+            "Admin-Token": adminToken,
+          },
+        };
+                
+        return config;
+      } catch (error) {
+        console.error("Erreur lors de la récupération du token admin:", error);
+        throw new Error("Échec de l'authentification administrateur");
       }
-
-      return {
-        headers: {
-          "Admin-Token": adminToken,
-        },
-      };
     },
 
     /**
@@ -58,9 +65,11 @@ export const useStudentsStore = defineStore("students", {
           );
         }
 
-        const config = this._createAdminConfig();
+        const config = await this._createAdminConfig();
 
-        const response = await axios.post(`${API_URL}/User`, student, config);
+        const url = `${API_URL}/api/User`;
+
+        const response = await axios.post(url, student, config);
 
         if (response.data) {
           this.students.push(response.data);
@@ -90,7 +99,7 @@ export const useStudentsStore = defineStore("students", {
      */
     async fetchStudents(year) {
       try {
-        const response = await axios.get(`${API_URL}/User/year/${year}`);
+        const response = await axios.get(`${API_URL}/api/User/year/${year}`);
 
         if (response.status === 404) {
           console.warn("Aucun étudiant trouvé pour l'année spécifiée.");
@@ -147,10 +156,10 @@ export const useStudentsStore = defineStore("students", {
      */
     async deleteStudent(studentNumber) {
       try {
-        const config = this._createAdminConfig();
+        const config = await this._createAdminConfig();
 
         const response = await axios.delete(
-          `${API_URL}/User/${encodeURIComponent(studentNumber)}`,
+          `${API_URL}/api/User/${encodeURIComponent(studentNumber)}`,
           config
         );
         if (response.status === 204 || response.status === 200) {
@@ -216,7 +225,7 @@ export const useStudentsStore = defineStore("students", {
      */
     async getStudentById(id) {
       try {
-        const response = await axios.get(`${API_URL}/User/${id}`);
+        const response = await axios.get(`${API_URL}/api/User/${id}`);
         return response.data;
       } catch (error) {
         console.error("Erreur lors de la récupération de l'étudiant:", error);
@@ -237,14 +246,14 @@ export const useStudentsStore = defineStore("students", {
 
         if (authStore.user?.isAdmin) {
           try {
-            config = this._createAdminConfig();
+            config = await this._createAdminConfig();
           } catch (e) {
             console.warn("Mise à jour sans privilèges administrateur", e);
           }
         }
 
         const response = await axios.put(
-          `${API_URL}/User/${encodeURIComponent(student.studentNumber)}`,
+          `${API_URL}/api/User/${encodeURIComponent(student.studentNumber)}`,
           student,
           config
         );
@@ -297,8 +306,8 @@ export const useStudentsStore = defineStore("students", {
      */
     async makeAdmin(studentNumber) {
       try {
-        const config = this._createAdminConfig();
-        const url = `${API_URL}/User/make-admin/${encodeURIComponent(
+        const config = await this._createAdminConfig();
+        const url = `${API_URL}/api/User/make-admin/${encodeURIComponent(
           studentNumber
         )}`;
 

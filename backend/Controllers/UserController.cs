@@ -4,6 +4,8 @@ using backend.Data;
 using backend.Models;
 using backend.Services;
 using System.Net.Mail;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace backend.Controllers
 {
@@ -17,12 +19,23 @@ namespace backend.Controllers
     public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<SessionController> _logger;
+        private readonly ILogger<UserController> _logger;
+        private readonly IJwtService _jwtService;
+        private readonly IPasswordService _passwordService;
+        private readonly IRateLimitService _rateLimitService;
 
-        public UserController(ApplicationDbContext context, ILogger<SessionController> logger)
+        public UserController(
+            ApplicationDbContext context,
+            ILogger<UserController> logger,
+            IJwtService jwtService,
+            IPasswordService passwordService,
+            IRateLimitService rateLimitService)
         {
             _context = context;
             _logger = logger;
+            _jwtService = jwtService;
+            _passwordService = passwordService;
+            _rateLimitService = rateLimitService;
         }
         /**
          * GetUsers
@@ -30,6 +43,7 @@ namespace backend.Controllers
          * This method retrieves all User entities from the database.
          */
         [HttpGet]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
             return await _context.Users.ToListAsync();
@@ -41,6 +55,7 @@ namespace backend.Controllers
          * This method retrieves a User entity by its ID.
          */
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<User>> GetUser(int id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -294,26 +309,252 @@ namespace backend.Controllers
         /**
          * Login
          *
-         * This method handles user login.
+         * This method handles user login with JWT authentication.
          */
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
-            if (user == null || string.IsNullOrEmpty(user.PasswordHash))
-                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
-            return Ok(new
+            if (string.IsNullOrWhiteSpace(request.StudentNumber) || string.IsNullOrWhiteSpace(request.Password))
             {
-                studentId = user.StudentNumber,
-                firstname = user.Firstname,
-                lastname = user.Name,
-                email = user.Email,
-                isAdmin = user.IsAdmin,
-                isDelegate = user.IsDelegate,
-                existsInDb = true
-            });
+                _logger.LogWarning("Login attempt with missing credentials");
+                return BadRequest(new LoginResponse
+                {
+                    Success = false,
+                    Message = "Numéro étudiant et mot de passe requis."
+                });
+            }
+
+            if (!_rateLimitService.IsLoginAttemptAllowed(request.StudentNumber))
+            {
+                _logger.LogWarning("Rate limit exceeded for login attempt: {StudentNumber}", request.StudentNumber);
+                return StatusCode(429, new LoginResponse
+                {
+                    Success = false,
+                    Message = "Trop de tentatives de connexion. Veuillez patienter avant de réessayer."
+                });
+            }
+
+            try
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+
+                if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+                {
+                    _logger.LogWarning("Login attempt with invalid student number: {StudentNumber}", request.StudentNumber);
+                    return Unauthorized(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Identifiant ou mot de passe incorrect."
+                    });
+                }
+
+                if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
+                {
+                    _logger.LogWarning("Login attempt with invalid password for user: {StudentNumber}", request.StudentNumber);
+                    return Unauthorized(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Identifiant ou mot de passe incorrect."
+                    });
+                }
+
+                _rateLimitService.ResetLoginAttempts(request.StudentNumber);
+
+                var tokenResponse = await _jwtService.GenerateTokensAsync(user);
+
+                _logger.LogInformation("Successful login for user: {StudentNumber}", user.StudentNumber);
+
+                return Ok(new LoginResponse
+                {
+                    Success = true,
+                    Message = "Connexion réussie",
+                    Token = tokenResponse,
+                    User = new UserDto
+                    {
+                        Id = user.Id,
+                        Name = user.Name,
+                        Firstname = user.Firstname,
+                        StudentNumber = user.StudentNumber,
+                        Email = user.Email,
+                        Year = user.Year,
+                        IsAdmin = user.IsAdmin,
+                        IsDelegate = user.IsDelegate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during login for user: {StudentNumber}", request.StudentNumber);
+                return StatusCode(500, new LoginResponse
+                {
+                    Success = false,
+                    Message = "Erreur interne du serveur."
+                });
+            }
+        }
+
+        /**
+         * RefreshToken
+         *
+         * This method refreshes an expired JWT token using a refresh token.
+         */
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                return BadRequest(new LoginResponse
+                {
+                    Success = false,
+                    Message = "Refresh token requis."
+                });
+            }
+
+            try
+            {
+                var userId = _jwtService.GetUserIdFromRefreshToken(request.RefreshToken);
+                if (userId == null)
+                {
+                    _logger.LogWarning("Invalid refresh token attempt");
+                    return Unauthorized(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Refresh token invalide ou expiré."
+                    });
+                }
+
+                var user = await _context.Users.FindAsync(userId.Value);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for refresh token: {UserId}", userId);
+                    return Unauthorized(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Utilisateur introuvable."
+                    });
+                }
+
+                var tokenResponse = await _jwtService.GenerateTokensAsync(user);
+
+                _logger.LogInformation("Token refreshed for user: {StudentNumber}", user.StudentNumber);
+
+                return Ok(new LoginResponse
+                {
+                    Success = true,
+                    Message = "Token renouvelé avec succès",
+                    Token = tokenResponse,
+                    User = new UserDto
+                    {
+                        Id = user.Id,
+                        Name = user.Name,
+                        Firstname = user.Firstname,
+                        StudentNumber = user.StudentNumber,
+                        Email = user.Email,
+                        Year = user.Year,
+                        IsAdmin = user.IsAdmin,
+                        IsDelegate = user.IsDelegate
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during token refresh");
+                return StatusCode(500, new LoginResponse
+                {
+                    Success = false,
+                    Message = "Erreur interne du serveur."
+                });
+            }
+        }
+
+        /**
+         * Logout
+         *
+         * This method logs out a user by revoking their JWT token.
+         */
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            try
+            {
+                var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+                {
+                    var token = authHeader.Substring("Bearer ".Length).Trim();
+                    await _jwtService.RevokeTokenAsync(token);
+                }
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int userId))
+                {
+                    await _jwtService.RevokeAllUserTokensAsync(userId);
+                    _logger.LogInformation("User logged out successfully: {UserId}", userId);
+                }
+
+                return Ok(new { Success = true, Message = "Déconnexion réussie" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during logout");
+                return StatusCode(500, new { Success = false, Message = "Erreur interne du serveur." });
+            }
+        }
+
+        /**
+         * ChangePassword
+         *
+         * This method allows a user to change their password.
+         */
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return BadRequest(new { Success = false, Message = "Mot de passe actuel et nouveau mot de passe requis." });
+            }
+
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+                {
+                    return Unauthorized(new { Success = false, Message = "Utilisateur non identifié." });
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+                {
+                    return NotFound(new { Success = false, Message = "Utilisateur introuvable." });
+                }
+
+                if (!_passwordService.VerifyPassword(request.CurrentPassword, user.PasswordHash))
+                {
+                    _logger.LogWarning("Invalid current password for user: {StudentNumber}", user.StudentNumber);
+                    return Unauthorized(new { Success = false, Message = "Mot de passe actuel incorrect." });
+                }
+
+                var (isValid, errors) = _passwordService.ValidatePasswordStrength(request.NewPassword);
+                if (!isValid)
+                {
+                    return BadRequest(new { Success = false, Message = "Nouveau mot de passe invalide.", Errors = errors });
+                }
+
+                user.PasswordHash = _passwordService.HashPassword(request.NewPassword);
+                await _context.SaveChangesAsync();
+
+                await _jwtService.RevokeAllUserTokensAsync(userId);
+
+                _logger.LogInformation("Password changed successfully for user: {StudentNumber}", user.StudentNumber);
+
+                return Ok(new { Success = true, Message = "Mot de passe modifié avec succès. Veuillez vous reconnecter." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during password change");
+                return StatusCode(500, new { Success = false, Message = "Erreur interne du serveur." });
+            }
         }
         /**
          * LoginRequest
@@ -332,33 +573,117 @@ namespace backend.Controllers
          * This method handles the forgot password functionality.
          */
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] RegisterLinkRequest request)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == "p2203381");
-            if (user == null || string.IsNullOrEmpty(user.Email))
-                return Ok(new { message = "Pas de data suffisante." });
-            if (user.RegisterTokenExpiration < DateTime.UtcNow)
+            // Validation des paramètres d'entrée
+            if (string.IsNullOrWhiteSpace(request.StudentNumber))
             {
+                return BadRequest(new { Success = false, Message = "Numéro étudiant requis." });
+            }
+
+            // Rate limiting pour les demandes de reset
+            if (!_rateLimitService.IsPasswordResetAllowed(request.StudentNumber))
+            {
+                _logger.LogWarning("Rate limit exceeded for password reset: {StudentNumber}", request.StudentNumber);
+                return StatusCode(429, new { Success = false, Message = "Trop de demandes de réinitialisation. Veuillez patienter avant de réessayer." });
+            }
+
+            try
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+
+                // Toujours retourner une réponse positive pour éviter l'énumération d'utilisateurs
+                if (user == null || string.IsNullOrEmpty(user.Email))
+                {
+                    _logger.LogWarning("Password reset attempted for non-existent user: {StudentNumber}", request.StudentNumber);
+                    return Ok(new { Success = true, Message = "Si ce numéro étudiant existe, un email de réinitialisation a été envoyé." });
+                }
+
+                // Vérifier si un token est encore valide
+                if (user.RegisterTokenExpiration > DateTime.UtcNow && user.RegisterMailSent)
+                {
+                    return Ok(new { Success = true, Message = "Un email de réinitialisation a déjà été envoyé récemment." });
+                }
+
+                // Générer un nouveau token sécurisé
+                user.RegisterToken = Guid.NewGuid().ToString();
+                user.RegisterTokenExpiration = DateTime.UtcNow.AddHours(1);
+                user.RegisterMailSent = true;
+                await _context.SaveChangesAsync();
+
+                var link = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/reset-password?token={user.RegisterToken}";
+                var body = $"Bonjour {user.Firstname},<br>Pour réinitialiser votre mot de passe, cliquez sur ce lien : <a href='{link}'>Réinitialiser mon mot de passe</a><br>Ce lien expirera dans 1h.";
+
+                await SendEmailAsync(user.Email, "Réinitialisation de mot de passe - PolytechPresence", body);
+
+                _logger.LogInformation("Password reset email sent to user: {StudentNumber}", user.StudentNumber);
+                return Ok(new { Success = true, Message = "Si ce numéro étudiant existe, un email de réinitialisation a été envoyé." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during password reset for user: {StudentNumber}", request.StudentNumber);
+                return StatusCode(500, new { Success = false, Message = "Erreur interne du serveur." });
+            }
+        }
+
+        /**
+         * ResetPassword
+         *
+         * This method handles password reset with token validation.
+         */
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] PasswordResetRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return BadRequest(new { Success = false, Message = "Token et nouveau mot de passe requis." });
+            }
+
+            try
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.RegisterToken == request.Token);
+
+                if (user == null || user.RegisterTokenExpiration <= DateTime.UtcNow)
+                {
+                    _logger.LogWarning("Invalid or expired password reset token: {Token}", request.Token.Substring(0, 8));
+                    return BadRequest(new { Success = false, Message = "Token invalide ou expiré." });
+                }
+
+                // Valider le nouveau mot de passe
+                var (isValid, errors) = _passwordService.ValidatePasswordStrength(request.NewPassword);
+                if (!isValid)
+                {
+                    return BadRequest(new { Success = false, Message = "Mot de passe invalide.", Errors = errors });
+                }
+
+                // Mettre à jour le mot de passe
+                user.PasswordHash = _passwordService.HashPassword(request.NewPassword);
                 user.RegisterToken = null;
                 user.RegisterTokenExpiration = null;
                 user.RegisterMailSent = false;
                 await _context.SaveChangesAsync();
+
+                // Révoquer tous les tokens existants
+                await _jwtService.RevokeAllUserTokensAsync(user.Id);
+
+                _logger.LogInformation("Password reset successfully for user: {StudentNumber}", user.StudentNumber);
+                return Ok(new { Success = true, Message = "Mot de passe réinitialisé avec succès." });
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during password reset");
+                return StatusCode(500, new { Success = false, Message = "Erreur interne du serveur." });
+            }
+        }
 
-            if (user.RegisterMailSent)
-                return Ok(new { message = "Un mail de réinitialisation a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande." });
-            user.RegisterToken = Guid.NewGuid().ToString();
-            user.RegisterTokenExpiration = DateTime.UtcNow.AddHours(1);
-            user.RegisterMailSent = true;
-            await _context.SaveChangesAsync();
-            var link = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/set-password?token={user.RegisterToken}";
-            var body = $"Bonjour {user.Firstname},<br>Pour réinitialiser votre mot de passe, cliquez sur ce lien : <a href='{link}'>Réinitialiser mon mot de passe</a><br>Ce lien expirera dans 1h.";
-
+        private async Task SendEmailAsync(string toEmail, string subject, string body)
+        {
             try
             {
                 var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtpbv.univ-lyon1.fr";
                 var smtpPortStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
                 if (!int.TryParse(smtpPortStr, out var smtpPort)) smtpPort = 587;
+
                 var smtpClient = new SmtpClient(smtpHost, smtpPort)
                 {
                     EnableSsl = true,
@@ -367,25 +692,26 @@ namespace backend.Controllers
                         Environment.GetEnvironmentVariable("SMTP_PASSWORD")
                     )
                 };
+
                 var mailMessage = new MailMessage
                 {
                     From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
-                    Subject = "Réinitialisation de votre mot de passe PolytechPresence",
+                    Subject = subject,
                     Body = body,
                     IsBodyHtml = true
                 };
-                mailMessage.To.Add(user.Email);
+
+                mailMessage.To.Add(toEmail);
                 mailMessage.Headers.Add("X-Priority", "1");
-                _logger.LogInformation($"Sending password reset email to {user.Email} with link: {link}");
 
                 await smtpClient.SendMailAsync(mailMessage);
+                _logger.LogInformation("Email sent successfully to: {Email}", toEmail);
             }
-            catch
+            catch (Exception ex)
             {
-                return StatusCode(500, "Erreur lors de l'envoi du mail.");
+                _logger.LogError(ex, "Error sending email to: {Email}", toEmail);
+                throw; // Re-throw pour que l'appelant puisse gérer l'erreur
             }
-
-            return Ok(new { message = "Si un compte existe, un mail de réinitialisation a été envoyé." });
         }
 
         /**
@@ -471,7 +797,6 @@ namespace backend.Controllers
                 return Conflict(new { error = true, message = "Un utilisateur avec ce numéro étudiant existe déjà." });
             }
 
-            _context.Users.Add(user);
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
