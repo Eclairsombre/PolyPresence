@@ -51,7 +51,7 @@ class TokenManager {
       const payload = JSON.parse(atob(token.split(".")[1]));
       const expiryTime = payload.exp * 1000;
       const currentTime = Date.now();
-      return expiryTime - currentTime < 120000;
+      return expiryTime - currentTime < 900000;
     } catch (error) {
       console.error(
         "Erreur lors de la vérification de l'expiration du token:",
@@ -84,7 +84,6 @@ class TokenManager {
 
 let isRefreshing = false;
 let failedQueue = [];
-// Référence au store qui sera initialisée plus tard
 let authStoreRef = null;
 
 const processQueue = (error, token = null) => {
@@ -99,7 +98,6 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// Fonction pour définir la référence au store
 export function setAuthStoreReference(store) {
   authStoreRef = store;
 }
@@ -114,7 +112,11 @@ axios.interceptors.request.use(
       return config;
     }
 
-    if (TokenManager.isTokenExpiringSoon()) {
+    const currentTime = Date.now();
+    const lastRefreshAttempt = parseInt(sessionStorage.getItem('last_refresh_attempt') || '0');
+    
+    if (TokenManager.isTokenExpiringSoon() && (currentTime - lastRefreshAttempt > 60000)) {
+      sessionStorage.setItem('last_refresh_attempt', currentTime.toString());
       const refreshToken = TokenManager.getRefreshToken();
       if (refreshToken && !isRefreshing) {
         try {
@@ -134,7 +136,6 @@ axios.interceptors.request.use(
             );
             if (userInfo) {
               TokenManager.setUserInfo(userInfo);
-              // Utiliser la référence au store au lieu d'en créer une nouvelle
               if (authStoreRef) {
                 authStoreRef.user = userInfo;
               }
@@ -171,8 +172,6 @@ axios.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Ne pas rediriger automatiquement si c'est une erreur de login
-      // ou si on est déjà sur la page de login/register
       const currentPath = window.location.pathname;
       const isLoginAttempt =
         error.config &&
@@ -209,7 +208,6 @@ export const useAuthStore = defineStore("auth", {
      * Initialize the auth store by checking for existing session
      */
     initialize() {
-      // Stocker une référence à cette instance du store pour l'intercepteur
       setAuthStoreReference(this);
       this.checkSession();
     },
@@ -243,13 +241,11 @@ export const useAuthStore = defineStore("auth", {
             )
             .catch((error) => {
               console.error("Erreur lors de la déconnexion:", error);
-              // Continuer malgré l'erreur
             });
         }
       } catch (error) {
         console.error("Erreur lors de la déconnexion:", error);
       } finally {
-        // Toujours nettoyer les données locales
         this.user = null;
         TokenManager.clearTokens();
       }
@@ -263,13 +259,22 @@ export const useAuthStore = defineStore("auth", {
       const userInfo = TokenManager.getUserInfo();
 
       if (accessToken && userInfo) {
-        // S'assurer que studentId contient bien le numéro d'étudiant et non l'ID interne
         if (accessToken) {
           try {
             const payload = JSON.parse(atob(accessToken.split(".")[1]));
-            // Mettre à jour studentId avec le vrai numéro d'étudiant
+            
+            const expiryTime = payload.exp * 1000;
+            const currentTime = Date.now();
+            const isExpired = expiryTime <= currentTime;
+            
+            if (isExpired) {
+              console.log("Token expiré, suppression de la session");
+              this.user = null;
+              TokenManager.clearTokens();
+              return;
+            }
+            
             userInfo.studentId = payload.studentNumber || userInfo.studentId;
-            // Mettre à jour le stockage
             TokenManager.setUserInfo(userInfo);
           } catch (error) {
             console.error(
@@ -280,14 +285,6 @@ export const useAuthStore = defineStore("auth", {
         }
 
         this.user = userInfo;
-
-        // Vérifier si le token expire bientôt et ne pas le refresh maintenant
-        // Le refresh sera géré par l'intercepteur axios si nécessaire
-        if (TokenManager.isTokenExpiringSoon()) {
-          console.log(
-            "Token expirant bientôt, sera rafraîchi à la prochaine requête API"
-          );
-        }
       } else {
         this.user = null;
       }
@@ -333,7 +330,6 @@ export const useAuthStore = defineStore("auth", {
      * @returns {Promise<Boolean>} True if user is admin, false otherwise
      */
     async isAdmin() {
-      // Si nous avons déjà l'information dans le token décodé
       if (this.user && this.user.isAdmin !== undefined) {
         return this.user.isAdmin;
       }
@@ -346,7 +342,6 @@ export const useAuthStore = defineStore("auth", {
         );
 
         this.user.isAdmin = response.data.isAdmin;
-        // Mettre à jour les informations stockées
         TokenManager.setUserInfo(this.user);
         return this.user.isAdmin;
       } catch (error) {
@@ -380,24 +375,19 @@ export const useAuthStore = defineStore("auth", {
           );
         }
 
-        // Enregistrer les tokens
         TokenManager.setTokens(
           response.data.token.accessToken,
           response.data.token.refreshToken
         );
 
-        // Nous avons déjà les infos utilisateur dans la réponse
         const userFromResponse = response.data.user;
 
-        // Mais extrayons aussi les infos du token pour avoir les rôles
         const userInfoFromToken = TokenManager.extractUserInfoFromToken(
           response.data.token.accessToken
         );
 
-        // Fusionner les informations
         const userInfo = {
           ...userInfoFromToken,
-          // Utiliser les données de User qui sont plus complètes
           id: userFromResponse.id,
           studentId: userFromResponse.studentNumber,
           firstname: userFromResponse.firstname,
@@ -408,7 +398,6 @@ export const useAuthStore = defineStore("auth", {
           year: userFromResponse.year,
         };
 
-        // Stocker les infos utilisateur
         this.user = userInfo;
         TokenManager.setUserInfo(userInfo);
 
@@ -499,7 +488,6 @@ export const useAuthStore = defineStore("auth", {
      * @throws {Error} Si l'utilisateur n'est pas administrateur ou si la génération échoue
      */
     async getAdminToken() {
-      // Vérifier les privilèges d'admin
       if (!this.user || !this.user.isAdmin) {
         throw new Error(
           "Seuls les administrateurs peuvent effectuer cette action"
@@ -507,7 +495,6 @@ export const useAuthStore = defineStore("auth", {
       }
 
       try {
-        // Utiliser le token d'accès actuel de l'administrateur connecté
         const currentToken = TokenManager.getAccessToken();
 
         if (!currentToken) {
@@ -516,7 +503,6 @@ export const useAuthStore = defineStore("auth", {
 
         console.log("Génération d'un nouveau token admin");
 
-        // Générer un nouveau token admin en utilisant le token actuel pour l'authentification
         const response = await axios.post(
           `${API_URL}/User/generate-admin-token`,
           {},
@@ -545,7 +531,6 @@ export const useAuthStore = defineStore("auth", {
       } catch (error) {
         console.error("Erreur lors de la génération du token admin:", error);
 
-        // Afficher un message d'erreur plus spécifique si possible
         if (error.response) {
           console.error("Statut de la réponse:", error.response.status);
           console.error("Données de la réponse:", error.response.data);
