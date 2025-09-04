@@ -279,16 +279,34 @@ export const useSessionStore = defineStore("session", {
 
           const studentNumber = student.studentNumber;
           try {
-            const studentExists = await axios.get(
-              `${API_URL}/User/search/${studentNumber}`
-            );
-            if (!studentExists.data) {
-              console.error(`L'étudiant ${studentNumber} n'existe pas`);
-              results.failed.push({
-                studentNumber,
-                error: "Étudiant non trouvé",
-              });
-              continue;
+            try {
+              const studentExists = await axios.get(
+                `${API_URL}/User/search/${studentNumber}`
+              );
+              if (!studentExists.data || !studentExists.data.exists) {
+                console.error(`L'étudiant ${studentNumber} n'existe pas`);
+                results.failed.push({
+                  studentNumber,
+                  error: "Étudiant non trouvé",
+                });
+                continue;
+              }
+            } catch (error) {
+              if (error.response && error.response.status === 404) {
+                console.error(`L'étudiant ${studentNumber} n'existe pas`);
+                results.failed.push({
+                  studentNumber,
+                  error: "Étudiant non trouvé",
+                });
+                continue;
+              } else {
+                console.error(`Erreur lors de la vérification de l'étudiant ${studentNumber}:`, error);
+                results.failed.push({
+                  studentNumber,
+                  error: "Erreur de connexion au serveur",
+                });
+                continue;
+              }
             }
 
             const response = await axios.post(

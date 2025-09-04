@@ -291,11 +291,15 @@ export const useAuthStore = defineStore("auth", {
         this.user.existsInDb = response.data.exists;
         return response.data;
       } catch (error) {
-        console.error(
-          "Erreur lors de la vérification de l'utilisateur:",
-          error
-        );
         if (error.response && error.response.status === 404) {
+          console.log(`L'utilisateur ${this.user.studentId} n'existe pas dans la base de données.`);
+          this.user.existsInDb = false;
+          return { exists: false };
+        } else {
+          console.error(
+            "Erreur lors de la vérification de l'utilisateur:",
+            error
+          );
           this.user.existsInDb = false;
         }
         return false;

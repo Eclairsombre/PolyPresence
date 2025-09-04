@@ -194,7 +194,7 @@ export const useStudentsStore = defineStore("students", {
         const response = await axios.get(
           `${API_URL}/User/search/${encodeURIComponent(studentNumber)}`
         );
-        if (response.status === 200) {
+        if (response.status === 200 && response.data.exists) {
           const student = response.data.user || response.data;
           return {
             name: student.name,
@@ -213,7 +213,11 @@ export const useStudentsStore = defineStore("students", {
           return null;
         }
       } catch (error) {
-        console.error("Erreur lors de la récupération de l'étudiant:", error);
+        if (error.response && error.response.status === 404) {
+          console.log(`Étudiant avec le numéro ${studentNumber} non trouvé.`);
+        } else {
+          console.error("Erreur lors de la récupération de l'étudiant:", error);
+        }
         return null;
       }
     },
