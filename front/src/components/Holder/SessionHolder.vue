@@ -214,11 +214,16 @@ watch(currentSession, (val) => {
     profEmailInput.value = val?.profEmail || "";
 });
 
-watch(() => authStore.user, (newUser, oldUser) => {
-    if (newUser !== oldUser) {
-        loadData();
+// On surveille uniquement l'ID de l'étudiant et son statut d'existence en DB
+// plutôt que l'objet user entier pour éviter les rechargements inutiles
+watch(
+    () => authStore.user?.studentId, 
+    (newStudentId, oldStudentId) => {
+        if (newStudentId !== oldStudentId && newStudentId) {
+            loadData();
+        }
     }
-});
+);
 </script>
 
 <style scoped>
