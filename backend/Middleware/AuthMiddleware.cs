@@ -27,7 +27,8 @@ namespace backend.Middleware
                 "/api/User/login",
                 "/api/User/forgot-password",
                 "/api/User/reset-password",
-                "/api/Status"
+                "/api/Status",
+                "/api/User/refresh-token"
             };
 
             var path = context.Request.Path.Value?.ToLowerInvariant();
@@ -42,7 +43,7 @@ namespace backend.Middleware
             if (!string.IsNullOrEmpty(userIdFromToken) && !rateLimitService.IsApiCallAllowed(userIdFromToken))
             {
                 _logger.LogWarning("Rate limit exceeded for user {UserId} on path {Path}", userIdFromToken, path);
-                context.Response.StatusCode = 429; 
+                context.Response.StatusCode = 429;
                 await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Rate limit exceeded" }));
                 return;
             }
