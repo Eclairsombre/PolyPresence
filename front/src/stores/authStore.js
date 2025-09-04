@@ -117,12 +117,9 @@ axios.interceptors.request.use(
       if (refreshToken && !isRefreshing) {
         try {
           isRefreshing = true;
-          const response = await axios.post(
-            `${API_URL}/api/User/refresh-token`,
-            {
-              refreshToken: refreshToken,
-            }
-          );
+          const response = await axios.post(`${API_URL}/User/refresh-token`, {
+            refreshToken: refreshToken,
+          });
 
           if (response.data && response.data.success && response.data.token) {
             TokenManager.setTokens(
@@ -232,7 +229,7 @@ export const useAuthStore = defineStore("auth", {
         if (refreshToken) {
           await axios
             .post(
-              `${API_URL}/api/User/logout`,
+              `${API_URL}/User/logout`,
               {
                 refreshToken: refreshToken,
               },
@@ -287,7 +284,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/api/User/search/${this.user.studentId}`
+          `${API_URL}/User/search/${this.user.studentId}`
         );
 
         this.user.existsInDb = response.data.exists;
@@ -318,7 +315,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/api/User/IsUserAdmin/${this.user.studentId}`
+          `${API_URL}/User/IsUserAdmin/${this.user.studentId}`
         );
 
         this.user.isAdmin = response.data.isAdmin;
@@ -345,7 +342,7 @@ export const useAuthStore = defineStore("auth", {
       if (!username || !password)
         throw new Error("Identifiant ou mot de passe manquant");
       try {
-        const response = await axios.post(`${API_URL}/api/User/login`, {
+        const response = await axios.post(`${API_URL}/User/login`, {
           studentNumber: username,
           password: password,
         });
@@ -425,10 +422,9 @@ export const useAuthStore = defineStore("auth", {
      */
     async forgotPassword(email) {
       try {
-        const response = await axios.post(
-          `${API_URL}/api/User/forgot-password`,
-          { email }
-        );
+        const response = await axios.post(`${API_URL}/User/forgot-password`, {
+          email,
+        });
         return response.data;
       } catch (error) {
         if (
@@ -452,13 +448,10 @@ export const useAuthStore = defineStore("auth", {
      */
     async resetPassword(token, newPassword) {
       try {
-        const response = await axios.post(
-          `${API_URL}/api/User/reset-password`,
-          {
-            token,
-            newPassword,
-          }
-        );
+        const response = await axios.post(`${API_URL}/User/reset-password`, {
+          token,
+          newPassword,
+        });
         return response.data;
       } catch (error) {
         if (
@@ -498,7 +491,7 @@ export const useAuthStore = defineStore("auth", {
 
         // Générer un nouveau token admin en utilisant le token actuel pour l'authentification
         const response = await axios.post(
-          `${API_URL}/api/User/generate-admin-token`,
+          `${API_URL}/User/generate-admin-token`,
           {},
           {
             headers: {

@@ -24,7 +24,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
       this.loading = true;
       this.error = null;
       try {
-        const res = await axios.get(`${API_URL}/api/IcsLink`);
+        const res = await axios.get(`${API_URL}/IcsLink`);
         this.icsLinks = res.data.$values;
       } catch (e) {
         this.icsLinks = [];
@@ -43,7 +43,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.post(`${API_URL}/api/IcsLink`, { year, url });
+        await axios.post(`${API_URL}/IcsLink`, { year, url });
         this.message = "Lien ajouté !";
         this.success = true;
         await this.fetchIcsLinks();
@@ -66,7 +66,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.put(`${API_URL}/api/IcsLink/${id}`, { id, year, url });
+        await axios.put(`${API_URL}/IcsLink/${id}`, { id, year, url });
         this.message = "Lien modifié !";
         this.success = true;
         await this.fetchIcsLinks();
@@ -88,7 +88,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.delete(`${API_URL}/api/IcsLink/${id}`);
+        await axios.delete(`${API_URL}/IcsLink/${id}`);
         this.message = "Lien supprimé !";
         this.success = true;
         await this.fetchIcsLinks();
@@ -111,7 +111,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.post(`${API_URL}/api/Session/import-ics`, { icsUrl, year });
+        await axios.post(`${API_URL}/Session/import-ics`, { icsUrl, year });
         this.message = "Import effectué !";
         this.success = true;
       } catch (e) {
@@ -128,7 +128,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
      */
     async fetchTimers() {
       try {
-        const res = await axios.get(`${API_URL}/api/Session/timers`);
+        const res = await axios.get(`${API_URL}/Session/timers`);
         this.timers = res.data;
       } catch {
         this.timers = null;

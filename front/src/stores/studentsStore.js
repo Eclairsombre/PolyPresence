@@ -67,7 +67,7 @@ export const useStudentsStore = defineStore("students", {
 
         const config = await this._createAdminConfig();
 
-        const url = `${API_URL}/api/User`;
+        const url = `${API_URL}/User`;
 
         const response = await axios.post(url, student, config);
 
@@ -99,7 +99,7 @@ export const useStudentsStore = defineStore("students", {
      */
     async fetchStudents(year) {
       try {
-        const response = await axios.get(`${API_URL}/api/User/year/${year}`);
+        const response = await axios.get(`${API_URL}/User/year/${year}`);
 
         if (response.status === 404) {
           console.warn("Aucun étudiant trouvé pour l'année spécifiée.");
@@ -159,7 +159,7 @@ export const useStudentsStore = defineStore("students", {
         const config = await this._createAdminConfig();
 
         const response = await axios.delete(
-          `${API_URL}/api/User/${encodeURIComponent(studentNumber)}`,
+          `${API_URL}/User/${encodeURIComponent(studentNumber)}`,
           config
         );
         if (response.status === 204 || response.status === 200) {
@@ -225,7 +225,7 @@ export const useStudentsStore = defineStore("students", {
      */
     async getStudentById(id) {
       try {
-        const response = await axios.get(`${API_URL}/api/User/${id}`);
+        const response = await axios.get(`${API_URL}/User/${id}`);
         return response.data;
       } catch (error) {
         console.error("Erreur lors de la récupération de l'étudiant:", error);
@@ -253,7 +253,7 @@ export const useStudentsStore = defineStore("students", {
         }
 
         const response = await axios.put(
-          `${API_URL}/api/User/${encodeURIComponent(student.studentNumber)}`,
+          `${API_URL}/User/${encodeURIComponent(student.studentNumber)}`,
           student,
           config
         );
@@ -307,7 +307,7 @@ export const useStudentsStore = defineStore("students", {
     async makeAdmin(studentNumber) {
       try {
         const config = await this._createAdminConfig();
-        const url = `${API_URL}/api/User/make-admin/${encodeURIComponent(
+        const url = `${API_URL}/User/make-admin/${encodeURIComponent(
           studentNumber
         )}`;
 

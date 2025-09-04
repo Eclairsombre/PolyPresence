@@ -7,7 +7,7 @@ const getAccessToken = () => {
 };
 
 const apiClient = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: `${API_URL}`,
 });
 
 apiClient.interceptors.request.use(
