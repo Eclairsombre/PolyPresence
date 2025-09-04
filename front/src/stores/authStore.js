@@ -119,7 +119,7 @@ axios.interceptors.request.use(
         try {
           isRefreshing = true;
           const response = await axios.post(`${API_URL}/User/refresh-token`, {
-            refreshToken: refreshToken,
+            RefreshToken: refreshToken,
           });
 
           if (response.data && response.data.success && response.data.token) {

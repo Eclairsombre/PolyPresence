@@ -24,7 +24,9 @@ namespace backend.Services
         private readonly IConfiguration _configuration;
         private readonly ILogger<JwtService> _logger;
         private readonly HashSet<string> _revokedTokens = new HashSet<string>();
-        private readonly Dictionary<string, (int UserId, DateTime Expiry)> _refreshTokens = new Dictionary<string, (int, DateTime)>();
+        // Les refresh tokens sont stockés en mémoire, ce qui signifie qu'ils seront perdus lors du redémarrage de l'application
+        // Pour une solution de production, ils devraient être stockés dans une base de données persistante
+        private static readonly Dictionary<string, (int UserId, DateTime Expiry)> _refreshTokens = new Dictionary<string, (int, DateTime)>();
 
         private readonly string _secretKey;
         private readonly string _issuer;
@@ -123,9 +125,19 @@ namespace backend.Services
         {
             try
             {
+                _logger.LogInformation("Attempting to refresh token: {TokenStart}...", 
+                    refreshToken.Length > 10 ? refreshToken.Substring(0, 10) + "..." : refreshToken);
+                
+                if (string.IsNullOrWhiteSpace(refreshToken))
+                {
+                    _logger.LogWarning("RefreshTokenAsync: Refresh token is null or empty");
+                    return Task.FromResult<TokenResponse?>(null);
+                }
+                
                 if (!_refreshTokens.TryGetValue(refreshToken, out var tokenInfo))
                 {
-                    _logger.LogWarning("Invalid refresh token attempted");
+                    _logger.LogWarning("Invalid refresh token attempted. Token not found in storage");
+                    _logger.LogInformation("Number of stored tokens: {TokenCount}", _refreshTokens.Count);
                     return Task.FromResult<TokenResponse?>(null);
                 }
 

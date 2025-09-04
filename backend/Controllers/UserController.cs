@@ -401,8 +401,22 @@ namespace backend.Controllers
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
+            _logger.LogInformation("RefreshToken endpoint called with payload: {RequestData}", 
+                System.Text.Json.JsonSerializer.Serialize(request));
+                
+            if (request == null)
+            {
+                _logger.LogWarning("RefreshToken: Request body is null");
+                return BadRequest(new LoginResponse
+                {
+                    Success = false,
+                    Message = "Requête invalide: corps de la requête manquant."
+                });
+            }
+                
             if (string.IsNullOrWhiteSpace(request.RefreshToken))
             {
+                _logger.LogWarning("RefreshToken: RefreshToken is null or empty");
                 return BadRequest(new LoginResponse
                 {
                     Success = false,

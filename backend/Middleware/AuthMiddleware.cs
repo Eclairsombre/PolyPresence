@@ -34,7 +34,7 @@ namespace backend.Middleware
 
             var path = context.Request.Path.Value?.ToLowerInvariant();
 
-            if (publicPaths.Any(p => path?.StartsWith(p.ToLowerInvariant()) == true))
+            if (path != null && publicPaths.Any(p => path.StartsWith(p.ToLowerInvariant())))
             {
                 await _next(context);
                 return;
