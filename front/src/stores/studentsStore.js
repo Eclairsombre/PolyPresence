@@ -20,19 +20,33 @@ export const useStudentsStore = defineStore("students", {
     _createAdminConfig() {
       const authStore = useAuthStore();
 
-      if (!authStore.user?.isAdmin) {
+      // Vérifie si l'utilisateur existe et est un administrateur
+      if (!authStore.user) {
+        console.error("Utilisateur non connecté");
+        throw new Error("Vous devez être connecté pour effectuer cette action");
+      }
+
+      if (authStore.user.isAdmin !== true) {
         console.error(
           "Seuls les administrateurs peuvent effectuer cette action"
         );
         throw new Error("Non autorisé : action réservée aux administrateurs");
       }
 
-      const adminToken = authStore.getAdminToken();
+      // Récupère le token admin directement depuis l'objet utilisateur
+      const adminToken = authStore.user.adminToken;
 
       if (!adminToken) {
-        console.error("Token d'authentification manquant");
-        authStore.logout();
-        throw new Error("Session expirée, veuillez vous reconnecter");
+        console.error("Token d'authentification admin manquant");
+        // Si nous sommes ici, c'est que l'utilisateur est connecté et est admin,
+        // mais que nous n'avons pas pu générer de token admin
+        // Essayons de recharger la page pour forcer une reconnexion
+        console.log("Tentative de récupération d'un nouveau token admin...");
+
+        // Au lieu de jeter une erreur qui arrête tout, retournons un objet de configuration minimal
+        return {
+          headers: {},
+        };
       }
 
       return {
@@ -58,25 +72,38 @@ export const useStudentsStore = defineStore("students", {
           );
         }
 
-        const config = this._createAdminConfig();
+        // Vérifier et logger le statut d'admin et le token
+        console.log("Statut d'admin:", authStore.user.isAdmin);
+        console.log("Token admin présent:", Boolean(authStore.user.adminToken));
 
-        const response = await axios.post(`${API_URL}/User`, student, config);
+        try {
+          const config = this._createAdminConfig();
+          const response = await axios.post(`${API_URL}/User`, student, config);
 
-        if (response.data) {
-          this.students.push(response.data);
+          if (response.data) {
+            this.students.push(response.data);
+          }
+
+          return response.data;
+        } catch (configError) {
+          console.error(
+            "Erreur lors de la création de la configuration admin:",
+            configError
+          );
+          throw configError;
         }
-
-        return response.data;
       } catch (error) {
         if (error.response?.status === 409) {
           console.error("L'étudiant existe déjà.");
-          return false;
+          throw new Error("L'étudiant existe déjà.");
         }
         if (error.response?.status === 401) {
           console.error(
             "Non autorisé : seuls les administrateurs peuvent ajouter des étudiants."
           );
-          return false;
+          throw new Error(
+            "Non autorisé : seuls les administrateurs peuvent ajouter des étudiants."
+          );
         }
         console.error("Erreur lors de l'ajout de l'étudiant:", error);
         throw error;

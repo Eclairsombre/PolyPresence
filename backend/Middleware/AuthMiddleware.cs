@@ -37,7 +37,10 @@ namespace backend.Middleware
                 "/api/User/year/3A",
                 "/api/User/year/4A",
                 "/api/User/year/5A",
-                "/api/User/year/ADMIN"
+                "/api/User/year/ADMIN",
+                "/api/Session/prof-signature",
+                "/api/Session/signature",
+                "/api/User/generate-admin-token"
             };
 
             var path = context.Request.Path.Value?.ToLower();

@@ -29,7 +29,6 @@ const routes = [
     path: "/signature",
     name: "signature",
     component: () => import("../components/pages/SignaturePage.vue"),
-    beforeEnter: requiresAuth,
   },
   {
     path: "/mail-preferences",

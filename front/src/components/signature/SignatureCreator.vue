@@ -53,6 +53,12 @@
         }
   
         try {
+          // Vérifier si l'utilisateur est connecté
+          if (!authStore.user || !authStore.user.studentId) {
+            alert("Vous devez être connecté pour sauvegarder votre signature.");
+            return;
+          }
+          
           const signatureData = signaturePadInstance.value.toDataURL();
           const studentNumber = authStore.user.studentId;
           

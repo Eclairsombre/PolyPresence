@@ -54,16 +54,17 @@ const loadSignature = async () => {
   error.value = null;
   
   try {
-    if (!authStore.user || !authStore.user.studentId) {
-      error.value = "Veuillez vous connecter pour accéder à cette page.";
-      return;
-    }
-    
-    const studentNumber = authStore.user.studentId;
-    const response = await sessionStore.getSignature(studentNumber);
-    
-    if (response && response.signature) {
-      signatureData.value = response.signature;
+    // Si l'utilisateur est connecté, on récupère sa signature
+    if (authStore.user && authStore.user.studentId) {
+      const studentNumber = authStore.user.studentId;
+      const response = await sessionStore.getSignature(studentNumber);
+      
+      if (response && response.signature) {
+        signatureData.value = response.signature;
+      }
+    } else {
+      // Si l'utilisateur n'est pas connecté, on continue sans charger de signature
+      signatureData.value = '';
     }
   } catch (err) {
     console.error("Erreur lors du chargement de la signature:", err);
@@ -74,7 +75,13 @@ const loadSignature = async () => {
 };
 
 const onSignatureSaved = async () => {
-  await loadSignature();
+  if (authStore.user && authStore.user.studentId) {
+    await loadSignature();
+  } else {
+    // Si l'utilisateur n'est pas connecté, afficher un message
+    signatureData.value = '';
+    // Optionnellement, on pourrait afficher un message pour suggérer à l'utilisateur de se connecter
+  }
 };
 
 

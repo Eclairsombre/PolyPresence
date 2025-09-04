@@ -103,12 +103,18 @@ export default {
     const handleSubmit = async () => {
       isSubmitting.value = true;
       errorMessage.value = '';
+      successMessage.value = '';
       
       try {
-        await studentsStore.addStudent(student.value);
+        // Étape 1: Ajout de l'étudiant
+        console.log("Tentative d'ajout de l'étudiant:", student.value);
+        const result = await studentsStore.addStudent(student.value);
+        console.log("Résultat de l'ajout:", result);
         
+        // Étape 2: Si c'est un admin, on lui donne les droits d'administration
         if (student.value.year === 'ADMIN') {
           try {
+            console.log("Tentative de promotion en administrateur:", student.value.studentNumber);
             await studentsStore.makeAdmin(student.value.studentNumber);
           } catch (adminError) {
             console.error("Erreur lors de la promotion en administrateur:", adminError);
@@ -119,16 +125,26 @@ export default {
           }
         }
         
+        // Succès!
         successMessage.value = 'Étudiant ajouté avec succès!';
         
+        // Fermeture du popup après un délai
         setTimeout(() => {
           emit('student-added');
           emit('close');
-        }, 1000);
+        }, 1500);
         
       } catch (error) {
         console.error("Erreur complète lors de l'ajout:", error);
-        errorMessage.value = error.message || 'Une erreur est survenue lors de l\'ajout de l\'étudiant';
+        
+        // Gestion des messages d'erreur spécifiques
+        if (error.message && error.message.includes("Session expirée")) {
+          errorMessage.value = "Session administrateur expirée. Veuillez vous reconnecter.";
+        } else if (error.message && error.message.includes("Non autorisé")) {
+          errorMessage.value = "Vous n'avez pas les droits nécessaires pour effectuer cette action.";
+        } else {
+          errorMessage.value = error.message || 'Une erreur est survenue lors de l\'ajout de l\'étudiant';
+        }
       } finally {
         isSubmitting.value = false;
       }

@@ -23,6 +23,9 @@ const PUBLIC_ROUTES = [
   "/api/User/year/5A",
   "/api/User/year/ADMIN",
   "/api/Status",
+  "/api/Session/prof-signature",
+  "/api/Session/signature",
+  "/api/User/generate-admin-token",
 ];
 
 axios.interceptors.request.use(
@@ -72,12 +75,15 @@ axios.interceptors.response.use(
       // Ne pas rediriger automatiquement si c'est une erreur de login
       // ou si on est déjà sur la page de login/register
       const currentPath = window.location.pathname;
-      const isLoginAttempt = error.config && error.config.url && 
-                            error.config.url.includes('/api/User/login');
-      const isOnAuthPage = currentPath.includes('/login') || 
-                          currentPath.includes('/register') || 
-                          currentPath.includes('/set-password');
-      
+      const isLoginAttempt =
+        error.config &&
+        error.config.url &&
+        error.config.url.includes("/api/User/login");
+      const isOnAuthPage =
+        currentPath.includes("/login") ||
+        currentPath.includes("/register") ||
+        currentPath.includes("/set-password");
+
       if (!isLoginAttempt && !isOnAuthPage) {
         console.log(
           "Session expirée ou non autorisé. Redirection vers la page de connexion."
@@ -238,18 +244,47 @@ export const useAuthStore = defineStore("auth", {
       if (!username || !password)
         throw new Error("Identifiant ou mot de passe manquant");
       try {
+        // Étape 1 : Connexion normale
         const response = await axios.post(`${API_URL}/User/login`, {
           studentNumber: username,
           password: password,
         });
         const userdata = response.data;
 
+        // Enregistrer l'utilisateur dans le stockage local même sans token admin
+        // pour éviter que l'utilisateur ne soit pas considéré comme connecté
+        this.updateUserLocalStorage(userdata);
+
+        // Étape 2 : Obtention du token admin si nécessaire
         if (userdata.isAdmin) {
-          const adminToken = await this.generateAdminToken(username, password);
-          userdata.adminToken = adminToken;
+          console.log(
+            "L'utilisateur est un administrateur, génération du token admin..."
+          );
+          try {
+            const adminToken = await this.generateAdminToken(
+              username,
+              password
+            );
+            if (adminToken) {
+              userdata.adminToken = adminToken;
+              console.log("Token admin généré et stocké avec succès");
+              // Mettre à jour le stockage local avec le token admin
+              this.updateUserLocalStorage(userdata);
+            } else {
+              console.error(
+                "Échec de la génération du token admin - aucun token retourné"
+              );
+            }
+          } catch (tokenError) {
+            console.error(
+              "Erreur lors de la génération du token admin:",
+              tokenError
+            );
+            // L'utilisateur reste connecté même sans token admin
+            // mais certaines fonctions admin pourraient ne pas fonctionner
+          }
         }
 
-        this.updateUserLocalStorage(userdata);
         return userdata;
       } catch (error) {
         if (
@@ -271,16 +306,51 @@ export const useAuthStore = defineStore("auth", {
      */
     async generateAdminToken(username, password) {
       try {
+        console.log("Demande de génération d'un token admin pour:", username);
+
+        // Assurons-nous que la requête est envoyée sans les intercepteurs qui
+        // pourraient ajouter des en-têtes d'authentification
         const response = await axios.post(
           `${API_URL}/User/generate-admin-token`,
           {
             studentNumber: username,
             password: password,
+          },
+          // Configuration spécifique pour cette requête
+          {
+            // Ne pas utiliser les tokens précédents qui pourraient causer des problèmes
+            headers: {
+              "X-User-Id": undefined,
+              "Admin-Token": undefined,
+            },
           }
         );
+
+        if (!response.data || !response.data.token) {
+          console.error("La réponse ne contient pas de token:", response.data);
+          return null;
+        }
+
+        console.log("Token admin généré avec succès");
         return response.data.token;
       } catch (error) {
         console.error("Erreur lors de la génération du token admin:", error);
+
+        if (error.response) {
+          console.error("Détails de l'erreur:", {
+            status: error.response.status,
+            data: error.response.data,
+          });
+
+          // Si l'erreur est 401, c'est probablement parce que le middleware d'authentification bloque la requête
+          if (error.response.status === 401) {
+            console.warn(
+              "Erreur d'authentification lors de la génération du token admin. " +
+                "Vérifiez que la route /api/User/generate-admin-token est bien ajoutée aux routes publiques du middleware d'authentification."
+            );
+          }
+        }
+
         return null;
       }
     },
@@ -305,7 +375,9 @@ export const useAuthStore = defineStore("auth", {
      * @returns {boolean} True si un token admin valide est disponible
      */
     hasValidAdminToken() {
-      const hasToken = this.user && this.user.isAdmin && this.user.adminToken;
+      const hasToken = Boolean(
+        this.user && this.user.isAdmin === true && this.user.adminToken
+      );
       return hasToken;
     },
 
@@ -314,8 +386,15 @@ export const useAuthStore = defineStore("auth", {
      * @returns {string|null} Token administrateur ou null si non disponible
      */
     getAdminToken() {
-      const token = this.hasValidAdminToken() ? this.user.adminToken : null;
-      return token;
+      if (!this.user || !this.user.isAdmin || !this.user.adminToken) {
+        console.log("Token admin non disponible:", {
+          hasUser: Boolean(this.user),
+          isAdmin: this.user?.isAdmin,
+          hasToken: Boolean(this.user?.adminToken),
+        });
+        return null;
+      }
+      return this.user.adminToken;
     },
   },
 });
