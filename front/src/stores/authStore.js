@@ -25,6 +25,7 @@ const PUBLIC_ROUTES = [
   "/api/Status",
   "/api/Session/prof-signature",
   "/api/Session/signature",
+  "/api/Session/attendances",
   "/api/User/generate-admin-token",
 ];
 
@@ -82,7 +83,8 @@ axios.interceptors.response.use(
       const isOnAuthPage =
         currentPath.includes("/login") ||
         currentPath.includes("/register") ||
-        currentPath.includes("/set-password");
+        currentPath.includes("/set-password") ||
+        currentPath.includes("/prof-signature");
 
       if (!isLoginAttempt && !isOnAuthPage) {
         console.log(

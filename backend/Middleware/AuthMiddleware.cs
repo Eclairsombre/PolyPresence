@@ -40,6 +40,7 @@ namespace backend.Middleware
                 "/api/User/year/ADMIN",
                 "/api/Session/prof-signature",
                 "/api/Session/signature",
+                "/api/Session/attendances",
                 "/api/User/generate-admin-token"
             };
 
