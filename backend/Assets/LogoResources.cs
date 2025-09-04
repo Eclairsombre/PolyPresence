@@ -9,7 +9,7 @@ namespace backend.Assets
     {
         // Nom de la ressource embarquée
         private const string EmbeddedResourcePath = "backend.Assets.polytech_lyon_logo.png";
-        
+
         /// <summary>
         /// Obtient le logo Polytech Lyon comme tableau d'octets
         /// </summary>
@@ -19,7 +19,7 @@ namespace backend.Assets
             // Ordre de priorité:
             // 1. Ressource embarquée
             // 2. Fichier sur disque (plusieurs chemins possibles)
-            
+
             try
             {
                 // 1. Essayer d'abord de charger depuis les ressources embarquées
@@ -29,7 +29,7 @@ namespace backend.Assets
                     Console.WriteLine("Logo chargé depuis les ressources embarquées");
                     return embeddedLogo;
                 }
-                
+
                 // 2. Sinon, essayer de lire depuis un fichier sur le disque
                 string[] possiblePaths = new[]
                 {
@@ -52,7 +52,7 @@ namespace backend.Assets
 
                 // Si aucun fichier n'est trouvé, logger l'erreur
                 Console.WriteLine("Aucun logo trouvé. Chemins vérifiés: " + string.Join(", ", possiblePaths));
-                
+
                 return null;
             }
             catch (Exception ex)
@@ -61,7 +61,7 @@ namespace backend.Assets
                 return null;
             }
         }
-        
+
         /// <summary>
         /// Obtient le logo depuis les ressources embarquées
         /// </summary>
@@ -71,11 +71,11 @@ namespace backend.Assets
             {
                 // Obtenir l'assembly actuel
                 Assembly assembly = typeof(LogoResources).Assembly;
-                
+
                 // Liste des ressources embarquées (pour debug)
                 string[] resources = assembly.GetManifestResourceNames();
                 Console.WriteLine("Ressources disponibles: " + string.Join(", ", resources));
-                
+
                 // Essayer de charger la ressource avec le nom exact
                 using (Stream? stream = assembly.GetManifestResourceStream(EmbeddedResourcePath))
                 {
@@ -88,7 +88,7 @@ namespace backend.Assets
                         }
                     }
                 }
-                
+
                 // Si le nom exact ne fonctionne pas, chercher une ressource contenant "polytech" et "logo"
                 foreach (string resourceName in resources)
                 {
@@ -108,7 +108,7 @@ namespace backend.Assets
                         }
                     }
                 }
-                
+
                 return null;
             }
             catch (Exception ex)

@@ -76,212 +76,212 @@ namespace backend.Controllers
             {
                 // Activer le débogage QuestPDF pour avoir plus d'informations en cas d'erreur
                 QuestPDF.Settings.EnableDebugging = true;
-                
+
                 using var ms = new MemoryStream();
                 string promo = GetPromoYears(session.Year);
-            var document = Document.Create(container =>
-            {
-                container.Page(page =>
+                var document = Document.Create(container =>
                 {
-                    page.Size(QuestPDF.Helpers.PageSizes.A4);
-                    page.Margin(20);
-                    page.DefaultTextStyle(x => x.FontSize(12));
-
-                    page.Header().Background("#f6f8fa").Padding(10).Column(headerCol =>
+                    container.Page(page =>
                     {
-                        headerCol.Item().Row(row =>
+                        page.Size(QuestPDF.Helpers.PageSizes.A4);
+                        page.Margin(20);
+                        page.DefaultTextStyle(x => x.FontSize(12));
+
+                        page.Header().Background("#f6f8fa").Padding(10).Column(headerCol =>
                         {
-                            row.ConstantItem(100).Height(70).AlignMiddle().AlignLeft().Element(left =>
+                            headerCol.Item().Row(row =>
                             {
-                                try
-                                {
-                                    // Utiliser notre nouvelle classe utilitaire pour récupérer le logo
-                                    byte[]? logoBytes = Assets.LogoResources.GetLogo();
-                                    
-                                    if (logoBytes != null && logoBytes.Length > 0)
-                                    {
-                                        left.Image(logoBytes).FitArea();
-                                        _logger.LogInformation($"Logo chargé avec succès, taille: {logoBytes.Length} octets");
-                                    }
-                                    else
-                                    {
-                                        // Plan B : utiliser un texte comme fallback
-                                        _logger.LogWarning("Impossible de charger le logo, utilisation du texte de secours");
-                                        left.Text("POLYTECH LYON").Bold().FontSize(14);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Erreur lors du chargement du logo");
-                                    left.Text("POLYTECH LYON").Bold().FontSize(14);
-                                }
-                            });
-                            row.RelativeItem().AlignMiddle().AlignCenter().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50");
-                            row.ConstantItem(100).Height(70).AlignMiddle().AlignRight().Text("");
-                        });
-                        headerCol.Item().AlignCenter().PaddingTop(4).Text(session.Year + " Promotion " + promo).FontSize(12).FontColor("#34495e");
-                    });
-
-                    page.Content().Column(column =>
-                    {
-                        var dateStr = session.Date.ToString("dddd dd MMMM yyyy", new CultureInfo("fr-FR"));
-                        var horaires = $"{session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm}";
-
-                        column.Item().Background("#eaf6fb").BorderLeft(4).BorderColor("#3498db").Padding(12).PaddingLeft(18).Column(schoolCol =>
-                        {
-                            schoolCol.Item().Text("Etablissement de formation : UCBL1 - EPUL").FontSize(12).FontColor("#2c3e50").Bold();
-                            schoolCol.Item().Text("Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage").FontSize(12).FontColor("#2c3e50").Bold();
-                        });
-
-                        column.Item().PaddingTop(2);
-
-                        column.Item().Background("#f8f9fa").Padding(10).Border(1).BorderColor("#e0e4ea").Column(infoCol =>
-                        {
-                            infoCol.Item().Padding(5).Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
-                            if (!string.IsNullOrWhiteSpace(session.Name))
-                                infoCol.Item().Padding(5).Text($"Nom de la session : {session.Name}").FontSize(12).Italic();
-                            infoCol.Item().Padding(5).Text($"Horaires : {horaires}").FontSize(12);
-                            infoCol.Item().Padding(5).Text($"Salle : {session.Room}").FontSize(12);
-                            infoCol.Item().Padding(5).Text("");
-                            infoCol.Item().Padding(5).Text($"Professeur : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
-                            if (!string.IsNullOrWhiteSpace(session.ProfSignature))
-                            {
-                                var base64 = session.ProfSignature;
-                                if (base64.StartsWith("data:image"))
-                                {
-                                    var base64Data = base64.Substring(base64.IndexOf(",") + 1);
-                                    try
-                                    {
-                                        byte[] imageBytes = Convert.FromBase64String(base64Data);
-                                        infoCol.Item().Padding(5).Row(row =>
-                                        {
-                                            row.ConstantItem(80).AlignMiddle().Text("Signature :").FontSize(12);
-                                            row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
-                                        });
-                                    }
-                                    catch
-                                    {
-                                        infoCol.Item().Padding(5).Text("Signature du professeur : Erreur image");
-                                    }
-                                }
-                                else
-                                {
-                                    infoCol.Item().Padding(5).Text("Signature du professeur : Format inconnu");
-                                }
-                            }
-                            else
-                            {
-                                infoCol.Item().Padding(5).Text(text =>
-                                {
-                                    text.Span("Signature du professeur : ").Italic().FontColor("#888");
-                                    text.Span("Non signée");
-                                });
-                            }
-                        });
-
-                        column.Item().PaddingTop(15);
-
-                        column.Item().Table(table =>
-                        {
-                            var sortedAttendances = attendances.OrderBy(a => a.User.Name).ToList();
-                            bool haveComment = sortedAttendances.Any(a => !string.IsNullOrEmpty(a.comment));
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.ConstantColumn(30);
-                                columns.RelativeColumn();
-                                columns.RelativeColumn();
-                                columns.RelativeColumn();
-                                columns.RelativeColumn();
-                                columns.RelativeColumn(2);
-                            });
-
-
-                            table.Header(header =>
-                            {
-                                header.Cell().Element(CellStyle).PaddingLeft(2).PaddingRight(2).Text("N°");
-                                header.Cell().Element(CellStyle).Padding(5).Text("Nom");
-                                header.Cell().Element(CellStyle).Padding(5).Text("Prénom");
-                                header.Cell().Element(CellStyle).Padding(5).Text("Présent/Absent");
-                                header.Cell().Element(CellStyle).Padding(5).Text("Signature");
-                                header.Cell().Element(CellStyle).Padding(5).Text("Retard/Commentaire");
-                            });
-
-                            int idx = 1;
-                            foreach (var (student, status, comment) in sortedAttendances)
-                            {
-                                // Vérifier que l'étudiant n'est pas null
-                                if (student == null)
-                                {
-                                    continue;
-                                }
-                                
-                                table.Cell().Element(CellStyle).Padding(5).Text(idx.ToString());
-                                table.Cell().Element(CellStyle).Padding(5).Text(student.Name ?? "");
-                                table.Cell().Element(CellStyle).Padding(5).Text(student.Firstname ?? "");
-                                var isPresent = status == 0;
-                                table.Cell().Element(CellStyle).Padding(5).Text(isPresent ? "Présent" : "Absent").FontColor(isPresent ? "#27ae60" : "#c0392b");
-
-                                // Gérer la signature avec plus de sécurité
-                                if (isPresent && !string.IsNullOrEmpty(student.Signature))
+                                row.ConstantItem(100).Height(70).AlignMiddle().AlignLeft().Element(left =>
                                 {
                                     try
                                     {
-                                        string base64 = student.Signature;
-                                        if (base64.StartsWith("data:image"))
+                                        // Utiliser notre nouvelle classe utilitaire pour récupérer le logo
+                                        byte[]? logoBytes = Assets.LogoResources.GetLogo();
+
+                                        if (logoBytes != null && logoBytes.Length > 0)
                                         {
-                                            var base64Data = base64.Substring(base64.IndexOf(",") + 1);
-                                            try
-                                            {
-                                                byte[] imageBytes = Convert.FromBase64String(base64Data);
-                                                // Vérifier que l'image n'est pas vide
-                                                if (imageBytes != null && imageBytes.Length > 0)
-                                                {
-                                                    table.Cell().Element(CellStyle).Padding(5).Element(container => container.Height(30).Image(imageBytes).FitArea());
-                                                }
-                                                else
-                                                {
-                                                    table.Cell().Element(CellStyle).Padding(5).Text("Signature vide");
-                                                }
-                                            }
-                                            catch
-                                            {
-                                                table.Cell().Element(CellStyle).Padding(5).Text("Erreur image");
-                                            }
+                                            left.Image(logoBytes).FitArea();
+                                            _logger.LogInformation($"Logo chargé avec succès, taille: {logoBytes.Length} octets");
                                         }
                                         else
                                         {
-                                            table.Cell().Element(CellStyle).Padding(5).Text("Format inconnu");
+                                            // Plan B : utiliser un texte comme fallback
+                                            _logger.LogWarning("Impossible de charger le logo, utilisation du texte de secours");
+                                            left.Text("POLYTECH LYON").Bold().FontSize(14);
                                         }
                                     }
                                     catch (Exception ex)
                                     {
-                                        _logger.LogError(ex, "Erreur lors du traitement de la signature pour l'étudiant {StudentName}", student.Name);
-                                        table.Cell().Element(CellStyle).Padding(5).Text("Erreur signature");
+                                        _logger.LogError(ex, "Erreur lors du chargement du logo");
+                                        left.Text("POLYTECH LYON").Bold().FontSize(14);
+                                    }
+                                });
+                                row.RelativeItem().AlignMiddle().AlignCenter().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50");
+                                row.ConstantItem(100).Height(70).AlignMiddle().AlignRight().Text("");
+                            });
+                            headerCol.Item().AlignCenter().PaddingTop(4).Text(session.Year + " Promotion " + promo).FontSize(12).FontColor("#34495e");
+                        });
+
+                        page.Content().Column(column =>
+                        {
+                            var dateStr = session.Date.ToString("dddd dd MMMM yyyy", new CultureInfo("fr-FR"));
+                            var horaires = $"{session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm}";
+
+                            column.Item().Background("#eaf6fb").BorderLeft(4).BorderColor("#3498db").Padding(12).PaddingLeft(18).Column(schoolCol =>
+                            {
+                                schoolCol.Item().Text("Etablissement de formation : UCBL1 - EPUL").FontSize(12).FontColor("#2c3e50").Bold();
+                                schoolCol.Item().Text("Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage").FontSize(12).FontColor("#2c3e50").Bold();
+                            });
+
+                            column.Item().PaddingTop(2);
+
+                            column.Item().Background("#f8f9fa").Padding(10).Border(1).BorderColor("#e0e4ea").Column(infoCol =>
+                            {
+                                infoCol.Item().Padding(5).Text($"{dateStr} - {session.Year}").FontSize(14).Bold();
+                                if (!string.IsNullOrWhiteSpace(session.Name))
+                                    infoCol.Item().Padding(5).Text($"Nom de la session : {session.Name}").FontSize(12).Italic();
+                                infoCol.Item().Padding(5).Text($"Horaires : {horaires}").FontSize(12);
+                                infoCol.Item().Padding(5).Text($"Salle : {session.Room}").FontSize(12);
+                                infoCol.Item().Padding(5).Text("");
+                                infoCol.Item().Padding(5).Text($"Professeur : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
+                                if (!string.IsNullOrWhiteSpace(session.ProfSignature))
+                                {
+                                    var base64 = session.ProfSignature;
+                                    if (base64.StartsWith("data:image"))
+                                    {
+                                        var base64Data = base64.Substring(base64.IndexOf(",") + 1);
+                                        try
+                                        {
+                                            byte[] imageBytes = Convert.FromBase64String(base64Data);
+                                            infoCol.Item().Padding(5).Row(row =>
+                                            {
+                                                row.ConstantItem(80).AlignMiddle().Text("Signature :").FontSize(12);
+                                                row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
+                                            });
+                                        }
+                                        catch
+                                        {
+                                            infoCol.Item().Padding(5).Text("Signature du professeur : Erreur image");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        infoCol.Item().Padding(5).Text("Signature du professeur : Format inconnu");
                                     }
                                 }
                                 else
                                 {
-                                    table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
+                                    infoCol.Item().Padding(5).Text(text =>
+                                    {
+                                        text.Span("Signature du professeur : ").Italic().FontColor("#888");
+                                        text.Span("Non signée");
+                                    });
                                 }
+                            });
 
-                                // S'assurer que le commentaire n'est jamais null
-                                table.Cell().Element(CellStyle).Padding(5).Text(comment ?? "").FontSize(10).FontColor("#576574");
+                            column.Item().PaddingTop(15);
 
-                                idx++;
-                            }
+                            column.Item().Table(table =>
+                            {
+                                var sortedAttendances = attendances.OrderBy(a => a.User.Name).ToList();
+                                bool haveComment = sortedAttendances.Any(a => !string.IsNullOrEmpty(a.comment));
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.ConstantColumn(30);
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn(2);
+                                });
+
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Element(CellStyle).PaddingLeft(2).PaddingRight(2).Text("N°");
+                                    header.Cell().Element(CellStyle).Padding(5).Text("Nom");
+                                    header.Cell().Element(CellStyle).Padding(5).Text("Prénom");
+                                    header.Cell().Element(CellStyle).Padding(5).Text("Présent/Absent");
+                                    header.Cell().Element(CellStyle).Padding(5).Text("Signature");
+                                    header.Cell().Element(CellStyle).Padding(5).Text("Retard/Commentaire");
+                                });
+
+                                int idx = 1;
+                                foreach (var (student, status, comment) in sortedAttendances)
+                                {
+                                    // Vérifier que l'étudiant n'est pas null
+                                    if (student == null)
+                                    {
+                                        continue;
+                                    }
+
+                                    table.Cell().Element(CellStyle).Padding(5).Text(idx.ToString());
+                                    table.Cell().Element(CellStyle).Padding(5).Text(student.Name ?? "");
+                                    table.Cell().Element(CellStyle).Padding(5).Text(student.Firstname ?? "");
+                                    var isPresent = status == 0;
+                                    table.Cell().Element(CellStyle).Padding(5).Text(isPresent ? "Présent" : "Absent").FontColor(isPresent ? "#27ae60" : "#c0392b");
+
+                                    // Gérer la signature avec plus de sécurité
+                                    if (isPresent && !string.IsNullOrEmpty(student.Signature))
+                                    {
+                                        try
+                                        {
+                                            string base64 = student.Signature;
+                                            if (base64.StartsWith("data:image"))
+                                            {
+                                                var base64Data = base64.Substring(base64.IndexOf(",") + 1);
+                                                try
+                                                {
+                                                    byte[] imageBytes = Convert.FromBase64String(base64Data);
+                                                    // Vérifier que l'image n'est pas vide
+                                                    if (imageBytes != null && imageBytes.Length > 0)
+                                                    {
+                                                        table.Cell().Element(CellStyle).Padding(5).Element(container => container.Height(30).Image(imageBytes).FitArea());
+                                                    }
+                                                    else
+                                                    {
+                                                        table.Cell().Element(CellStyle).Padding(5).Text("Signature vide");
+                                                    }
+                                                }
+                                                catch
+                                                {
+                                                    table.Cell().Element(CellStyle).Padding(5).Text("Erreur image");
+                                                }
+                                            }
+                                            else
+                                            {
+                                                table.Cell().Element(CellStyle).Padding(5).Text("Format inconnu");
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogError(ex, "Erreur lors du traitement de la signature pour l'étudiant {StudentName}", student.Name);
+                                            table.Cell().Element(CellStyle).Padding(5).Text("Erreur signature");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
+                                    }
+
+                                    // S'assurer que le commentaire n'est jamais null
+                                    table.Cell().Element(CellStyle).Padding(5).Text(comment ?? "").FontSize(10).FontColor("#576574");
+
+                                    idx++;
+                                }
+                            });
+                        });
+
+                        page.Footer().AlignCenter().Text(x =>
+                        {
+                            x.Span("Généré le ").FontSize(10);
+                            x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
                         });
                     });
-
-                    page.Footer().AlignCenter().Text(x =>
-                    {
-                        x.Span("Généré le ").FontSize(10);
-                        x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
-                    });
                 });
-            });
 
-            document.GeneratePdf(ms);
-            return ms.ToArray();
+                document.GeneratePdf(ms);
+                return ms.ToArray();
             }
             catch (Exception ex)
             {
@@ -318,7 +318,7 @@ namespace backend.Controllers
             {
                 var prefs = user.MailPreferences;
                 if (prefs == null) continue;
-                
+
                 var today = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", new CultureInfo("fr-FR")));
                 if (prefs.Days == null || !prefs.Days.Contains(today)) continue;
 
