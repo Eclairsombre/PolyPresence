@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   "/api/User/forgot-password",
   "/api/User/reset-password",
   "/api/Status",
+  "/api/User/refresh-token",
 ];
 
 class TokenManager {
