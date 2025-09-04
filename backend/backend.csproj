@@ -28,4 +28,14 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Copier les fichiers physiques dans le répertoire de sortie -->
+    <Content Include="Assets\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    
+    <!-- Inclure également comme ressources embarquées -->
+    <EmbeddedResource Include="Assets\**" />
+  </ItemGroup>
+
 </Project>

@@ -95,48 +95,25 @@ namespace backend.Controllers
                             {
                                 try
                                 {
-                                    string logoRelativePath = Path.Combine("Assets", "polytech_Lyon_logo.png");
-                                    string logoPath = logoRelativePath;
+                                    // Utiliser notre nouvelle classe utilitaire pour récupérer le logo
+                                    byte[]? logoBytes = Assets.LogoResources.GetLogo();
                                     
-                                    // Vérifier plusieurs emplacements possibles pour le logo
-                                    if (!System.IO.File.Exists(logoPath))
+                                    if (logoBytes != null && logoBytes.Length > 0)
                                     {
-                                        logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_lyon_logo.png");
-                                    }
-                                    if (!System.IO.File.Exists(logoPath))
-                                    {
-                                        logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_Lyon_logo.png");
-                                    }
-                                    if (!System.IO.File.Exists(logoPath))
-                                    {
-                                        var possiblePaths = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "polytech*logo*.png", SearchOption.AllDirectories);
-                                        if (possiblePaths.Length > 0)
-                                        {
-                                            logoPath = possiblePaths[0];
-                                        }
-                                    }
-                                    
-                                    if (System.IO.File.Exists(logoPath))
-                                    {
-                                        byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
-                                        if (logoBytes != null && logoBytes.Length > 0)
-                                        {
-                                            left.Image(logoBytes).FitArea();
-                                        }
-                                        else
-                                        {
-                                            left.Text("EPUL");
-                                        }
+                                        left.Image(logoBytes).FitArea();
+                                        _logger.LogInformation($"Logo chargé avec succès, taille: {logoBytes.Length} octets");
                                     }
                                     else
                                     {
-                                        left.Text("EPUL");
+                                        // Plan B : utiliser un texte comme fallback
+                                        _logger.LogWarning("Impossible de charger le logo, utilisation du texte de secours");
+                                        left.Text("POLYTECH LYON").Bold().FontSize(14);
                                     }
                                 }
                                 catch (Exception ex)
                                 {
                                     _logger.LogError(ex, "Erreur lors du chargement du logo");
-                                    left.Text("EPUL");
+                                    left.Text("POLYTECH LYON").Bold().FontSize(14);
                                 }
                             });
                             row.RelativeItem().AlignMiddle().AlignCenter().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50");

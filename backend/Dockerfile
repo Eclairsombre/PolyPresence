@@ -8,5 +8,12 @@ RUN dotnet publish -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
+
+# Créer le répertoire Assets s'il n'existe pas déjà
+RUN mkdir -p /app/Assets
+
+# Copier explicitement les assets
+COPY Assets/ /app/Assets/
+
 ENTRYPOINT ["dotnet", "backend.dll"]
 
