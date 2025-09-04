@@ -65,9 +65,10 @@ class TokenManager {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
       return {
-        studentId: payload.sub,
-        firstName: payload.given_name,
-        lastName: payload.family_name,
+        userId: payload.sub,
+        studentId: payload.studentNumber,
+        firstName: payload.firstname,
+        lastName: payload.name,
         email: payload.email,
         isAdmin: payload.role === "Admin",
       };
@@ -262,6 +263,19 @@ export const useAuthStore = defineStore("auth", {
       const userInfo = TokenManager.getUserInfo();
 
       if (accessToken && userInfo) {
+        // S'assurer que studentId contient bien le numéro d'étudiant et non l'ID interne
+        if (accessToken) {
+          try {
+            const payload = JSON.parse(atob(accessToken.split(".")[1]));
+            // Mettre à jour studentId avec le vrai numéro d'étudiant
+            userInfo.studentId = payload.studentNumber || userInfo.studentId;
+            // Mettre à jour le stockage
+            TokenManager.setUserInfo(userInfo);
+          } catch (error) {
+            console.error("Erreur lors de l'extraction des infos du token:", error);
+          }
+        }
+        
         this.user = userInfo;
 
         // Vérifier si le token expire bientôt et ne pas le refresh maintenant
@@ -284,8 +298,9 @@ export const useAuthStore = defineStore("auth", {
       if (!this.user || !this.user.studentId) return false;
 
       try {
+        console.log(`Vérification de l'existence de l'utilisateur avec le numéro étudiant: ${this.user.studentId}`);
         const response = await axios.get(
-          `${API_URL}/User/search/${this.user.studentId}`
+          `${API_URL}/User/search/${encodeURIComponent(this.user.studentId)}`
         );
 
         this.user.existsInDb = response.data.exists;
