@@ -300,7 +300,10 @@ export const useSessionStore = defineStore("session", {
                 });
                 continue;
               } else {
-                console.error(`Erreur lors de la vérification de l'étudiant ${studentNumber}:`, error);
+                console.error(
+                  `Erreur lors de la vérification de l'étudiant ${studentNumber}:`,
+                  error
+                );
                 results.failed.push({
                   studentNumber,
                   error: "Erreur de connexion au serveur",

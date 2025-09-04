@@ -56,7 +56,7 @@ namespace backend.Controllers
                 .ToListAsync();
 
             var attendanceList = attendances
-                .Select(a => ((User)a.User, (int)a.Status, a.Comment))
+                .Select(a => ((User)a.User, (int)a.Status, a.Comment ?? string.Empty))
                 .ToList();
 
             var pdfBytes = GenerateSessionPdf(session, attendanceList);
@@ -72,8 +72,13 @@ namespace backend.Controllers
         */
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
         {
-            using var ms = new MemoryStream();
-            string promo = GetPromoYears(session.Year);
+            try
+            {
+                // Activer le débogage QuestPDF pour avoir plus d'informations en cas d'erreur
+                QuestPDF.Settings.EnableDebugging = true;
+                
+                using var ms = new MemoryStream();
+                string promo = GetPromoYears(session.Year);
             var document = Document.Create(container =>
             {
                 container.Page(page =>
@@ -88,20 +93,50 @@ namespace backend.Controllers
                         {
                             row.ConstantItem(100).Height(70).AlignMiddle().AlignLeft().Element(left =>
                             {
-                                string logoRelativePath = Path.Combine("Assets", "polytech_Lyon_logo.png");
-                                string logoPath = logoRelativePath;
-                                if (!System.IO.File.Exists(logoPath))
+                                try
                                 {
-                                    logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_lyon_logo.png");
+                                    string logoRelativePath = Path.Combine("Assets", "polytech_Lyon_logo.png");
+                                    string logoPath = logoRelativePath;
+                                    
+                                    // Vérifier plusieurs emplacements possibles pour le logo
+                                    if (!System.IO.File.Exists(logoPath))
+                                    {
+                                        logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_lyon_logo.png");
+                                    }
+                                    if (!System.IO.File.Exists(logoPath))
+                                    {
+                                        logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "polytech_Lyon_logo.png");
+                                    }
+                                    if (!System.IO.File.Exists(logoPath))
+                                    {
+                                        var possiblePaths = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "polytech*logo*.png", SearchOption.AllDirectories);
+                                        if (possiblePaths.Length > 0)
+                                        {
+                                            logoPath = possiblePaths[0];
+                                        }
+                                    }
+                                    
+                                    if (System.IO.File.Exists(logoPath))
+                                    {
+                                        byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
+                                        if (logoBytes != null && logoBytes.Length > 0)
+                                        {
+                                            left.Image(logoBytes).FitArea();
+                                        }
+                                        else
+                                        {
+                                            left.Text("EPUL");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        left.Text("EPUL");
+                                    }
                                 }
-                                if (System.IO.File.Exists(logoPath))
+                                catch (Exception ex)
                                 {
-                                    byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
-                                    left.Image(logoBytes).FitArea();
-                                }
-                                else
-                                {
-                                    left.Text("");
+                                    _logger.LogError(ex, "Erreur lors du chargement du logo");
+                                    left.Text("EPUL");
                                 }
                             });
                             row.RelativeItem().AlignMiddle().AlignCenter().Text("Liste de présence").SemiBold().FontSize(22).FontColor("#2c3e50");
@@ -197,31 +232,54 @@ namespace backend.Controllers
                             int idx = 1;
                             foreach (var (student, status, comment) in sortedAttendances)
                             {
+                                // Vérifier que l'étudiant n'est pas null
+                                if (student == null)
+                                {
+                                    continue;
+                                }
+                                
                                 table.Cell().Element(CellStyle).Padding(5).Text(idx.ToString());
-                                table.Cell().Element(CellStyle).Padding(5).Text(student.Name);
-                                table.Cell().Element(CellStyle).Padding(5).Text(student.Firstname);
+                                table.Cell().Element(CellStyle).Padding(5).Text(student.Name ?? "");
+                                table.Cell().Element(CellStyle).Padding(5).Text(student.Firstname ?? "");
                                 var isPresent = status == 0;
                                 table.Cell().Element(CellStyle).Padding(5).Text(isPresent ? "Présent" : "Absent").FontColor(isPresent ? "#27ae60" : "#c0392b");
 
+                                // Gérer la signature avec plus de sécurité
                                 if (isPresent && !string.IsNullOrEmpty(student.Signature))
                                 {
-                                    string base64 = student.Signature;
-                                    if (base64.StartsWith("data:image"))
+                                    try
                                     {
-                                        var base64Data = base64.Substring(base64.IndexOf(",") + 1);
-                                        try
+                                        string base64 = student.Signature;
+                                        if (base64.StartsWith("data:image"))
                                         {
-                                            byte[] imageBytes = Convert.FromBase64String(base64Data);
-                                            table.Cell().Element(CellStyle).Padding(5).Element(container => container.Height(30).Image(imageBytes));
+                                            var base64Data = base64.Substring(base64.IndexOf(",") + 1);
+                                            try
+                                            {
+                                                byte[] imageBytes = Convert.FromBase64String(base64Data);
+                                                // Vérifier que l'image n'est pas vide
+                                                if (imageBytes != null && imageBytes.Length > 0)
+                                                {
+                                                    table.Cell().Element(CellStyle).Padding(5).Element(container => container.Height(30).Image(imageBytes).FitArea());
+                                                }
+                                                else
+                                                {
+                                                    table.Cell().Element(CellStyle).Padding(5).Text("Signature vide");
+                                                }
+                                            }
+                                            catch
+                                            {
+                                                table.Cell().Element(CellStyle).Padding(5).Text("Erreur image");
+                                            }
                                         }
-                                        catch
+                                        else
                                         {
-                                            table.Cell().Element(CellStyle).Padding(5).Text("Erreur image");
+                                            table.Cell().Element(CellStyle).Padding(5).Text("Format inconnu");
                                         }
                                     }
-                                    else
+                                    catch (Exception ex)
                                     {
-                                        table.Cell().Element(CellStyle).Padding(5).Text("Format inconnu");
+                                        _logger.LogError(ex, "Erreur lors du traitement de la signature pour l'étudiant {StudentName}", student.Name);
+                                        table.Cell().Element(CellStyle).Padding(5).Text("Erreur signature");
                                     }
                                 }
                                 else
@@ -229,7 +287,8 @@ namespace backend.Controllers
                                     table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
                                 }
 
-                                table.Cell().Element(CellStyle).Padding(5).Text(comment ?? string.Empty).FontSize(10).FontColor("#576574");
+                                // S'assurer que le commentaire n'est jamais null
+                                table.Cell().Element(CellStyle).Padding(5).Text(comment ?? "").FontSize(10).FontColor("#576574");
 
                                 idx++;
                             }
@@ -246,6 +305,12 @@ namespace backend.Controllers
 
             document.GeneratePdf(ms);
             return ms.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la génération du PDF pour la session {SessionId}", session.Id);
+                throw;
+            }
 
             static QuestPDF.Infrastructure.IContainer CellStyle(QuestPDF.Infrastructure.IContainer container)
             {
@@ -275,6 +340,8 @@ namespace backend.Controllers
             foreach (var user in usersWithPrefs)
             {
                 var prefs = user.MailPreferences;
+                if (prefs == null) continue;
+                
                 var today = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", new CultureInfo("fr-FR")));
                 if (prefs.Days == null || !prefs.Days.Contains(today)) continue;
 
@@ -298,7 +365,7 @@ namespace backend.Controllers
                             .ToListAsync();
 
                         var attendanceList = attendances
-                            .Select(a => ((User)a.User, (int)a.Status, a.Comment))
+                            .Select(a => ((User)a.User, (int)a.Status, a.Comment ?? string.Empty))
                             .ToList();
 
                         var pdfBytes = GenerateSessionPdf(session, attendanceList);

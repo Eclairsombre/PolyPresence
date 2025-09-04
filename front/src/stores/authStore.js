@@ -272,10 +272,13 @@ export const useAuthStore = defineStore("auth", {
             // Mettre à jour le stockage
             TokenManager.setUserInfo(userInfo);
           } catch (error) {
-            console.error("Erreur lors de l'extraction des infos du token:", error);
+            console.error(
+              "Erreur lors de l'extraction des infos du token:",
+              error
+            );
           }
         }
-        
+
         this.user = userInfo;
 
         // Vérifier si le token expire bientôt et ne pas le refresh maintenant
@@ -298,7 +301,9 @@ export const useAuthStore = defineStore("auth", {
       if (!this.user || !this.user.studentId) return false;
 
       try {
-        console.log(`Vérification de l'existence de l'utilisateur avec le numéro étudiant: ${this.user.studentId}`);
+        console.log(
+          `Vérification de l'existence de l'utilisateur avec le numéro étudiant: ${this.user.studentId}`
+        );
         const response = await axios.get(
           `${API_URL}/User/search/${encodeURIComponent(this.user.studentId)}`
         );
@@ -307,7 +312,9 @@ export const useAuthStore = defineStore("auth", {
         return response.data;
       } catch (error) {
         if (error.response && error.response.status === 404) {
-          console.log(`L'utilisateur ${this.user.studentId} n'existe pas dans la base de données.`);
+          console.log(
+            `L'utilisateur ${this.user.studentId} n'existe pas dans la base de données.`
+          );
           this.user.existsInDb = false;
           return { exists: false };
         } else {

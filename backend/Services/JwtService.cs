@@ -125,15 +125,15 @@ namespace backend.Services
         {
             try
             {
-                _logger.LogInformation("Attempting to refresh token: {TokenStart}...", 
+                _logger.LogInformation("Attempting to refresh token: {TokenStart}...",
                     refreshToken.Length > 10 ? refreshToken.Substring(0, 10) + "..." : refreshToken);
-                
+
                 if (string.IsNullOrWhiteSpace(refreshToken))
                 {
                     _logger.LogWarning("RefreshTokenAsync: Refresh token is null or empty");
                     return Task.FromResult<TokenResponse?>(null);
                 }
-                
+
                 if (!_refreshTokens.TryGetValue(refreshToken, out var tokenInfo))
                 {
                     _logger.LogWarning("Invalid refresh token attempted. Token not found in storage");
