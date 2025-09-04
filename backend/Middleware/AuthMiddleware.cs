@@ -48,7 +48,10 @@ namespace backend.Middleware
             if (path != null && (
                 publicPaths.Any(p => path.StartsWith(p.ToLower())) ||
                 path.StartsWith("/api/user/search/") ||
-                path.StartsWith("/api/user/isuseradmin/")))
+                path.StartsWith("/api/user/isuseradmin/") ||
+                System.Text.RegularExpressions.Regex.IsMatch(path, @"^/api/session/\d+/attendances$") ||
+                System.Text.RegularExpressions.Regex.IsMatch(path, @"^/api/session/\d+/attendance-status/") ||
+                System.Text.RegularExpressions.Regex.IsMatch(path, @"^/api/session/\d+/attendance-comment/")))
             {
                 await _next(context);
                 return;

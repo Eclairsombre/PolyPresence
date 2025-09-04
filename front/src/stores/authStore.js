@@ -31,13 +31,21 @@ const PUBLIC_ROUTES = [
 
 axios.interceptors.request.use(
   (config) => {
+    // Vérifier si la route est publique via la liste des routes publiques
     const isPublicRoute = PUBLIC_ROUTES.some((route) =>
       config.url
         ? config.url.toLowerCase().includes(route.toLowerCase())
         : false
     );
 
-    if (isPublicRoute) {
+    // Vérifier spécifiquement les routes pour les présences par session ID
+    const isAttendancesRoute = config.url && /\/api\/session\/\d+\/attendances/i.test(config.url);
+    
+    // Vérifier les routes pour modifier le statut de présence ou les commentaires
+    const isAttendanceStatusRoute = config.url && /\/api\/session\/\d+\/attendance-status\//i.test(config.url);
+    const isAttendanceCommentRoute = config.url && /\/api\/session\/\d+\/attendance-comment\//i.test(config.url);
+
+    if (isPublicRoute || isAttendancesRoute || isAttendanceStatusRoute || isAttendanceCommentRoute) {
       return config;
     }
 
