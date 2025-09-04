@@ -70,8 +70,11 @@ namespace backend.Controllers
         *
         * This method generates a PDF for a specific session and its attendances.
         */
-        private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
+        private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string? comment)> attendances)
         {
+            // Activer le débogage QuestPDF pour avoir des messages d'erreur plus détaillés
+            QuestPDF.Settings.EnableDebugging = true;
+            
             using var ms = new MemoryStream();
             string promo = GetPromoYears(session.Year);
             var document = Document.Create(container =>
@@ -144,7 +147,9 @@ namespace backend.Controllers
                                         infoCol.Item().Padding(5).Row(row =>
                                         {
                                             row.ConstantItem(80).AlignMiddle().Text("Signature :").FontSize(12);
-                                            row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
+                                            row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Element(container => 
+                                                container.Width(90).Height(40).Image(imageBytes).FitArea()
+                                            );
                                         });
                                     }
                                     catch
@@ -212,7 +217,7 @@ namespace backend.Controllers
                                         try
                                         {
                                             byte[] imageBytes = Convert.FromBase64String(base64Data);
-                                            table.Cell().Element(CellStyle).Padding(5).Element(container => container.Height(30).Image(imageBytes));
+                                            table.Cell().Element(CellStyle).Padding(5).Element(container => container.Height(30).Image(imageBytes).FitArea());
                                         }
                                         catch
                                         {
@@ -229,7 +234,9 @@ namespace backend.Controllers
                                     table.Cell().Element(CellStyle).Padding(5).Text(string.Empty);
                                 }
 
-                                table.Cell().Element(CellStyle).Padding(5).Text(comment ?? string.Empty).FontSize(10).FontColor("#576574");
+                                // Limiter la taille du commentaire pour éviter les dépassements
+                                var limitedComment = comment != null && comment.Length > 100 ? comment.Substring(0, 100) + "..." : comment;
+                                table.Cell().Element(CellStyle).Padding(5).Text(limitedComment ?? string.Empty).FontSize(10).FontColor("#576574");
 
                                 idx++;
                             }
@@ -252,6 +259,7 @@ namespace backend.Controllers
                 return container
                     .PaddingVertical(5)
                     .PaddingHorizontal(5)
+                    .MinHeight(30)
                     .Border(1)
                     .BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2)
                     .AlignMiddle();
@@ -276,7 +284,8 @@ namespace backend.Controllers
             {
                 var prefs = user.MailPreferences;
                 var today = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", new CultureInfo("fr-FR")));
-                if (prefs.Days == null || !prefs.Days.Contains(today)) continue;
+                // Si les préférences n'incluent pas le jour actuel, passez à l'utilisateur suivant
+                if (prefs?.Days == null || !prefs.Days.Contains(today)) continue;
 
                 var sessions = _context.Sessions
                     .Where(s => !_context.SessionSentToUsers.Any(ssu => ssu.SessionId == s.Id && ssu.UserId == user.Id) &&

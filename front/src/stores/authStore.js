@@ -39,13 +39,23 @@ axios.interceptors.request.use(
     );
 
     // Vérifier spécifiquement les routes pour les présences par session ID
-    const isAttendancesRoute = config.url && /\/api\/session\/\d+\/attendances/i.test(config.url);
-    
-    // Vérifier les routes pour modifier le statut de présence ou les commentaires
-    const isAttendanceStatusRoute = config.url && /\/api\/session\/\d+\/attendance-status\//i.test(config.url);
-    const isAttendanceCommentRoute = config.url && /\/api\/session\/\d+\/attendance-comment\//i.test(config.url);
+    const isAttendancesRoute =
+      config.url && /\/api\/session\/\d+\/attendances/i.test(config.url);
 
-    if (isPublicRoute || isAttendancesRoute || isAttendanceStatusRoute || isAttendanceCommentRoute) {
+    // Vérifier les routes pour modifier le statut de présence ou les commentaires
+    const isAttendanceStatusRoute =
+      config.url &&
+      /\/api\/session\/\d+\/attendance-status\//i.test(config.url);
+    const isAttendanceCommentRoute =
+      config.url &&
+      /\/api\/session\/\d+\/attendance-comment\//i.test(config.url);
+
+    if (
+      isPublicRoute ||
+      isAttendancesRoute ||
+      isAttendanceStatusRoute ||
+      isAttendanceCommentRoute
+    ) {
       return config;
     }
 
