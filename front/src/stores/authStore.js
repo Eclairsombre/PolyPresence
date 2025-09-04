@@ -67,8 +67,8 @@ class TokenManager {
       return {
         userId: payload.sub,
         studentId: payload.studentNumber,
-        firstName: payload.firstname,
-        lastName: payload.name,
+        firstname: payload.firstname,
+        lastname: payload.name,
         email: payload.email,
         isAdmin: payload.role === "Admin",
       };
@@ -400,8 +400,8 @@ export const useAuthStore = defineStore("auth", {
           // Utiliser les données de User qui sont plus complètes
           id: userFromResponse.id,
           studentId: userFromResponse.studentNumber,
-          firstName: userFromResponse.firstname,
-          lastName: userFromResponse.name,
+          firstname: userFromResponse.firstname,
+          lastname: userFromResponse.name,
           email: userFromResponse.email,
           isAdmin: userFromResponse.isAdmin,
           isDelegate: userFromResponse.isDelegate,
