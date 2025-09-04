@@ -28,7 +28,8 @@ namespace backend.Middleware
                 "/api/User/forgot-password",
                 "/api/User/reset-password",
                 "/api/Status",
-                "/api/User/refresh-token"
+                "/api/User/refresh-token",
+                "/api/User/search"
             };
 
             var path = context.Request.Path.Value?.ToLowerInvariant();
