@@ -159,17 +159,39 @@ namespace backend.Controllers
          * PutUser
          *
          * This method updates an existing User entity in the database.
+         * Only administrators or the user themselves can update their profile.
          */
         [HttpPut("{studentNumber}")]
+        [Authorize]
         public async Task<IActionResult> PutUser(string studentNumber, User user)
         {
             _logger.LogInformation($"Received PUT request for user with student number: {studentNumber}");
-            _logger.LogInformation($"User data: {System.Text.Json.JsonSerializer.Serialize(user)}");
+            
             if (studentNumber != user.StudentNumber)
             {
-                return BadRequest();
+                return BadRequest(new { message = "Le numéro étudiant ne correspond pas." });
+            }
+            
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
             }
 
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+            
+            bool isAdmin = currentUser.IsAdmin;
+            bool isOwnProfile = currentUser.StudentNumber == studentNumber;
+            
+            if (!isAdmin && !isOwnProfile)
+            {
+                _logger.LogWarning($"Tentative non autorisée de modification du profil {studentNumber} par {currentUser.StudentNumber}");
+                return Forbid();
+            }
+            
             if (Request.Headers.ContainsKey("Admin-Token"))
             {
                 var (adminUser, errorResult) = await GetAdminUserFromToken();
@@ -179,6 +201,11 @@ namespace backend.Controllers
                 }
 
                 _logger.LogInformation($"Admin user {adminUser!.StudentNumber} authorized the update");
+            }
+            else if (!isAdmin && (user.IsAdmin != currentUser.IsAdmin || user.IsDelegate != currentUser.IsDelegate))
+            {
+                _logger.LogWarning($"Tentative non autorisée de modification des droits pour {studentNumber} par {currentUser.StudentNumber}");
+                return Forbid();
             }
 
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
@@ -207,10 +234,33 @@ namespace backend.Controllers
          * DeleteUser
          *
          * This method deletes a User entity from the database.
+         * Only administrators can delete users.
          */
         [HttpDelete("{studentNumber}")]
+        [Authorize]
         public async Task<IActionResult> DeleteUser(string studentNumber)
         {
+            // Vérification du rôle administrateur via JWT
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            // Récupération de l'utilisateur authentifié
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            // Vérification si l'utilisateur est administrateur
+            if (!currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé à la suppression d'utilisateur par {currentUser.StudentNumber}");
+                return Forbid();
+            }
+            
+            // Vérification supplémentaire via token d'administration
             var (adminUser, errorResult) = await GetAdminUserFromToken();
             if (errorResult != null)
             {
@@ -907,10 +957,29 @@ namespace backend.Controllers
          * PostUserWithToken
          *
          * This method creates a new User entity in the database using admin token authentication.
+         * Only administrators can access this endpoint.
          */
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> PostUser([FromBody] User user)
         {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            if (!currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé à la création d'utilisateur par {currentUser.StudentNumber}");
+                return Forbid();
+            }
+
             var (adminUser, errorResult) = await GetAdminUserFromToken();
             if (errorResult != null)
             {
