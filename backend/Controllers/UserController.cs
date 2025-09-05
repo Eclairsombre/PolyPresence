@@ -181,10 +181,27 @@ namespace backend.Controllers
          * GetUserByYear
          *
          * This method retrieves all User entities for a specific year.
+         * Requires admin authentication.
          */
         [HttpGet("year/{year}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year)
         {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            var currentUser = await _context.Users.FindAsync(userId);
+            if (currentUser == null || !currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé à l'endpoint year/{year} par l'utilisateur ID: {userId}");
+                return Forbid();
+            }
+
+            _logger.LogInformation($"Admin user {currentUser.StudentNumber} authorized the request for users in year {year}");
+
             var users = await _context.Users
                 .Where(s => s.Year == year)
                 .ToListAsync();
@@ -787,26 +804,44 @@ namespace backend.Controllers
          * GenerateAdminToken
          *
          * This method generates a secure authentication token for admin operations.
+         * Uses JWT Bearer token for authentication instead of credentials in request body.
          */
         [HttpPost("generate-admin-token")]
-        public async Task<IActionResult> GenerateAdminToken([FromBody] LoginRequest request)
+        [Authorize]
+        public async Task<IActionResult> GenerateAdminToken([FromBody] object? _ = null)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
-            if (user == null || string.IsNullOrEmpty(user.PasswordHash))
-                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                return Unauthorized(new { message = "Identifiant ou mot de passe incorrect." });
-            if (!user.IsAdmin)
-                return Unauthorized(new { message = "Seuls les administrateurs peuvent générer des tokens." });
+            try
+            {
+                if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
+                {
+                    return BadRequest(new { message = "Token d'authentification invalide." });
+                }
 
-            // Utilisation du service pour générer un token
-            var tokenService = HttpContext.RequestServices.GetRequiredService<AdminTokenService>();
-            var tokenValue = tokenService.GenerateToken(user.Id);
-            var tokenExpiration = DateTime.UtcNow.AddHours(24);
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Utilisateur introuvable." });
+                }
 
-            _logger.LogInformation($"Admin token generated for user {user.StudentNumber}");
+                if (!user.IsAdmin)
+                {
+                    _logger.LogWarning($"Utilisateur non-admin {user.StudentNumber} a tenté de générer un token admin");
+                    return Forbid();
+                }
 
-            return Ok(new { token = tokenValue, expiresAt = tokenExpiration });
+                var tokenService = HttpContext.RequestServices.GetRequiredService<AdminTokenService>();
+                var tokenValue = tokenService.GenerateToken(user.Id);
+                var tokenExpiration = DateTime.UtcNow.AddHours(24);
+
+                _logger.LogInformation($"Admin token generated for user {user.StudentNumber}");
+
+                return Ok(new { token = tokenValue, expiresAt = tokenExpiration });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la génération du token admin");
+                return StatusCode(500, new { message = "Une erreur s'est produite lors de la génération du token admin." });
+            }
         }        /**
          * PostUserWithToken
          *

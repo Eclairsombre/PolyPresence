@@ -113,10 +113,15 @@ axios.interceptors.request.use(
     }
 
     const currentTime = Date.now();
-    const lastRefreshAttempt = parseInt(sessionStorage.getItem('last_refresh_attempt') || '0');
-    
-    if (TokenManager.isTokenExpiringSoon() && (currentTime - lastRefreshAttempt > 60000)) {
-      sessionStorage.setItem('last_refresh_attempt', currentTime.toString());
+    const lastRefreshAttempt = parseInt(
+      sessionStorage.getItem("last_refresh_attempt") || "0"
+    );
+
+    if (
+      TokenManager.isTokenExpiringSoon() &&
+      currentTime - lastRefreshAttempt > 60000
+    ) {
+      sessionStorage.setItem("last_refresh_attempt", currentTime.toString());
       const refreshToken = TokenManager.getRefreshToken();
       if (refreshToken && !isRefreshing) {
         try {
@@ -262,18 +267,18 @@ export const useAuthStore = defineStore("auth", {
         if (accessToken) {
           try {
             const payload = JSON.parse(atob(accessToken.split(".")[1]));
-            
+
             const expiryTime = payload.exp * 1000;
             const currentTime = Date.now();
             const isExpired = expiryTime <= currentTime;
-            
+
             if (isExpired) {
               console.log("Token expiré, suppression de la session");
               this.user = null;
               TokenManager.clearTokens();
               return;
             }
-            
+
             userInfo.studentId = payload.studentNumber || userInfo.studentId;
             TokenManager.setUserInfo(userInfo);
           } catch (error) {
