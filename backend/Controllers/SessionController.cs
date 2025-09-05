@@ -499,40 +499,59 @@ namespace backend.Controllers
          * ValidateSession
          *
          * This method validates a session for a student using a validation code.
+         * Utilisateurs peuvent uniquement valider leur propre présence, sauf si admin.
          */
         [HttpPost("{sessionId}/validate/{studentNumber}")]
+        [Authorize]
         public async Task<IActionResult> ValidateSession(int sessionId, string studentNumber, [FromBody] ValidateSessionModel model)
         {
+            // Vérification de session existante
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
             {
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
 
+            // Vérification du code de validation
             if (model.ValidationCode != session.ValidationCode)
             {
                 _logger.LogWarning($"Tentative de validation avec un code incorrect: {model.ValidationCode} pour la session {sessionId}");
                 return BadRequest(new { error = true, message = "Le code de validation est incorrect." });
             }
 
-            // Récupération de l'utilisateur
-            var user = await _context.Users
+            // Récupération de l'utilisateur cible (celui dont on valide la présence)
+            var targetUser = await _context.Users
                 .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
-            if (user == null)
+            if (targetUser == null)
             {
                 return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
             }
 
+            // Récupération de l'utilisateur authentifié
+            var authenticatedUserNumber = User.FindFirstValue("studentNumber");
+            var isAdmin = User.FindFirstValue("role") == "Admin";
+            var isDelegate = User.FindFirstValue("isDelegate") == "true";
+
+            // Vérification des droits: l'utilisateur ne peut valider que sa propre présence sauf s'il est admin
+            if (!isAdmin && authenticatedUserNumber != studentNumber)
+            {
+                _logger.LogWarning($"Tentative non autorisée: L'utilisateur {authenticatedUserNumber} essaie de valider la présence de {studentNumber}");
+                return Forbid();
+            }
+
+            // Recherche de l'enregistrement de présence
             var attendance = await _context.Attendances
-                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == targetUser.Id);
             if (attendance == null)
             {
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
             }
 
+            // Mise à jour du statut de présence
             attendance.Status = AttendanceStatus.Present;
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation($"Présence validée avec succès pour l'étudiant {studentNumber} à la session {sessionId}");
             return Ok(new { message = "Présence validée avec succès." });
         }
 

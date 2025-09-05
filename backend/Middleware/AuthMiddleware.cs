@@ -29,12 +29,25 @@ namespace backend.Middleware
                 "/api/User/reset-password",
                 "/api/Status",
                 "/api/User/refresh-token",
-                "/api/User/search"
+                "/api/User/search",
+                "/api/session/prof-signature"        // Route pour accéder à la session avec un token de signature
             };
+            
+            var requestPath = context.Request.Path.Value?.ToLowerInvariant();
+            
+            // Vérifier si le chemin concerne les routes de la page de signature du professeur
+            if (requestPath != null && (
+                requestPath.Contains("/attendance-status/") || 
+                requestPath.Contains("/attendance-comment/") ||
+                requestPath.Contains("/attendances") ||
+                requestPath.Contains("/prof-signature/")
+            ))
+            {
+                await _next(context);
+                return;
+            }
 
-            var path = context.Request.Path.Value?.ToLowerInvariant();
-
-            if (path != null && publicPaths.Any(p => path.StartsWith(p.ToLowerInvariant())))
+            if (requestPath != null && publicPaths.Any(p => requestPath.StartsWith(p.ToLowerInvariant())))
             {
                 await _next(context);
                 return;
@@ -43,7 +56,7 @@ namespace backend.Middleware
             var userIdFromToken = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!string.IsNullOrEmpty(userIdFromToken) && !rateLimitService.IsApiCallAllowed(userIdFromToken))
             {
-                _logger.LogWarning("Rate limit exceeded for user {UserId} on path {Path}", userIdFromToken, path);
+                _logger.LogWarning("Rate limit exceeded for user {UserId} on path {Path}", userIdFromToken, requestPath);
                 context.Response.StatusCode = 429;
                 await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Rate limit exceeded" }));
                 return;
@@ -52,7 +65,7 @@ namespace backend.Middleware
             var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
             if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
             {
-                _logger.LogWarning("Missing or invalid Authorization header for path {Path}", path);
+                _logger.LogWarning("Missing or invalid Authorization header for path {Path}", requestPath);
                 await UnauthorizedResponse(context, "Token d'accès requis");
                 return;
             }
@@ -62,7 +75,7 @@ namespace backend.Middleware
             var principal = await jwtService.ValidateTokenAsync(token);
             if (principal == null)
             {
-                _logger.LogWarning("Invalid JWT token for path {Path}", path);
+                _logger.LogWarning("Invalid JWT token for path {Path}", requestPath);
                 await UnauthorizedResponse(context, "Token d'accès invalide ou expiré");
                 return;
             }
@@ -70,7 +83,7 @@ namespace backend.Middleware
             var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
             {
-                _logger.LogWarning("Invalid user ID in token for path {Path}", path);
+                _logger.LogWarning("Invalid user ID in token for path {Path}", requestPath);
                 await UnauthorizedResponse(context, "Token invalide");
                 return;
             }
@@ -87,7 +100,7 @@ namespace backend.Middleware
             context.Items["User"] = user;
             context.Items["UserId"] = userId;
 
-            _logger.LogDebug("User {UserId} authenticated successfully for path {Path}", userId, path);
+            _logger.LogDebug("User {UserId} authenticated successfully for path {Path}", userId, requestPath);
 
             await _next(context);
         }
