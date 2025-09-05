@@ -372,20 +372,23 @@ export const useSessionStore = defineStore("session", {
      * @param {number} sessionId - Session ID
      * @returns {Promise<Object|null>} Validation result or null if error
      */
-    async validatePresence(studentNumber, sessionId) {
+    async validatePresence(studentNumber, sessionId, validationCode) {
       this.loading = true;
       this.error = null;
 
       try {
         const response = await axios.post(
-          `${API_URL}/Session/${sessionId}/validate/${studentNumber}`
+          `${API_URL}/Session/${sessionId}/validate/${studentNumber}`,
+          { validationCode: validationCode }
         );
         return response.data;
       } catch (error) {
         this.error =
-          error.message || "Erreur lors de la validation de la présence";
+          error.response?.data?.message ||
+          error.message ||
+          "Erreur lors de la validation de la présence";
         console.error("Erreur lors de la validation de la présence:", error);
-        return null;
+        throw error;
       } finally {
         this.loading = false;
       }

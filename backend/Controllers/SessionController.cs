@@ -98,20 +98,61 @@ namespace backend.Controllers
          * GetAllSessions
          *
          * This method retrieves all sessions from the database.
+         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
          */
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Session>>> GetSessions()
+        public async Task<ActionResult<IEnumerable<object>>> GetSessions()
         {
-            return await _context.Sessions.ToListAsync();
+            var sessions = await _context.Sessions.ToListAsync();
+
+            var isAdmin = false;
+            var isDelegate = false;
+
+            if (User.Identity?.IsAuthenticated == true &&
+                int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
+            {
+                var currentUser = await _context.Users.FindAsync(userId);
+                if (currentUser != null)
+                {
+                    isAdmin = currentUser.IsAdmin;
+                    isDelegate = currentUser.IsDelegate;
+                }
+            }
+
+            if (!isAdmin && !isDelegate)
+            {
+                var sessionsWithoutCode = sessions.Select(s => new
+                {
+                    s.Id,
+                    s.Date,
+                    s.StartTime,
+                    s.EndTime,
+                    s.Year,
+                    s.Name,
+                    s.Room,
+                    s.ProfName,
+                    s.ProfFirstname,
+                    s.ProfEmail,
+                    s.ProfSignature,
+                    s.ProfSignatureToken,
+                    s.IsSent,
+                    s.IsMailSent
+                }).ToList();
+
+                return sessionsWithoutCode;
+            }
+
+            return sessions;
         }
 
         /**
          * GetSession
          *
          * This method retrieves a session by its ID from the database.
+         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
          */
         [HttpGet("{id}")]
-        public async Task<ActionResult<Session>> GetSession(int id)
+        public async Task<ActionResult<object>> GetSession(int id)
         {
             var session = await _context.Sessions.FindAsync(id);
 
@@ -120,6 +161,50 @@ namespace backend.Controllers
                 return NotFound();
             }
 
+            var isAdmin = false;
+            var isDelegate = false;
+
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                var isAdminClaim = User.FindFirstValue("role");
+                var isDelegateClaim = User.FindFirstValue("isDelegate");
+
+                isAdmin = isAdminClaim == "Admin";
+                isDelegate = isDelegateClaim == "true";
+
+                var userStudentNumber = User.FindFirstValue("studentNumber");
+                _logger.LogInformation($"User {userStudentNumber} requesting session {id} - Role: {isAdminClaim}, IsDelegate: {isDelegateClaim}");
+                _logger.LogInformation($"Interpreted values - IsAdmin: {isAdmin}, IsDelegate: {isDelegate}");
+            }
+            else
+            {
+                _logger.LogInformation($"No authenticated user found for session {id} request");
+            }
+
+            if (!isAdmin && !isDelegate)
+            {
+                _logger.LogInformation($"Hiding validation code in session {id} response");
+
+                return new ActionResult<object>(new
+                {
+                    session.Id,
+                    session.Date,
+                    session.StartTime,
+                    session.EndTime,
+                    session.Year,
+                    session.Name,
+                    session.Room,
+                    session.ProfName,
+                    session.ProfFirstname,
+                    session.ProfEmail,
+                    session.ProfSignature,
+                    session.ProfSignatureToken,
+                    session.IsSent,
+                    session.IsMailSent
+                });
+            }
+
+            _logger.LogInformation($"Returning full session {id} with validation code");
             return session;
         }
 
@@ -127,9 +212,10 @@ namespace backend.Controllers
          * GetSessionsByYear
          *
          * This method retrieves sessions by year from the database.
+         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
          */
         [HttpGet("year/{year}")]
-        public async Task<ActionResult<IEnumerable<Session>>> GetSessionsByYear(string year)
+        public async Task<ActionResult<IEnumerable<object>>> GetSessionsByYear(string year)
         {
             var sessions = await _context.Sessions
                 .Where(s => s.Year == year)
@@ -138,6 +224,43 @@ namespace backend.Controllers
             if (sessions == null || sessions.Count == 0)
             {
                 return NotFound(new { message = $"Aucune session trouvée pour l'année {year}" });
+            }
+
+            var isAdmin = false;
+            var isDelegate = false;
+
+            if (User.Identity?.IsAuthenticated == true &&
+                int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
+            {
+                var currentUser = await _context.Users.FindAsync(userId);
+                if (currentUser != null)
+                {
+                    isAdmin = currentUser.IsAdmin;
+                    isDelegate = currentUser.IsDelegate;
+                }
+            }
+
+            if (!isAdmin && !isDelegate)
+            {
+                var sessionsWithoutCode = sessions.Select(s => new
+                {
+                    s.Id,
+                    s.Date,
+                    s.StartTime,
+                    s.EndTime,
+                    s.Year,
+                    s.Name,
+                    s.Room,
+                    s.ProfName,
+                    s.ProfFirstname,
+                    s.ProfEmail,
+                    s.ProfSignature,
+                    s.ProfSignatureToken,
+                    s.IsSent,
+                    s.IsMailSent
+                }).ToList();
+
+                return sessionsWithoutCode;
             }
 
             return sessions;
@@ -257,9 +380,10 @@ namespace backend.Controllers
          * GetCurrentSession
          *
          * This method retrieves the current session for a given year.
+         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
          */
         [HttpGet("current/{year}")]
-        public async Task<ActionResult<Session>> GetCurrentSession(string year)
+        public async Task<ActionResult<object>> GetCurrentSession(string year)
         {
             var today = DateTime.Today;
             var now = DateTime.Now.TimeOfDay;
@@ -276,6 +400,50 @@ namespace backend.Controllers
                 return NotFound(new { message = $"Aucune session trouvée pour l'année {year} aujourd'hui pour l'heure {now}." });
             }
 
+            var isAdmin = false;
+            var isDelegate = false;
+
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                var isAdminClaim = User.FindFirstValue("role");
+                var isDelegateClaim = User.FindFirstValue("isDelegate");
+
+                isAdmin = isAdminClaim == "Admin";
+                isDelegate = isDelegateClaim == "true";
+
+                var userStudentNumber = User.FindFirstValue("studentNumber");
+                _logger.LogInformation($"User {userStudentNumber} requesting current session - Role: {isAdminClaim}, IsDelegate: {isDelegateClaim}");
+                _logger.LogInformation($"Interpreted values - IsAdmin: {isAdmin}, IsDelegate: {isDelegate}");
+            }
+            else
+            {
+                _logger.LogInformation("No authenticated user found for current session request");
+            }
+
+            if (!isAdmin && !isDelegate)
+            {
+                _logger.LogInformation("Hiding validation code in current session response");
+
+                return new ActionResult<object>(new
+                {
+                    currentSession.Id,
+                    currentSession.Date,
+                    currentSession.StartTime,
+                    currentSession.EndTime,
+                    currentSession.Year,
+                    currentSession.Name,
+                    currentSession.Room,
+                    currentSession.ProfName,
+                    currentSession.ProfFirstname,
+                    currentSession.ProfEmail,
+                    currentSession.ProfSignature,
+                    currentSession.ProfSignatureToken,
+                    currentSession.IsSent,
+                    currentSession.IsMailSent
+                });
+            }
+
+            _logger.LogInformation("Returning full current session with validation code");
             return currentSession;
         }
 
@@ -330,21 +498,26 @@ namespace backend.Controllers
         /**
          * ValidateSession
          *
-         * This method validates a session for a student.
+         * This method validates a session for a student using a validation code.
          */
         [HttpPost("{sessionId}/validate/{studentNumber}")]
-        public async Task<IActionResult> ValidateSession(int sessionId, string studentNumber)
+        public async Task<IActionResult> ValidateSession(int sessionId, string studentNumber, [FromBody] ValidateSessionModel model)
         {
             var session = await _context.Sessions.FindAsync(sessionId);
-
             if (session == null)
             {
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
 
+            if (model.ValidationCode != session.ValidationCode)
+            {
+                _logger.LogWarning($"Tentative de validation avec un code incorrect: {model.ValidationCode} pour la session {sessionId}");
+                return BadRequest(new { error = true, message = "Le code de validation est incorrect." });
+            }
+
+            // Récupération de l'utilisateur
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
-
             if (user == null)
             {
                 return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
@@ -352,7 +525,6 @@ namespace backend.Controllers
 
             var attendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
-
             if (attendance == null)
             {
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
@@ -365,11 +537,23 @@ namespace backend.Controllers
         }
 
         /**
+         * ValidateSessionModel
+         *
+         * This model is used for validating a session with a code.
+         */
+        public class ValidateSessionModel
+        {
+            public string ValidationCode { get; set; } = string.Empty;
+        }
+
+        /**
          * GetAttendance
          *
          * This method retrieves the attendance for a specific session and student.
+         * Le code de validation de la session n'est inclus que si l'utilisateur est un délégué ou un administrateur.
          */
         [HttpGet("{sessionId}/attendance/{studentNumber}")]
+        [Authorize]
         public async Task<IActionResult> GetAttendance(int sessionId, string studentNumber)
         {
             var session = await _context.Sessions.FindAsync(sessionId);
@@ -395,7 +579,110 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
             }
 
-            return Ok(attendance);
+            var isAdmin = false;
+            var isDelegate = false;
+
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                var isAdminClaim = User.FindFirstValue("role");
+                var isDelegateClaim = User.FindFirstValue("isDelegate");
+
+                isAdmin = isAdminClaim == "Admin";
+                isDelegate = isDelegateClaim == "true";
+
+                var userStudentNumber = User.FindFirstValue("studentNumber");
+                _logger.LogInformation($"User {userStudentNumber} requesting attendance info - Role: {isAdminClaim}, IsDelegate: {isDelegateClaim}");
+                _logger.LogInformation($"Interpreted values - IsAdmin: {isAdmin}, IsDelegate: {isDelegate}");
+            }
+            else
+            {
+                _logger.LogInformation("No authenticated user found for attendance request");
+            }
+
+            var userDto = new
+            {
+                user.Id,
+                user.Name,
+                user.Firstname,
+                user.StudentNumber,
+                user.Email,
+                user.Year,
+                user.Signature,
+                user.IsAdmin,
+                user.IsDelegate
+            };
+
+            if (!isAdmin && !isDelegate)
+            {
+                _logger.LogInformation("Hiding validation code in attendance response");
+
+                var sessionDto = new
+                {
+                    session.Id,
+                    session.Date,
+                    session.StartTime,
+                    session.EndTime,
+                    session.Year,
+                    session.Name,
+                    session.Room,
+                    session.ProfName,
+                    session.ProfFirstname,
+                    session.ProfEmail,
+                    session.ProfSignature,
+                    session.ProfSignatureToken,
+                    session.IsSent,
+                    session.IsMailSent
+                };
+
+                var attendanceDto = new
+                {
+                    attendance.Id,
+                    attendance.SessionId,
+                    Session = sessionDto,
+                    attendance.StudentId,
+                    User = userDto,
+                    attendance.Status,
+                    attendance.Comment
+                };
+
+                return Ok(attendanceDto);
+            }
+            else
+            {
+                _logger.LogInformation("Returning attendance with validation code");
+
+                var sessionDto = new
+                {
+                    session.Id,
+                    session.Date,
+                    session.StartTime,
+                    session.EndTime,
+                    session.Year,
+                    session.Name,
+                    session.Room,
+                    session.ValidationCode,  // Inclus pour admin/délégué
+                    session.ProfName,
+                    session.ProfFirstname,
+                    session.ProfEmail,
+                    session.ProfSignature,
+                    session.ProfSignatureToken,
+                    session.IsSent,
+                    session.IsMailSent
+                };
+
+                var attendanceDto = new
+                {
+                    attendance.Id,
+                    attendance.SessionId,
+                    Session = sessionDto,
+                    attendance.StudentId,
+                    User = userDto,
+                    attendance.Status,
+                    attendance.Comment
+                };
+
+                return Ok(attendanceDto);
+            }
         }
 
         /**
@@ -520,6 +807,7 @@ namespace backend.Controllers
          * GetNotSendSessions
          *
          * This method retrieves all sessions that have not been sent.
+         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
          */
         [HttpGet("not-send")]
         public async Task<IActionResult> GetNotSendSessions()
@@ -531,6 +819,43 @@ namespace backend.Controllers
             if (sessions == null || sessions.Count == 0)
             {
                 return NotFound(new { message = "Aucune session trouvée." });
+            }
+
+            var isAdmin = false;
+            var isDelegate = false;
+
+            if (User.Identity?.IsAuthenticated == true &&
+                int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
+            {
+                var currentUser = await _context.Users.FindAsync(userId);
+                if (currentUser != null)
+                {
+                    isAdmin = currentUser.IsAdmin;
+                    isDelegate = currentUser.IsDelegate;
+                }
+            }
+
+            if (!isAdmin && !isDelegate)
+            {
+                var sessionsWithoutCode = sessions.Select(s => new
+                {
+                    s.Id,
+                    s.Date,
+                    s.StartTime,
+                    s.EndTime,
+                    s.Year,
+                    s.Name,
+                    s.Room,
+                    s.ProfName,
+                    s.ProfFirstname,
+                    s.ProfEmail,
+                    s.ProfSignature,
+                    s.ProfSignatureToken,
+                    s.IsSent,
+                    s.IsMailSent
+                }).ToList();
+
+                return Ok(sessionsWithoutCode);
             }
 
             return Ok(sessions);
@@ -968,7 +1293,7 @@ Cordialement";
          */
         public class CommentUpdateModel
         {
-            public string Comment { get; set; }
+            public string Comment { get; set; } = string.Empty;
         }
     }
 }

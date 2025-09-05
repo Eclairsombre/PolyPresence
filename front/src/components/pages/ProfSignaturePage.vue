@@ -139,7 +139,7 @@ onMounted(async () => {
   const data = await profSignatureStore.fetchSessionByProfSignatureToken(token);
   if (data) {
     session.value = data;
-    validationCode.value = data.validationCode || data.ValidationCode || data.validation_code || '';
+    validationCode.value = data.validationCode || '';
     loading.value = false;
     await loadAttendances();
   } else {

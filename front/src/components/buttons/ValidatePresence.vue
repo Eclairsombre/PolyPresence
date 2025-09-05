@@ -58,17 +58,21 @@ const validatePresence = async () => {
         return;
     }
 
-    if (validationCode.value !== sessionStore.currentSession.validationCode) {
-        alert("Le code de validation est incorrect.");
+    if (validationCode.value === '') {
+        alert("Veuillez saisir le code de validation.");
         return;
     }
 
     try {
-        await sessionStore.validatePresence(authStore.user.studentId, sessionStore.currentSession.id);
+        await sessionStore.validatePresence(authStore.user.studentId, sessionStore.currentSession.id, validationCode.value);
         emit('presenceValidated'); 
     } catch (error) {
         console.error("Erreur lors de la validation de la présence:", error);
-        alert("Une erreur s'est produite lors de la validation de la présence.");
+        if (error.response && error.response.data && error.response.data.message) {
+            alert(error.response.data.message);
+        } else {
+            alert("Une erreur s'est produite lors de la validation de la présence.");
+        }
     }
 };
 </script>
