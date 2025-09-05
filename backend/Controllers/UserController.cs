@@ -166,12 +166,12 @@ namespace backend.Controllers
         public async Task<IActionResult> PutUser(string studentNumber, User user)
         {
             _logger.LogInformation($"Received PUT request for user with student number: {studentNumber}");
-            
+
             if (studentNumber != user.StudentNumber)
             {
                 return BadRequest(new { message = "Le numéro étudiant ne correspond pas." });
             }
-            
+
             if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
             {
                 return Unauthorized(new { message = "Identification utilisateur incorrecte." });
@@ -182,16 +182,16 @@ namespace backend.Controllers
             {
                 return NotFound(new { message = "Utilisateur connecté introuvable." });
             }
-            
+
             bool isAdmin = currentUser.IsAdmin;
             bool isOwnProfile = currentUser.StudentNumber == studentNumber;
-            
+
             if (!isAdmin && !isOwnProfile)
             {
                 _logger.LogWarning($"Tentative non autorisée de modification du profil {studentNumber} par {currentUser.StudentNumber}");
                 return Forbid();
             }
-            
+
             if (Request.Headers.ContainsKey("Admin-Token"))
             {
                 var (adminUser, errorResult) = await GetAdminUserFromToken();
@@ -259,7 +259,7 @@ namespace backend.Controllers
                 _logger.LogWarning($"Tentative d'accès non autorisé à la suppression d'utilisateur par {currentUser.StudentNumber}");
                 return Forbid();
             }
-            
+
             // Vérification supplémentaire via token d'administration
             var (adminUser, errorResult) = await GetAdminUserFromToken();
             if (errorResult != null)

@@ -32,12 +32,12 @@ namespace backend.Middleware
                 "/api/User/search",
                 "/api/session/prof-signature"        // Route pour accéder à la session avec un token de signature
             };
-            
+
             var requestPath = context.Request.Path.Value?.ToLowerInvariant();
-            
+
             // Vérifier si le chemin concerne les routes de la page de signature du professeur
             if (requestPath != null && (
-                requestPath.Contains("/attendance-status/") || 
+                requestPath.Contains("/attendance-status/") ||
                 requestPath.Contains("/attendance-comment/") ||
                 requestPath.Contains("/attendances") ||
                 requestPath.Contains("/prof-signature/")

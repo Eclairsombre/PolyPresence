@@ -189,9 +189,6 @@ axios.interceptors.response.use(
         currentPath.includes("/forgot-password");
 
       if (!isLoginAttempt && !isOnAuthPage) {
-        console.log(
-          "Session expirée ou non autorisé. Redirection vers la page de connexion."
-        );
         TokenManager.clearTokens();
         window.location.href = `/login`;
       }
@@ -273,7 +270,6 @@ export const useAuthStore = defineStore("auth", {
             const isExpired = expiryTime <= currentTime;
 
             if (isExpired) {
-              console.log("Token expiré, suppression de la session");
               this.user = null;
               TokenManager.clearTokens();
               return;
@@ -303,9 +299,6 @@ export const useAuthStore = defineStore("auth", {
       if (!this.user || !this.user.studentId) return false;
 
       try {
-        console.log(
-          `Vérification de l'existence de l'utilisateur avec le numéro étudiant: ${this.user.studentId}`
-        );
         const response = await axios.get(
           `${API_URL}/User/search/${encodeURIComponent(this.user.studentId)}`
         );
@@ -314,9 +307,6 @@ export const useAuthStore = defineStore("auth", {
         return response.data;
       } catch (error) {
         if (error.response && error.response.status === 404) {
-          console.log(
-            `L'utilisateur ${this.user.studentId} n'existe pas dans la base de données.`
-          );
           this.user.existsInDb = false;
           return { exists: false };
         } else {
@@ -506,8 +496,6 @@ export const useAuthStore = defineStore("auth", {
           throw new Error("Aucune session active trouvée");
         }
 
-        console.log("Génération d'un nouveau token admin");
-
         const response = await axios.post(
           `${API_URL}/User/generate-admin-token`,
           {},
@@ -518,19 +506,12 @@ export const useAuthStore = defineStore("auth", {
           }
         );
 
-        console.log("Statut de la réponse:", response.status);
-
         if (!response.data || !response.data.token) {
           console.error("Format de réponse invalide:", response.data);
           throw new Error("Impossible d'obtenir un token administrateur");
         }
 
         const adminTokenValue = response.data.token;
-        console.log(
-          "Token admin généré avec succès, premiers caractères:",
-          adminTokenValue.substring(0, 8),
-          "..."
-        );
 
         return adminTokenValue;
       } catch (error) {

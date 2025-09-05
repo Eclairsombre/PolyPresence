@@ -29,9 +29,19 @@
       const initSignaturePad = () => {
         if (!signaturePad.value) return;
         
-        signaturePadInstance.value = new SignaturePad(signaturePad.value, {
+        const canvas = signaturePad.value;
+        const rect = canvas.getBoundingClientRect();
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        
+        signaturePadInstance.value = new SignaturePad(canvas, {
           backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          penColor: 'rgb(0, 0, 0)'
+          penColor: 'rgb(0, 0, 0)',
+          dotSize: 1.5, 
+          velocityFilterWeight: 0.7 
         });
         
         signaturePadInstance.value.addEventListener('endStroke', () => {
@@ -74,13 +84,30 @@
       const resizeCanvas = () => {
         if (!signaturePad.value || !signaturePadInstance.value) return;
         
-        const ratio = Math.max(window.devicePixelRatio || 1, 1);
-        signaturePad.value.width = signaturePad.value.offsetWidth * ratio;
-        signaturePad.value.height = signaturePad.value.offsetHeight * ratio;
-        signaturePad.value.getContext("2d").scale(ratio, ratio);
-        
         const data = signaturePadInstance.value.toData();
+        
+        const canvas = signaturePad.value;
+        const ctx = canvas.getContext("2d");
+        
+        const rect = canvas.getBoundingClientRect();
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        
+        ctx.scale(ratio, ratio);
+        
         signaturePadInstance.value.clear();
+        
+        signaturePadInstance.value = new SignaturePad(canvas, {
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          penColor: 'rgb(0, 0, 0)'
+        });
+        
+        signaturePadInstance.value.addEventListener('endStroke', () => {
+          isEmpty.value = signaturePadInstance.value.isEmpty();
+        });
+        
         if (data && data.length) {
           signaturePadInstance.value.fromData(data);
           isEmpty.value = false;
@@ -90,21 +117,53 @@
       };
   
       onMounted(() => {
-        initSignaturePad();
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        setTimeout(() => {
+          initSignaturePad();
+          resizeCanvas();
+        }, 0);
+        
+        const resizeObserver = new ResizeObserver(() => {
+          resizeCanvas();
+        });
+        
+        if (signaturePad.value) {
+          resizeObserver.observe(signaturePad.value.parentElement);
+        }
+        
+        const handleResize = () => {
+          setTimeout(resizeCanvas, 100); 
+        };
+        
+        window.addEventListener('resize', handleResize);
         
         return () => {
-          window.removeEventListener('resize', resizeCanvas);
+          window.removeEventListener('resize', handleResize);
+          if (resizeObserver && signaturePad.value) {
+            resizeObserver.unobserve(signaturePad.value.parentElement);
+            resizeObserver.disconnect();
+          }
         };
       });
   
+      const forceCanvasReset = () => {
+        if (signaturePadInstance.value) {
+          signaturePadInstance.value.off();
+          signaturePadInstance.value = null;
+        }
+        
+        setTimeout(() => {
+          initSignaturePad();
+          resizeCanvas();
+        }, 50);
+      };
+      
       return {
         signaturePad,
         clearSignature,
         saveSignature,
         isEmpty,
-        getSignature
+        getSignature,
+        forceCanvasReset
       };
     }
   });
@@ -123,12 +182,22 @@
     border-radius: 4px;
     background-color: #fff;
     position: relative;
+    width: 100%;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
   
   .signature-pad {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: 100px;
+    height: 100%;
     touch-action: none;
+    box-sizing: border-box;
   }
   
   .signature-actions {
@@ -166,7 +235,7 @@
       gap: 4px;
     }
     .signature-pad {
-      height: 60px;
+      height: 120px;
     }
     .signature-actions {
       gap: 4px;

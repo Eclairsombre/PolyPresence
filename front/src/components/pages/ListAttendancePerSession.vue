@@ -29,7 +29,7 @@
             </div>
             <div class="prof-signature" v-if="session.profSignature">
               <span>Signature :</span>
-              <img :src="session.profSignature" alt="Signature du professeur" style="max-height:60px; margin-left:10px;" />
+              <img :src="session.profSignature" alt="Signature du professeur" style="max-height:50px; margin-left:10px;" />
             </div>
             <div class="prof-signature" v-else>
               <span>Signature : <em>Non signée</em></span>
@@ -70,6 +70,7 @@
                 <div v-if="student.status === 'Present'">
                   <SignatureDisplay 
                     :signatureData="student.signature" 
+                    :inAttendanceList="true"
                   />
                 </div>
               </td>

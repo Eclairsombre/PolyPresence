@@ -4,9 +4,9 @@
         v-if="signatureData && signatureData != ' '" 
         :src="signatureData" 
         alt="Signature de l'étudiant" 
-        class="signature-image" 
+        :class="['signature-image', { 'signature-image-small': inAttendanceList }]" 
       />
-      <div v-else class="no-signature-placeholder">
+      <div v-else :class="['no-signature-placeholder', { 'no-signature-placeholder-small': inAttendanceList }]">
         Aucune signature
       </div>
       <div v-if="showEditButton" class="signature-actions">
@@ -30,6 +30,10 @@
       showEditButton: {
         type: Boolean,
         default: false
+      },
+      inAttendanceList: {
+        type: Boolean,
+        default: false
       }
     },
   });
@@ -45,7 +49,7 @@
   
   .signature-image {
     max-width: 100%;
-    max-height: 100px;
+    max-height: 180px; 
     border: 1px solid #ccc;
     border-radius: 4px;
     background-color: #fff;
@@ -53,7 +57,7 @@
   
   .no-signature-placeholder {
     width: 100%;
-    height: 60px;
+    height: 100px; 
     display: flex;
     align-items: center;
     justify-content: center;
@@ -88,13 +92,31 @@
     background-color: #2980b9;
   }
 
+  /* Style spécifique pour les signatures dans les listes de présence */
+  .signature-image-small {
+    max-height: 80px !important; /* Taille réduite pour les listes de présence */
+    border: 1px solid #eaeaea;
+  }
+
+  .no-signature-placeholder-small {
+    height: 50px !important; /* Taille réduite pour les placeholders dans les listes */
+    font-size: 0.9em;
+  }
+
   @media (max-width: 600px) {
     .signature-image {
-      max-height: 60px;
+      max-height: 120px;
     }
     .no-signature-placeholder {
-      height: 40px;
+      height: 80px;
       font-size: 0.95em;
+    }
+    .signature-image-small {
+      max-height: 60px !important; /* Encore plus petit sur mobile */
+    }
+    .no-signature-placeholder-small {
+      height: 40px !important; /* Encore plus petit sur mobile */
+      font-size: 0.85em;
     }
     .edit-button {
       width: 100%;

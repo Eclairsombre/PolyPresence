@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import SignatureCreator from '../signature/SignatureCreator.vue';
 import { useProfSignatureStore } from '../../stores/profSignatureStore';
@@ -142,6 +142,13 @@ onMounted(async () => {
     validationCode.value = data.validationCode || '';
     loading.value = false;
     await loadAttendances();
+    
+    await nextTick();
+    setTimeout(() => {
+      if (signaturePad.value && signaturePad.value.forceCanvasReset) {
+        signaturePad.value.forceCanvasReset();
+      }
+    }, 300);
   } else {
     error.value = profSignatureStore.error;
     loading.value = false;
@@ -339,7 +346,9 @@ const makeAction = async (action, studentNumber) => {
   padding: 24px 18px 18px 18px;
 }
 .signature-zone {
-  margin-bottom: 24px;
+  margin-bottom: 30px;
+  position: relative;
+  transform: none;
 }
 .attendances {
   flex: 1 1 420px;

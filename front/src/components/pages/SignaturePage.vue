@@ -168,16 +168,25 @@ onMounted(loadSignature);
 }
 
 .current-signature, .signature-editor {
-  padding: 20px;
+  padding: 25px;
   border: 1px solid #e9ecef;
   border-radius: 8px;
 }
 
+.current-signature {
+  background-color: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .current-signature h2, .signature-editor h2 {
   margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1.2rem;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
   color: #495057;
+  width: 100%;
+  text-align: left;
 }
 
 @media (max-width: 768px) {
