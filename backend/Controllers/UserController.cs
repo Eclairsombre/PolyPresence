@@ -41,11 +41,32 @@ namespace backend.Controllers
          * GetUsers
          *
          * This method retrieves all User entities from the database.
+         * Only administrators can access this endpoint.
          */
         [HttpGet]
         [Authorize]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
+            // Récupère l'ID de l'utilisateur authentifié
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            // Récupère l'utilisateur authentifié
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            // Vérifie si l'utilisateur est administrateur
+            if (!currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé à la liste des utilisateurs par {currentUser.StudentNumber}");
+                return Forbid();
+            }
+
             return await _context.Users.ToListAsync();
         }
 
@@ -53,34 +74,74 @@ namespace backend.Controllers
          * GetUser
          *
          * This method retrieves a User entity by its ID.
+         * Users can only access their own data unless they are administrators.
          */
         [HttpGet("{id}")]
         [Authorize]
         public async Task<ActionResult<User>> GetUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            var requestedUser = await _context.Users.FindAsync(id);
+            if (requestedUser == null)
             {
                 return NotFound();
             }
-            return user;
+
+            if (currentUserId != id && !currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé: {currentUser.StudentNumber} a tenté d'accéder aux données de l'utilisateur ID {id}");
+                return Forbid();
+            }
+
+            return requestedUser;
         }
 
         /**
          * GetUserByStudentNumber
          *
          * This method retrieves a User entity by its student number.
+         * Users can only access their own data unless they are administrators.
          */
         [HttpGet("search/{studentNumber}")]
+        [Authorize]
         public async Task<ActionResult<object>> SearchUserByNumber(string studentNumber)
         {
-            var user = await _context.Users
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            var requestedUser = await _context.Users
                 .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
-            if (user == null)
+
+            if (requestedUser == null)
             {
                 return NotFound(new { exists = false });
             }
-            return new { exists = true, user };
+
+            if (currentUser.StudentNumber != requestedUser.StudentNumber && !currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé: {currentUser.StudentNumber} a tenté d'accéder aux données de {studentNumber}");
+                return Forbid();
+            }
+
+            return new { exists = true, user = requestedUser };
         }
 
         /**

@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using System.Text.Json.Serialization;
 using System.Security.Cryptography;
 using System.Net.Mail;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using System.Net;
 
 namespace backend.Controllers
@@ -455,17 +457,40 @@ namespace backend.Controllers
          * SaveSignature
          *
          * This method saves the signature for a student.
+         * Users can only modify their own signature unless they are administrators.
          */
         [HttpPost("signature/{studentNumber}")]
+        [Authorize]
         public async Task<IActionResult> SaveSignature(string studentNumber, [FromBody] SignatureModel signatureData)
         {
+            // Récupère l'ID de l'utilisateur authentifié
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
 
+            // Récupère l'utilisateur authentifié
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            // Récupère l'étudiant dont on veut modifier la signature
             var student = await _context.Users
                 .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
             if (student == null)
             {
                 return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
             }
+
+            // Vérifie si l'utilisateur connecté modifie sa propre signature ou est administrateur
+            if (currentUser.StudentNumber != student.StudentNumber && !currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé: {currentUser.StudentNumber} a tenté de modifier la signature de {studentNumber}");
+                return Forbid();
+            }
+
             student.Signature = signatureData.Signature;
             await _context.SaveChangesAsync();
 
