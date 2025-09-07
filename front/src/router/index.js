@@ -79,6 +79,11 @@ const routes = [
     component: () => import("../components/pages/SetPasswordPage.vue"),
   },
   {
+    path: "/reset-password",
+    name: "reset-password",
+    component: () => import("../components/pages/SetPasswordPage.vue"),
+  },
+  {
     path: "/forgot-password",
     name: "forgot-password",
     component: () => import("../components/pages/ForgotPasswordPage.vue"),
@@ -92,6 +97,7 @@ const router = createRouter({
 
 import { useAuthStore } from "../stores/authStore";
 router.beforeEach(async (to, from, next) => {
+
   const authStore = useAuthStore();
   await authStore.initialize();
 
@@ -100,13 +106,15 @@ router.beforeEach(async (to, from, next) => {
     "register",
     "forgot-password",
     "set-password",
+    "reset-password",
     "unauthorized",
     "not-found",
   ];
   if (
     publicPages.includes(to.name) ||
     to.name === "home" ||
-    to.path.startsWith("/prof-signature")
+    to.path.startsWith("/prof-signature") ||
+    to.path.startsWith("/reset-password") 
   ) {
     return next();
   }

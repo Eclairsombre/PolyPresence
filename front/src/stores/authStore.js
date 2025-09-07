@@ -176,21 +176,46 @@ axios.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && error.response.status === 401) {
-      const currentPath = window.location.pathname;
-      const isLoginAttempt =
-        error.config &&
-        error.config.url &&
-        error.config.url.includes("/api/User/login");
-      const isOnAuthPage =
-        currentPath.includes("/login") ||
-        currentPath.includes("/register") ||
-        currentPath.includes("/set-password") ||
-        currentPath.includes("/forgot-password");
+    console.error("Erreur Axios:", error);
 
-      if (!isLoginAttempt && !isOnAuthPage) {
-        TokenManager.clearTokens();
-        window.location.href = `/login`;
+    if (error.response) {
+      if (error.response.status === 401) {
+        const currentPath = window.location.pathname;
+        const isLoginAttempt =
+          error.config &&
+          error.config.url &&
+          error.config.url.includes("/api/User/login");
+        const isResetPasswordAttempt =
+          error.config &&
+          error.config.url &&
+          error.config.url.includes("/api/User/reset-password");
+        const isOnAuthPage =
+          currentPath.includes("/login") ||
+          currentPath.includes("/register") ||
+          currentPath.includes("/set-password") ||
+          currentPath.includes("/reset-password") ||
+          currentPath.includes("/forgot-password");
+
+        if (!isLoginAttempt && !isResetPasswordAttempt && !isOnAuthPage) {
+          TokenManager.clearTokens();
+          window.location.href = `/login`;
+        }
+      } else if (error.response.status === 403) {
+        const currentPath = window.location.pathname;
+        const isOnAuthPage =
+          currentPath.includes("/login") ||
+          currentPath.includes("/register") ||
+          currentPath.includes("/set-password") ||
+          currentPath.includes("/reset-password") ||
+          currentPath.includes("/forgot-password");
+
+        if (!isOnAuthPage) {
+          window.location.href = `/unauthorized`;
+        } else {
+          console.log(
+            "Erreur 403 sur page d'authentification, pas de redirection"
+          );
+        }
       }
     }
     return Promise.reject(error);
@@ -458,6 +483,14 @@ export const useAuthStore = defineStore("auth", {
      * @returns {Promise<Object>} Résultat de la réinitialisation
      */
     async resetPassword(token, newPassword) {
+      if (!token) {
+        throw new Error("Token de réinitialisation manquant");
+      }
+
+      if (!newPassword) {
+        throw new Error("Le nouveau mot de passe est requis");
+      }
+
       try {
         const response = await axios.post(`${API_URL}/User/reset-password`, {
           token,
@@ -465,12 +498,21 @@ export const useAuthStore = defineStore("auth", {
         });
         return response.data;
       } catch (error) {
-        if (
-          error.response &&
-          error.response.data &&
-          error.response.data.message
-        ) {
-          throw new Error(error.response.data.message);
+        console.error("Erreur de réinitialisation de mot de passe:", error);
+        console.error("URL de la requête:", `${API_URL}/User/reset-password`);
+        console.error("Status de l'erreur:", error.response?.status);
+        console.error("Message d'erreur:", error.response?.data);
+
+        if (error.response) {
+          if (error.response.status === 401) {
+            throw new Error("Token de réinitialisation invalide ou expiré");
+          } else if (error.response.status === 403) {
+            throw new Error(
+              "Vous n'avez pas les permissions nécessaires pour réinitialiser ce mot de passe"
+            );
+          } else if (error.response.data && error.response.data.message) {
+            throw new Error(error.response.data.message);
+          }
         }
         throw new Error("Erreur lors de la réinitialisation du mot de passe.");
       }

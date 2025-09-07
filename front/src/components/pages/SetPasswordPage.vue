@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -38,9 +38,26 @@ const router = useRouter();
 const authStore = useAuthStore();
 const token = route.query.token;
 
+if (!token) {
+  errorMessage.value = "Token de réinitialisation manquant. Vérifiez le lien que vous avez reçu par email.";
+  console.log("Token manquant dans l'URL:", window.location.href);
+}
+
+onMounted(() => {
+  console.log("Page chargée avec URL:", window.location.href);
+  console.log("Token présent:", token);
+  console.log("Nom de la route:", route.name);
+  console.log("Path de la route:", route.path);
+});
+
 const submitPassword = async () => {
   errorMessage.value = '';
   successMessage.value = '';
+  
+  if (!token) {
+    errorMessage.value = "Token de réinitialisation manquant. Vérifiez le lien que vous avez reçu par email.";
+    return;
+  }
   
   // Valider la longueur du mot de passe
   if (!password.value || password.value.length < 8) {
@@ -79,7 +96,12 @@ const submitPassword = async () => {
     setTimeout(() => router.push('/login'), 2000);
   } catch (error) {
     console.error('Erreur lors de la réinitialisation du mot de passe:', error);
-    errorMessage.value = error?.message || 'Erreur lors de la définition du mot de passe.';
+    
+    if (error?.message?.includes("token") || error?.message?.includes("Token") || error?.response?.status === 401) {
+      errorMessage.value = "Le token de réinitialisation est invalide ou a expiré. Veuillez demander un nouveau lien de réinitialisation.";
+    } else {
+      errorMessage.value = error?.message || 'Erreur lors de la définition du mot de passe.';
+    }
   } finally {
     loading.value = false;
   }
