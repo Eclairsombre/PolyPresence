@@ -1188,31 +1188,134 @@ namespace backend.Controllers
          */
         public async Task<IActionResult> MergeSameSessions(string year)
         {
-            var sessions = await _context.Sessions
-                .Where(s => s.Year == year)
-                .ToListAsync();
-
-            foreach (var session in sessions.ToList())
+            try
             {
-                var candidateSessions = sessions
-                    .Where(s => s.Date == session.Date && s.StartTime < session.StartTime)
+                var sessions = await _context.Sessions
+                    .Where(s => s.Year == year)
+                    .ToListAsync();
+
+                sessions = sessions
+                    .OrderBy(s => s.Date)
+                    .ThenBy(s => s.StartTime.Hours * 60 + s.StartTime.Minutes) // Convertir en minutes pour le tri
                     .ToList();
 
-                var sessionBefore = candidateSessions
-                    .FirstOrDefault(s => s.EndTime == session.StartTime - TimeSpan.FromMinutes(15));
+                _logger.LogInformation($"Début de la fusion des sessions pour l'année {year}. {sessions.Count} sessions trouvées.");
 
-                if (sessionBefore != null && session.Name == sessionBefore.Name && session.Room == sessionBefore.Room)
+                bool anyChanges = false;
+
+                using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
                 {
-                    sessionBefore.EndTime = session.EndTime;
+                    var sessionDict = sessions.ToDictionary(s => s.Id);
 
-                    var attendances = _context.Attendances.Where(a => a.SessionId == session.Id);
-                    _context.Attendances.RemoveRange(attendances);
+                    for (int i = 0; i < sessions.Count; i++)
+                    {
+                        var session = sessions[i];
 
-                    _context.Sessions.Remove(session);
+                        if (!sessionDict.ContainsKey(session.Id))
+                        {
+                            _logger.LogDebug($"Session {session.Id} déjà traitée ou supprimée, ignorée.");
+                            continue;
+                        }
+
+                        var candidateSessions = sessions
+                            .Take(i) 
+                            .Where(s => s.Date == session.Date &&
+                                  sessionDict.ContainsKey(s.Id) &&
+                                  s.EndTime == session.StartTime - TimeSpan.FromMinutes(15) &&
+                                  s.Name == session.Name &&
+                                  s.Room == session.Room &&
+                                  s.ProfName == session.ProfName &&
+                                  s.ProfFirstname == session.ProfFirstname)
+                            .ToList();
+
+                        if (candidateSessions.Count == 0)
+                        {
+                            _logger.LogDebug($"Aucune session candidate trouvée pour fusionner avec la session {session.Id}");
+                            continue;
+                        }
+
+                        var sessionBefore = candidateSessions
+                            .AsEnumerable()  
+                            .OrderByDescending(s => s.EndTime)
+                            .First();
+
+                        _logger.LogInformation($"Fusion des sessions: ID {sessionBefore.Id} ({sessionBefore.StartTime}-{sessionBefore.EndTime}) et ID {session.Id} ({session.StartTime}-{session.EndTime})");
+
+                        sessionBefore.EndTime = session.EndTime;
+                        _context.Sessions.Update(sessionBefore);
+
+                        // Récupérer et traiter les présences
+                        var attendances = await _context.Attendances
+                            .Where(a => a.SessionId == session.Id)
+                            .ToListAsync();
+
+                        _logger.LogDebug($"Traitement de {attendances.Count} présences pour la session {session.Id}");
+
+                        foreach (var attendance in attendances)
+                        {
+                            var existingAttendance = await _context.Attendances
+                                .FirstOrDefaultAsync(a => a.SessionId == sessionBefore.Id &&
+                                                         a.StudentId == attendance.StudentId);
+
+                            if (existingAttendance == null)
+                            {
+                                attendance.SessionId = sessionBefore.Id;
+                                _logger.LogDebug($"Présence de l'étudiant {attendance.StudentId} transférée à la session {sessionBefore.Id}");
+                            }
+                            else
+                            {
+                                if (attendance.Status == AttendanceStatus.Present)
+                                {
+                                    existingAttendance.Status = AttendanceStatus.Present;
+                                    _logger.LogDebug($"Statut de présence de l'étudiant {attendance.StudentId} mis à jour à 'Present'");
+                                }
+
+                                if (!string.IsNullOrEmpty(attendance.Comment) && string.IsNullOrEmpty(existingAttendance.Comment))
+                                {
+                                    existingAttendance.Comment = attendance.Comment;
+                                    _logger.LogDebug($"Commentaire de présence de l'étudiant {attendance.StudentId} mis à jour");
+                                }
+
+                                _context.Attendances.Remove(attendance);
+                            }
+                        }
+
+                        _context.Sessions.Remove(session);
+
+                        sessionDict.Remove(session.Id);
+
+                        anyChanges = true;
+
+                        await _context.SaveChangesAsync();
+                    }
+
+                    await transaction.CommitAsync();
+
+                    if (anyChanges)
+                    {
+                        _logger.LogInformation($"Sessions fusionnées avec succès pour l'année {year}.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"Aucune fusion de sessions nécessaire pour l'année {year}.");
+                    }
                 }
-                await _context.SaveChangesAsync();
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError($"Erreur lors de la fusion des sessions pour l'année {year}: {ex.Message}");
+                    throw;
+                }
+
+                return Ok(new { message = "Sessions fusionnées avec succès." });
             }
-            return Ok(new { message = "Sessions fusionnées avec succès." });
+            catch (Exception ex)
+            {
+                _logger.LogError($"Exception globale lors de la fusion des sessions: {ex.Message}");
+                return StatusCode(500, new { error = true, message = $"Erreur lors de la fusion des sessions: {ex.Message}" });
+            }
         }
 
         /**
@@ -1375,7 +1478,7 @@ Cordialement";
 
             bool isAuthorized = false;
 
-            string? profTokenValue = profHeaderToken; 
+            string? profTokenValue = profHeaderToken;
 
             if (string.IsNullOrEmpty(profTokenValue))
             {
@@ -1519,7 +1622,7 @@ Cordialement";
             {
                 profHeaderToken = headerTokenValue.ToString();
                 _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profHeaderToken}");
-            }            
+            }
             var sessionNormal = await _context.Sessions.FindAsync(sessionId);
             if (sessionNormal == null)
             {
