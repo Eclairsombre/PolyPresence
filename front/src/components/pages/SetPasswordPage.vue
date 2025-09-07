@@ -3,6 +3,16 @@
     <div class="set-password-container">
       <h1>Définir mon mot de passe</h1>
       <form @submit.prevent="submitPassword">
+        <div class="password-requirements">
+          <p>Votre mot de passe doit contenir :</p>
+          <ul>
+            <li>Au moins 8 caractères</li>
+            <li>Au moins une lettre majuscule</li>
+            <li>Au moins une lettre minuscule</li>
+            <li>Au moins un chiffre</li>
+            <li>Au moins un caractère spécial (!@#$%^&*()_+-=[]{}|;':",.<>/?)</li>
+          </ul>
+        </div>
         <input v-model="password" type="password" placeholder="Nouveau mot de passe" required class="register-input" />
         <input v-model="confirmPassword" type="password" placeholder="Confirmer le mot de passe" required class="register-input" />
         <button class="register-btn" type="submit" :disabled="loading">{{ loading ? 'Envoi...' : 'Valider' }}</button>
@@ -31,8 +41,31 @@ const token = route.query.token;
 const submitPassword = async () => {
   errorMessage.value = '';
   successMessage.value = '';
-  if (!password.value || password.value.length < 6) {
-    errorMessage.value = 'Le mot de passe doit contenir au moins 6 caractères.';
+  
+  // Valider la longueur du mot de passe
+  if (!password.value || password.value.length < 8) {
+    errorMessage.value = 'Le mot de passe doit contenir au moins 8 caractères.';
+    return;
+  }
+  
+  // Valider les caractères du mot de passe
+  if (!/[A-Z]/.test(password.value)) {
+    errorMessage.value = 'Le mot de passe doit contenir au moins une lettre majuscule.';
+    return;
+  }
+  
+  if (!/[a-z]/.test(password.value)) {
+    errorMessage.value = 'Le mot de passe doit contenir au moins une lettre minuscule.';
+    return;
+  }
+  
+  if (!/\d/.test(password.value)) {
+    errorMessage.value = 'Le mot de passe doit contenir au moins un chiffre.';
+    return;
+  }
+  
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\\|,.<>\/?]/.test(password.value)) {
+    errorMessage.value = 'Le mot de passe doit contenir au moins un caractère spécial.';
     return;
   }
   if (password.value !== confirmPassword.value) {
@@ -92,6 +125,28 @@ const submitPassword = async () => {
   border-radius: 8px;
   font-size: 1rem;
   box-sizing: border-box;
+}
+.password-requirements {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: left;
+  border: 1px solid #eaecef;
+}
+.password-requirements p {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+  color: #2c3e50;
+}
+.password-requirements ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.password-requirements li {
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  color: #4a5568;
 }
 .register-error {
   color: #c0392b;
