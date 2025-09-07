@@ -1,7 +1,9 @@
 <template>
     <div class="signature-creator-container">
       <div class="signature-pad-wrapper">
-        <canvas ref="signaturePad" class="signature-pad"></canvas>
+        <div class="signature-pad-inner">
+          <canvas ref="signaturePad" class="signature-pad"></canvas>
+        </div>
       </div>
       <div class="signature-actions">
         <button class="clear-button" @click.prevent="clearSignature" >Effacer</button>
@@ -35,13 +37,24 @@
         
         canvas.width = rect.width * ratio;
         canvas.height = rect.height * ratio;
-        canvas.getContext("2d").scale(ratio, ratio);
+        
+        const ctx = canvas.getContext("2d");
+        ctx.scale(ratio, ratio);
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (signaturePadInstance.value) {
+          signaturePadInstance.value.off();
+        }
         
         signaturePadInstance.value = new SignaturePad(canvas, {
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          backgroundColor: 'rgba(255, 255, 255, 0)',
           penColor: 'rgb(0, 0, 0)',
-          dotSize: 1.5, 
-          velocityFilterWeight: 0.7 
+          dotSize: 2,
+          minWidth: 1,
+          maxWidth: 2.5,
+          velocityFilterWeight: 0.4,
+          throttle: 16
         });
         
         signaturePadInstance.value.addEventListener('endStroke', () => {
@@ -97,11 +110,20 @@
         
         ctx.scale(ratio, ratio);
         
+        if (signaturePadInstance.value) {
+          signaturePadInstance.value.off();
+        }
+        
         signaturePadInstance.value.clear();
         
         signaturePadInstance.value = new SignaturePad(canvas, {
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          penColor: 'rgb(0, 0, 0)'
+          backgroundColor: 'rgba(255, 255, 255, 0)',
+          penColor: 'rgb(0, 0, 0)',
+          dotSize: 2,
+          minWidth: 1,
+          maxWidth: 2.5,
+          velocityFilterWeight: 0.4,
+          throttle: 16
         });
         
         signaturePadInstance.value.addEventListener('endStroke', () => {
@@ -117,30 +139,39 @@
       };
   
       onMounted(() => {
+        // Attendre que le DOM soit complètement chargé avant d'initialiser
         setTimeout(() => {
           initSignaturePad();
-          resizeCanvas();
-        }, 0);
+          setTimeout(resizeCanvas, 50);
+        }, 100);
         
         const resizeObserver = new ResizeObserver(() => {
-          resizeCanvas();
+          setTimeout(resizeCanvas, 100);
         });
         
         if (signaturePad.value) {
-          resizeObserver.observe(signaturePad.value.parentElement);
+          resizeObserver.observe(signaturePad.value.parentElement.parentElement);
         }
         
         const handleResize = () => {
-          setTimeout(resizeCanvas, 100); 
+          setTimeout(resizeCanvas, 200); 
         };
         
         window.addEventListener('resize', handleResize);
         
+        window.addEventListener('orientationchange', () => {
+          setTimeout(forceCanvasReset, 300);
+        });
+        
         return () => {
           window.removeEventListener('resize', handleResize);
+          window.removeEventListener('orientationchange', forceCanvasReset);
           if (resizeObserver && signaturePad.value) {
-            resizeObserver.unobserve(signaturePad.value.parentElement);
+            resizeObserver.unobserve(signaturePad.value.parentElement.parentElement);
             resizeObserver.disconnect();
+          }
+          if (signaturePadInstance.value) {
+            signaturePadInstance.value.off();
           }
         };
       });
@@ -187,17 +218,38 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    overflow: visible;
+    z-index: 1;
+  }
+  
+  .signature-pad-inner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    z-index: 5;
   }
   
   .signature-pad {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
     touch-action: none;
     box-sizing: border-box;
+    z-index: 10;
+    background: transparent;
+    cursor: crosshair;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
   
   .signature-actions {
@@ -234,11 +286,22 @@
     .signature-creator-container {
       gap: 4px;
     }
+    .signature-pad-wrapper {
+      height: 150px;
+      margin: 0;
+      padding: 0;
+      overflow: visible;
+    }
     .signature-pad {
-      height: 120px;
+      height: 100% !important;
+      width: 100% !important;
+      position: relative;
+      display: block;
+      transform: translateZ(0);
     }
     .signature-actions {
       gap: 4px;
+      margin-top: 10px;
     }
     .clear-button, .save-button {
       width: 100%;
