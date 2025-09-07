@@ -292,26 +292,12 @@ namespace backend.Controllers
          * GetUserByYear
          *
          * This method retrieves all User entities for a specific year.
-         * Requires admin authentication.
+         * Public endpoint to get users by year.
          */
         [HttpGet("year/{year}")]
-        [Authorize]
         public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-            {
-                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
-            }
-
-            var currentUser = await _context.Users.FindAsync(userId);
-            if (currentUser == null || !currentUser.IsAdmin)
-            {
-                _logger.LogWarning($"Tentative d'accès non autorisé à l'endpoint year/{year} par l'utilisateur ID: {userId}");
-                return Forbid();
-            }
-
-            _logger.LogInformation($"Admin user {currentUser.StudentNumber} authorized the request for users in year {year}");
+            _logger.LogInformation($"Public request for users in year {year}");
 
             var users = await _context.Users
                 .Where(s => s.Year == year)

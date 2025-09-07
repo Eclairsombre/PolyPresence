@@ -30,7 +30,9 @@ namespace backend.Middleware
                 "/api/Status",
                 "/api/User/refresh-token",
                 "/api/User/search",
-                "/api/session/prof-signature"        // Route pour accéder à la session avec un token de signature
+                "/api/User/year",
+                "/api/User/have-password",
+                "/api/session/prof-signature"
             };
 
             var requestPath = context.Request.Path.Value?.ToLowerInvariant();
