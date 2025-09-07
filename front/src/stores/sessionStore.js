@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import axios from "axios";
+import apiClient from "../api/axios"; 
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -86,7 +86,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(`${API_URL}/Session`);
+        const response = await apiClient.get(`${API_URL}/Session`);
         this.sessions = response.data.$values;
         return this.sessions;
       } catch (error) {
@@ -111,7 +111,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(`${API_URL}/Session/year/${year}`);
+        const response = await apiClient.get(`${API_URL}/Session/year/${year}`);
         this.sessions = response.data.$values;
         return this.sessions;
       } catch (error) {
@@ -143,7 +143,10 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.post(`${API_URL}/Session`, sessionData);
+        const response = await apiClient.post(
+          `${API_URL}/Session`,
+          sessionData
+        );
 
         if (
           this.sessions.some((s) => s.year === sessionData.year) ||
@@ -173,7 +176,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(`${API_URL}/Session/${id}`);
+        const response = await apiClient.get(`${API_URL}/Session/${id}`);
         this.currentSession = response.data;
         return this.currentSession;
       } catch (error) {
@@ -196,7 +199,10 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        await axios.put(`${API_URL}/Session/${sessionData.id}`, sessionData);
+        await apiClient.put(
+          `${API_URL}/Session/${sessionData.id}`,
+          sessionData
+        );
 
         const index = this.sessions.findIndex((s) => s.id === sessionData.id);
         if (index !== -1) {
@@ -228,7 +234,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        await axios.delete(`${API_URL}/Session/${id}`);
+        await apiClient.delete(`${API_URL}/Session/${id}`);
 
         this.sessions = this.sessions.filter((s) => s.id !== id);
 
@@ -280,7 +286,7 @@ export const useSessionStore = defineStore("session", {
           const studentNumber = student.studentNumber;
           try {
             try {
-              const studentExists = await axios.get(
+              const studentExists = await apiClient.get(
                 `${API_URL}/User/search/${studentNumber}`
               );
               if (!studentExists.data || !studentExists.data.exists) {
@@ -312,7 +318,7 @@ export const useSessionStore = defineStore("session", {
               }
             }
 
-            const response = await axios.post(
+            const response = await apiClient.post(
               `${API_URL}/Session/${sessionId}/student/${studentNumber}`
             );
             results.success.push(studentNumber);
@@ -344,7 +350,9 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(`${API_URL}/Session/current/${year}`);
+        const response = await apiClient.get(
+          `${API_URL}/Session/current/${year}`
+        );
         this.currentSession = response.data;
         return this.currentSession;
       } catch (error) {
@@ -377,7 +385,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.post(
+        const response = await apiClient.post(
           `${API_URL}/Session/${sessionId}/validate/${studentNumber}`,
           { validationCode: validationCode }
         );
@@ -405,7 +413,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(
+        const response = await apiClient.get(
           `${API_URL}/Session/${sessionId}/attendance/${studentNumber}`
         );
         return response.data;
@@ -430,7 +438,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        return await axios.post(
+        return await apiClient.post(
           `${API_URL}/Session/signature/${studentNumber}`,
           { signature: signatureData }
         );
@@ -457,7 +465,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const response = await axios.get(
+        const response = await apiClient.get(
           `${API_URL}/Session/signature/${studentNumber}`
         );
         return response.data;
@@ -481,12 +489,12 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
-        const sessionResponse = await axios.get(
+        const sessionResponse = await apiClient.get(
           `${API_URL}/Session/${sessionId}`
         );
         const sessionData = sessionResponse.data;
 
-        const attendanceResponse = await axios.get(
+        const attendanceResponse = await apiClient.get(
           `${API_URL}/Session/${sessionId}/attendances`
         );
 
@@ -545,7 +553,7 @@ export const useSessionStore = defineStore("session", {
      */
     async setProfEmail(sessionId, profEmail) {
       try {
-        await axios.post(`${API_URL}/Session/${sessionId}/set-prof-email`, {
+        await apiClient.post(`${API_URL}/Session/${sessionId}/set-prof-email`, {
           profEmail,
         });
         return true;
@@ -561,7 +569,9 @@ export const useSessionStore = defineStore("session", {
      */
     async resendProfMail(sessionId) {
       try {
-        await axios.post(`${API_URL}/Session/${sessionId}/resend-prof-mail`);
+        await apiClient.post(
+          `${API_URL}/Session/${sessionId}/resend-prof-mail`
+        );
         return true;
       } catch (e) {
         throw e;
@@ -577,7 +587,7 @@ export const useSessionStore = defineStore("session", {
       this.loading = true;
       this.error = null;
       try {
-        const response = await axios.get(
+        const response = await apiClient.get(
           `${API_URL}/Session/${sessionId}/attendances`
         );
         return response.data.$values || [];
@@ -599,7 +609,9 @@ export const useSessionStore = defineStore("session", {
      */
     async changeAttendanceStatus(sessionId, studentNumber, status) {
       try {
-        await axios.post(
+        // L'intercepteur axios va automatiquement ajouter le token de signature du professeur
+        // depuis l'URL s'il est présent, donc nous n'avons pas besoin de le passer explicitement
+        await apiClient.post(
           `${API_URL}/Session/${sessionId}/attendance-status/${studentNumber}`,
           { status }
         );
@@ -634,7 +646,9 @@ export const useSessionStore = defineStore("session", {
      */
     async updateAttendanceComment(sessionId, studentNumber, comment) {
       try {
-        await axios.post(
+        // L'intercepteur axios va automatiquement ajouter le token de signature du professeur
+        // depuis l'URL s'il est présent, donc nous n'avons pas besoin de le passer explicitement
+        await apiClient.post(
           `${API_URL}/Session/${sessionId}/attendance-comment/${studentNumber}`,
           { comment }
         );

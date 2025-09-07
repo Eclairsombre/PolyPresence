@@ -12,10 +12,39 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    const pathname = window.location.pathname;
+
+    const isProfSignaturePage = pathname.includes("/prof-signature/");
+
+    if (isProfSignaturePage) {
+      const pathParts = pathname.split("/");
+
+      const profSignatureTokenIndex = pathParts.indexOf("prof-signature") + 1;
+
+      if (
+        profSignatureTokenIndex > 0 &&
+        profSignatureTokenIndex < pathParts.length
+      ) {
+        const profSignatureToken = pathParts[profSignatureTokenIndex];
+        if (profSignatureToken) {
+          config.headers["Prof-Signature-Token"] = profSignatureToken;
+        } else {
+          console.warn(
+            "Token de signature professeur trouvé dans l'URL mais vide"
+          );
+        }
+      } else {
+        console.warn(
+          "Impossible de trouver l'index du token de signature professeur dans l'URL"
+        );
+      }
+    }
+
     const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => {

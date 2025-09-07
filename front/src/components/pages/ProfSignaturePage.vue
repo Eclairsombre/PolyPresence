@@ -136,6 +136,15 @@ async function loadAttendances() {
 }
 
 onMounted(async () => {
+  
+  const pathParts = window.location.pathname.split("/");
+  const profSignatureTokenIndex = pathParts.indexOf("prof-signature") + 1;
+  if (profSignatureTokenIndex > 0 && profSignatureTokenIndex < pathParts.length) {
+    console.log("Token extrait par l'intercepteur:", pathParts[profSignatureTokenIndex]);
+  } else {
+    console.log("Impossible d'extraire le token comme le fait l'intercepteur:", pathParts);
+  }
+  
   const data = await profSignatureStore.fetchSessionByProfSignatureToken(token);
   if (data) {
     session.value = data;
@@ -168,6 +177,14 @@ const cancelCommentEdit = () => {
 const saveComment = async (studentNumber) => {
   if (!session.value?.id) return;
   
+  const pathParts = window.location.pathname.split("/");
+  const profSignatureTokenIndex = pathParts.indexOf("prof-signature") + 1;
+  if (profSignatureTokenIndex > 0 && profSignatureTokenIndex < pathParts.length) {
+    console.log("Token trouvé dans l'URL pour commentaire:", pathParts[profSignatureTokenIndex]);
+  } else {
+    console.log("Token non trouvé dans l'URL pour commentaire, parties du chemin:", pathParts);
+  }
+  
   try {
     const result = await sessionStore.updateAttendanceComment(
       session.value.id,
@@ -188,8 +205,8 @@ const saveComment = async (studentNumber) => {
       editingComment.value = '';
     }
   } catch (e) {
-    error.value = "Erreur lors de l'enregistrement du commentaire.";
-    console.error("Erreur lors de l'enregistrement du commentaire :", e);
+    console.error("Erreur détaillée lors de l'enregistrement du commentaire:", e);
+    error.value = "Erreur lors de l'enregistrement du commentaire: " + (e.response?.status === 403 ? "Autorisation refusée" : e.message);
   }
 };
 
@@ -215,6 +232,15 @@ const submitSignature = async () => {
 
 const makeAction = async (action, studentNumber) => {
   if (!session.value?.id) return;
+  
+  const pathParts = window.location.pathname.split("/");
+  const profSignatureTokenIndex = pathParts.indexOf("prof-signature") + 1;
+  if (profSignatureTokenIndex > 0 && profSignatureTokenIndex < pathParts.length) {
+    console.log("Token trouvé dans l'URL:", pathParts[profSignatureTokenIndex]);
+  } else {
+    console.log("Token non trouvé dans l'URL, parties du chemin:", pathParts);
+  }
+  
   let newStatus;
   switch (action) {
     case 1:
@@ -227,11 +253,20 @@ const makeAction = async (action, studentNumber) => {
     default:
       return;
   }
+  
   try {
-    await sessionStore.changeAttendanceStatus(session.value.id, studentNumber, newStatus);
+    
+    const headers = { "Prof-Signature-Token": token };
+    console.log("En-têtes explicites:", headers);
+
+    await sessionStore.changeAttendanceStatus(session.value.id, studentNumber, newStatus, headers);
+    console.log("Requête changeAttendanceStatus réussie");
     await loadAttendances();
   } catch (e) {
-    error.value = "Erreur lors du changement de statut.";
+    console.error("Erreur détaillée:", e);
+    console.error("Response status:", e.response?.status);
+    console.error("Response data:", e.response?.data);
+    error.value = "Erreur lors du changement de statut: " + (e.response?.status === 403 ? "Autorisation refusée" : e.message);
   }
 };
 </script>

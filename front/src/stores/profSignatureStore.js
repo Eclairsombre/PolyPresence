@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import axios from "axios";
+import apiClient from "../api/axios"; 
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -23,7 +23,7 @@ export const useProfSignatureStore = defineStore("profSignature", {
       this.loading = true;
       this.error = null;
       try {
-        const response = await axios.get(
+        const response = await apiClient.get(
           `${API_URL}/Session/prof-signature/${token}`
         );
         this.session = response.data;
@@ -46,7 +46,7 @@ export const useProfSignatureStore = defineStore("profSignature", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.post(
+        await apiClient.post(
           `${API_URL}/Session/prof-signature/${token}`,
           signatureData
         );

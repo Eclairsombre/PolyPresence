@@ -323,13 +323,32 @@ namespace backend.Controllers
          * PutSession
          *
          * This method updates an existing session in the database.
+         * Only administrators or delegates can update sessions.
          */
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> PutSession(int id, Session session)
         {
             if (id != session.Id)
             {
                 return BadRequest();
+            }
+
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé: {currentUser.StudentNumber} a tenté de modifier la session ID {id}");
+                return Forbid();
             }
 
             _context.Entry(session).State = EntityState.Modified;
@@ -357,10 +376,31 @@ namespace backend.Controllers
          * DeleteSession
          *
          * This method deletes a session from the database.
+         * Only administrators can delete sessions.
          */
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> DeleteSession(int id)
         {
+            // Vérifier les autorisations de l'utilisateur
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+            }
+
+            // Vérifier si l'utilisateur est administrateur
+            if (!currentUser.IsAdmin)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé: {currentUser.StudentNumber} a tenté de supprimer la session ID {id}");
+                return Forbid();
+            }
+
             var session = await _context.Sessions.FindAsync(id);
             if (session == null)
             {
@@ -572,7 +612,6 @@ namespace backend.Controllers
          * Le code de validation de la session n'est inclus que si l'utilisateur est un délégué ou un administrateur.
          */
         [HttpGet("{sessionId}/attendance/{studentNumber}")]
-        [Authorize]
         public async Task<IActionResult> GetAttendance(int sessionId, string studentNumber)
         {
             var session = await _context.Sessions.FindAsync(sessionId);
@@ -598,24 +637,96 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
             }
 
+            bool isAuthorized = false;
+            bool isProfToken = false;
             var isAdmin = false;
             var isDelegate = false;
+
+            string? profTokenValue = null;
+
+            if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
+            {
+                profTokenValue = headerToken.ToString();
+                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profTokenValue}");
+            }
+            else if (Request.Query.TryGetValue("token", out var queryToken))
+            {
+                profTokenValue = queryToken.ToString();
+                _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+            }
+            else
+            {
+                var path = Request.Path.Value;
+                if (!string.IsNullOrEmpty(path) && path.Contains("/prof-signature/"))
+                {
+                    var segments = path.Split('/');
+                    for (int i = 0; i < segments.Length; i++)
+                    {
+                        if (segments[i] == "prof-signature" && i + 1 < segments.Length)
+                        {
+                            profTokenValue = segments[i + 1];
+                            _logger.LogInformation($"Token trouvé dans le chemin: {profTokenValue}");
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue != session.ProfSignatureToken)
+            {
+                var sessionByToken = await _context.Sessions
+                    .FirstOrDefaultAsync(s => s.ProfSignatureToken == profTokenValue);
+
+                if (sessionByToken != null)
+                {
+                    session = sessionByToken;
+                    sessionId = session.Id;
+                    _logger.LogInformation($"Session trouvée par token: {sessionId}");
+
+                    attendance = await _context.Attendances
+                        .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
+
+                    if (attendance == null)
+                    {
+                        return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue == session.ProfSignatureToken)
+            {
+                isAuthorized = true;
+                isProfToken = true;
+                _logger.LogInformation($"Accès autorisé par token professeur pour consulter la présence de {studentNumber} dans la session {sessionId}");
+            }
 
             if (User.Identity?.IsAuthenticated == true)
             {
                 var isAdminClaim = User.FindFirstValue("role");
                 var isDelegateClaim = User.FindFirstValue("isDelegate");
+                var userStudentNumber = User.FindFirstValue("studentNumber");
 
                 isAdmin = isAdminClaim == "Admin";
                 isDelegate = isDelegateClaim == "true";
+                bool isOwnAttendance = userStudentNumber == studentNumber;
 
-                var userStudentNumber = User.FindFirstValue("studentNumber");
+                if (isAdmin || isDelegate || isOwnAttendance)
+                {
+                    isAuthorized = true;
+                }
+
                 _logger.LogInformation($"User {userStudentNumber} requesting attendance info - Role: {isAdminClaim}, IsDelegate: {isDelegateClaim}");
                 _logger.LogInformation($"Interpreted values - IsAdmin: {isAdmin}, IsDelegate: {isDelegate}");
             }
-            else
+            else if (!isProfToken)
             {
                 _logger.LogInformation("No authenticated user found for attendance request");
+            }
+
+            if (!isAuthorized)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé à la présence de {studentNumber} pour la session {sessionId}");
+                return Forbid();
             }
 
             var userDto = new
@@ -1214,25 +1325,132 @@ Cordialement";
          * ChangeAttendanceStatus
          *
          * This method changes the attendance status for a student in a session.
+         * Accessible ONLY via:
+         * - Authenticated users (admin only)
+         * - Professors with valid signature token (without authentication)
          */
         [HttpPost("{sessionId}/attendance-status/{studentNumber}")]
         public async Task<IActionResult> ChangeAttendanceStatus(int sessionId, string studentNumber, [FromBody] ChangeAttendanceStatusModel model)
         {
+            _logger.LogInformation($"==== DÉBUT TRAITEMENT REQUÊTE CHANGEMENT STATUT ====");
+            _logger.LogInformation($"Requête reçue pour modifier le statut de présence: Session={sessionId}, Étudiant={studentNumber}");
+
+            _logger.LogInformation("TOUS LES EN-TÊTES:");
+            foreach (var header in Request.Headers)
+            {
+                _logger.LogInformation($"  {header.Key}: {header.Value}");
+            }
+
+            if (model != null)
+            {
+                _logger.LogInformation($"Modèle reçu: Status={model.Status}, ProfSignatureToken={model.ProfSignatureToken ?? "null"}");
+            }
+            else
+            {
+                _logger.LogInformation("Modèle reçu: null");
+            }
+
+            string? profHeaderToken = null;
+            if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerTokenValue))
+            {
+                profHeaderToken = headerTokenValue.ToString();
+                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profHeaderToken}");
+            }
+            else
+            {
+                _logger.LogWarning("Aucun token trouvé dans l'en-tête Prof-Signature-Token");
+            }
+
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
             {
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
             if (user == null)
             {
                 return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
             }
+
+            bool isAuthorized = false;
+
+            string? profTokenValue = profHeaderToken; 
+
+            if (string.IsNullOrEmpty(profTokenValue))
+            {
+                if (Request.Query.TryGetValue("token", out var queryToken))
+                {
+                    profTokenValue = queryToken.ToString();
+                    _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+                }
+                else if (model != null && !string.IsNullOrEmpty(model.ProfSignatureToken))
+                {
+                    profTokenValue = model.ProfSignatureToken;
+                    _logger.LogInformation($"Token trouvé dans le body: {profTokenValue}");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(profTokenValue))
+            {
+                if (profTokenValue != session.ProfSignatureToken)
+                {
+                    var sessionByToken = await _context.Sessions
+                        .FirstOrDefaultAsync(s => s.ProfSignatureToken == profTokenValue);
+
+                    if (sessionByToken != null)
+                    {
+                        session = sessionByToken;
+                        sessionId = session.Id;
+                        _logger.LogInformation($"Session trouvée par token: {sessionId}");
+                    }
+                }
+
+                if (profTokenValue == session.ProfSignatureToken)
+                {
+                    isAuthorized = true;
+                    _logger.LogInformation($"Accès autorisé par token professeur pour modifier le statut de présence de {studentNumber} dans la session {sessionId}");
+                }
+            }
+
+            if (!isAuthorized && User.Identity?.IsAuthenticated == true)
+            {
+                if (int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+                {
+                    var currentUser = await _context.Users.FindAsync(currentUserId);
+                    if (currentUser != null && currentUser.IsAdmin)
+                    {
+                        isAuthorized = true;
+                        _logger.LogInformation($"Accès autorisé pour administrateur {currentUser.StudentNumber} pour modifier le statut de présence de {studentNumber}");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Utilisateur {currentUser?.StudentNumber} non autorisé (non admin) pour modifier le statut de présence");
+                    }
+                }
+            }
+
+            if (!isAuthorized)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé pour modifier le statut de présence de {studentNumber}");
+                _logger.LogInformation($"Résumé de l'autorisation: Utilisateur authentifié: {User.Identity?.IsAuthenticated}, ProfToken dans l'en-tête: {!string.IsNullOrEmpty(profHeaderToken)}, ProfToken dans le body: {model?.ProfSignatureToken != null}");
+                _logger.LogInformation($"Token attendu pour la session {sessionId}: {session.ProfSignatureToken}");
+                return Forbid();
+            }
+
+            _logger.LogInformation($"Accès autorisé pour modification de présence, méthode: {(User.Identity?.IsAuthenticated == true ? "Authentification utilisateur" : "Token signature professeur")}");
+
             var attendance = await _context.Attendances.FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
             if (attendance == null)
             {
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
             }
+
+            if (model == null)
+            {
+                return BadRequest(new { error = true, message = "Données de statut invalides." });
+            }
+
             attendance.Status = (AttendanceStatus)model.Status;
             await _context.SaveChangesAsync();
             return Ok(new { message = "Statut de présence mis à jour avec succès." });
@@ -1246,6 +1464,7 @@ Cordialement";
         public class ChangeAttendanceStatusModel
         {
             public int Status { get; set; }
+            public string? ProfSignatureToken { get; set; }
         }
 
         /**
@@ -1275,32 +1494,172 @@ Cordialement";
          * UpdateAttendanceComment
          *
          * This method updates the comment for a student's attendance in a session.
+         * Accessible via:
+         * - Authenticated users (own attendance, admin or delegate)
+         * - Professors with valid signature token (without authentication)
          */
         [HttpPost("{sessionId}/attendance-comment/{studentNumber}")]
         public async Task<IActionResult> UpdateAttendanceComment(int sessionId, string studentNumber, [FromBody] CommentUpdateModel model)
         {
-            var session = await _context.Sessions.FindAsync(sessionId);
-            if (session == null)
+            _logger.LogInformation($"Requête reçue pour modifier le commentaire: Session={sessionId}, Étudiant={studentNumber}");
+            _logger.LogInformation($"En-têtes: {string.Join(", ", Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
+
+            // Log des détails de la requête pour aider au débogage
+            if (model != null)
+            {
+                _logger.LogInformation($"Modèle reçu: Comment={model.Comment}, ProfSignatureToken={model.ProfSignatureToken ?? "null"}");
+            }
+            else
+            {
+                _logger.LogInformation("Modèle reçu: null");
+            }
+
+            string? profHeaderToken = null;
+            if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerTokenValue))
+            {
+                profHeaderToken = headerTokenValue.ToString();
+                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profHeaderToken}");
+            }            
+            var sessionNormal = await _context.Sessions.FindAsync(sessionId);
+            if (sessionNormal == null)
             {
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
-            if (user == null)
+            var userNormal = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+            if (userNormal == null)
             {
                 return NotFound(new { error = true, message = "Aucun utilisateur trouvé avec les identifiants fournis." });
             }
 
-            var attendance = await _context.Attendances
-                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == user.Id);
-            if (attendance == null)
+            bool isAuthorized = false;
+            string accessType = "non autorisé";
+
+            string? profTokenValue = null;
+
+            if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
+            {
+                profTokenValue = headerToken.ToString();
+                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profTokenValue}");
+            }
+            else if (Request.Query.TryGetValue("token", out var queryToken))
+            {
+                profTokenValue = queryToken.ToString();
+                _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+            }
+            else if (model != null && !string.IsNullOrEmpty(model.ProfSignatureToken))
+            {
+                profTokenValue = model.ProfSignatureToken;
+                _logger.LogInformation($"Token trouvé dans le body: {profTokenValue}");
+            }
+            else if (Request.Headers.TryGetValue("Referer", out var referer))
+            {
+                string refererStr = referer.ToString();
+                _logger.LogInformation($"Recherche du token dans le Referer: {refererStr}");
+
+                if (!string.IsNullOrEmpty(refererStr) && refererStr.Contains("/prof-signature/"))
+                {
+                    try
+                    {
+                        var refererUri = new Uri(refererStr);
+                        var segments = refererUri.AbsolutePath.Split('/');
+                        for (int i = 0; i < segments.Length; i++)
+                        {
+                            if (segments[i] == "prof-signature" && i + 1 < segments.Length)
+                            {
+                                profTokenValue = segments[i + 1];
+                                _logger.LogInformation($"Token trouvé dans le Referer: {profTokenValue}");
+                                break;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Erreur lors de l'analyse du Referer: {ex.Message}");
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(profTokenValue))
+            {
+                _logger.LogInformation("Recherche de toutes les sessions récentes...");
+                var today = DateTime.Today;
+                var sessions = await _context.Sessions
+                    .Where(s => s.Date >= today.AddDays(-1) && s.Date <= today.AddDays(1))
+                    .ToListAsync();
+
+                foreach (var s in sessions)
+                {
+                    _logger.LogInformation($"Session ID={s.Id}, Date={s.Date}, ProfSignatureToken={s.ProfSignatureToken}");
+                }
+
+                var matchingSession = sessions.FirstOrDefault(s => s.Id == sessionId);
+                if (matchingSession != null)
+                {
+                    profTokenValue = matchingSession.ProfSignatureToken;
+                    _logger.LogInformation($"Utilisation du token de la session trouvée: {profTokenValue}");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue != sessionNormal.ProfSignatureToken)
+            {
+                var sessionByToken = await _context.Sessions
+                    .FirstOrDefaultAsync(s => s.ProfSignatureToken == profTokenValue);
+
+                if (sessionByToken != null)
+                {
+                    sessionNormal = sessionByToken;
+                    sessionId = sessionNormal.Id;
+                    _logger.LogInformation($"Session trouvée par token: {sessionId}");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue == sessionNormal.ProfSignatureToken)
+            {
+                isAuthorized = true;
+                accessType = "prof-token";
+                _logger.LogInformation($"Accès autorisé par token professeur pour modifier le commentaire de présence de {studentNumber} dans la session {sessionId}");
+            }
+            else if (User.Identity?.IsAuthenticated == true)
+            {
+                if (int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+                {
+                    var currentUser = await _context.Users.FindAsync(currentUserId);
+                    if (currentUser != null)
+                    {
+                        bool isOwnAttendance = currentUser.Id == userNormal.Id;
+                        if (currentUser.IsAdmin || currentUser.IsDelegate || isOwnAttendance)
+                        {
+                            isAuthorized = true;
+                            accessType = currentUser.IsAdmin ? "admin" : (currentUser.IsDelegate ? "délégué" : "utilisateur");
+                            _logger.LogInformation($"Accès autorisé pour {accessType} {currentUser.StudentNumber} pour modifier le commentaire de présence de {studentNumber}");
+                        }
+                    }
+                }
+            }
+
+            if (!isAuthorized)
+            {
+                _logger.LogWarning($"Tentative d'accès non autorisé pour modifier le commentaire de présence de {studentNumber}");
+                return Forbid();
+            }
+
+            var attendanceNormal = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == userNormal.Id);
+            if (attendanceNormal == null)
             {
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
             }
 
-            attendance.Comment = model.Comment;
-            await _context.SaveChangesAsync();
+            if (model != null)
+            {
+                attendanceNormal.Comment = model.Comment;
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                return BadRequest(new { error = true, message = "Données de commentaire invalides." });
+            }
 
             return Ok(new { message = "Commentaire mis à jour avec succès." });
         }
@@ -1313,6 +1672,7 @@ Cordialement";
         public class CommentUpdateModel
         {
             public string Comment { get; set; } = string.Empty;
+            public string? ProfSignatureToken { get; set; }
         }
     }
 }
