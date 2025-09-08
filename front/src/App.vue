@@ -2,7 +2,9 @@
   <div class="app-container">
     <header class="app-header">
       <div class="header-left">
-        <img src="/polytech-logo.png" alt="Logo PolyPresence" class="header-logo" />
+        <router-link to="/">
+          <img src="/polytech-logo.png" alt="Logo PolyPresence" class="header-logo" />
+        </router-link>
         <h1>PolyPresence</h1>
       </div>
       <nav class="app-nav">
