@@ -7,7 +7,7 @@
       </div>
       <nav class="app-nav">
           <router-link to="/">Accueil</router-link>
-          <router-link to="/signature">Ma signature</router-link>
+          <router-link to="/signature" v-if="user">Ma signature</router-link>
           <router-link v-if="isAdmin" to="/students">Étudiants</router-link>
           <router-link v-if="isAdmin" to="/sessions">Sessions</router-link>
           <router-link v-if="isAdmin" to="/mail-preferences">Préférences de Mail</router-link>
