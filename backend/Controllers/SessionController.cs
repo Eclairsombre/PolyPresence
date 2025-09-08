@@ -1100,6 +1100,30 @@ namespace backend.Controllers
                     var existingSession = await _context.Sessions.FirstOrDefaultAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
                     if (existingSession != null)
                     {
+                        if (existingSession.IsMerged)
+                        {
+                            bool needsUpdate = existingSession.Name != summary ||
+                                              existingSession.ProfName != profName ||
+                                              existingSession.ProfFirstname != profFirstname ||
+                                              existingSession.Room != room;
+
+                            if (needsUpdate)
+                            {
+                                _logger.LogInformation($"Mise à jour des informations de la session fusionnée ID {existingSession.Id} ({existingSession.Date}, {existingSession.StartTime}-{existingSession.EndTime})");
+                                existingSession.Name = summary;
+                                existingSession.ProfName = profName;
+                                existingSession.ProfFirstname = profFirstname;
+                                existingSession.Room = room;
+                                _context.Sessions.Update(existingSession);
+                                await _context.SaveChangesAsync();
+                            }
+                            else
+                            {
+                                _logger.LogInformation($"Préservation de la session fusionnée ID {existingSession.Id} (aucune modification nécessaire)");
+                            }
+                            continue;
+                        }
+
                         if (existingSession.Name != summary || existingSession.ProfName != profName || existingSession.ProfFirstname != profFirstname || existingSession.Room != room)
                         {
                             var oldAttendances = _context.Attendances.Where(a => a.SessionId == existingSession.Id);
@@ -1117,10 +1141,11 @@ namespace backend.Controllers
                         .Where(s => s.Year == year && s.Date == date)
                         .ToListAsync();
                     var overlappingSessions = allSessionsSameDay
-                        .Where(s => s.StartTime < endTime && s.EndTime > startTime)
+                        .Where(s => s.StartTime < endTime && s.EndTime > startTime && !s.IsMerged) // Ne pas supprimer les sessions fusionnées
                         .ToList();
                     foreach (var overlap in overlappingSessions)
                     {
+                        _logger.LogInformation($"Suppression de la session qui se chevauche ID {overlap.Id} ({overlap.Date}, {overlap.StartTime}-{overlap.EndTime})");
                         var attendances = _context.Attendances.Where(a => a.SessionId == overlap.Id);
                         _context.Attendances.RemoveRange(attendances);
                         await _context.SaveChangesAsync();
@@ -1162,8 +1187,10 @@ namespace backend.Controllers
                 await _context.SaveChangesAsync();
                 foreach (var oldSession in existingSessions)
                 {
-                    if (oldSession.Date >= DateTime.Today && !importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)))
+                    // Ne pas supprimer les sessions fusionnées
+                    if (oldSession.Date >= DateTime.Today && !importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)) && !oldSession.IsMerged)
                     {
+                        _logger.LogInformation($"Suppression de l'ancienne session ID {oldSession.Id} ({oldSession.Date}, {oldSession.StartTime}-{oldSession.EndTime})");
                         var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
                         _context.Attendances.RemoveRange(attendances);
                         await _context.SaveChangesAsync();
@@ -1220,7 +1247,7 @@ namespace backend.Controllers
                         }
 
                         var candidateSessions = sessions
-                            .Take(i) 
+                            .Take(i)
                             .Where(s => s.Date == session.Date &&
                                   sessionDict.ContainsKey(s.Id) &&
                                   s.EndTime == session.StartTime - TimeSpan.FromMinutes(15) &&
@@ -1237,13 +1264,14 @@ namespace backend.Controllers
                         }
 
                         var sessionBefore = candidateSessions
-                            .AsEnumerable()  
+                            .AsEnumerable()
                             .OrderByDescending(s => s.EndTime)
                             .First();
 
                         _logger.LogInformation($"Fusion des sessions: ID {sessionBefore.Id} ({sessionBefore.StartTime}-{sessionBefore.EndTime}) et ID {session.Id} ({session.StartTime}-{session.EndTime})");
 
                         sessionBefore.EndTime = session.EndTime;
+                        sessionBefore.IsMerged = true; // Marquer la session comme fusionnée
                         _context.Sessions.Update(sessionBefore);
 
                         // Récupérer et traiter les présences

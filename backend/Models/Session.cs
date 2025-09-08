@@ -20,7 +20,7 @@ namespace backend.Models
         [JsonIgnore]
         public List<Attendance> Attendances { get; set; } = new List<Attendance>();
         public bool IsSent { get; set; } = false;
-
         public bool IsMailSent { get; set; } = false;
+        public bool IsMerged { get; set; } = false;
     }
 }
