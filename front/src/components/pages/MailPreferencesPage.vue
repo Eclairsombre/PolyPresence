@@ -33,7 +33,7 @@
 
       <div class="mail-timer">
         <p v-if="timerData">
-          Prochain envoi automatique : {{ timerData.nextMail }} (dans {{ timerData.mailRemaining }})
+          Prochain envoi automatique : {{ new Date(timerData.nextMail).toLocaleString('fr-FR') }}
         </p>
       </div>
     </div>
@@ -116,7 +116,7 @@ export default defineComponent({
     onMounted(() => {
       fetchPreferences();
       fetchTimer();
-      setInterval(fetchTimer, 1000);
+      setInterval(fetchTimer, 10000); 
     });
 
     return {

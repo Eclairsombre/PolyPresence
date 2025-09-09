@@ -76,11 +76,23 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
 
     /**
      * Fetches timer data for notifications
+     * Includes caching to avoid excessive API calls
      */
+    lastTimerFetch: null,
     async fetchTimers() {
+      const now = Date.now();
+      if (
+        this.lastTimerFetch &&
+        now - this.lastTimerFetch < 5000 &&
+        this.timerData
+      ) {
+        return this.timerData;
+      }
+
       try {
         const response = await axios.get(`${API_URL}/Session/timers`);
         this.timerData = response.data;
+        this.lastTimerFetch = now;
       } catch (error) {
         this.timerData = null;
       }

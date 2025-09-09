@@ -22,7 +22,7 @@ namespace backend.Services
         private const int MaxPasswordResetAttempts = 2;
         private static readonly TimeSpan PasswordResetWindow = TimeSpan.FromHours(1);
 
-        private const int MaxApiCalls = 100;
+        private const int MaxApiCalls = 500;
         private static readonly TimeSpan ApiCallWindow = TimeSpan.FromMinutes(1);
 
         public RateLimitService(ILogger<RateLimitService> logger)

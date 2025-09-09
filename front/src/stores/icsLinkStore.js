@@ -125,11 +125,23 @@ export const useIcsLinkStore = defineStore("icsLink", {
 
     /**
      * Fetches timer data for scheduled imports
+     * Includes caching to avoid excessive API calls
      */
+    lastTimerFetch: null,
     async fetchTimers() {
+      const now = Date.now();
+      if (
+        this.lastTimerFetch &&
+        now - this.lastTimerFetch < 5000 &&
+        this.timers
+      ) {
+        return this.timers;
+      }
+
       try {
         const res = await axios.get(`${API_URL}/Session/timers`);
         this.timers = res.data;
+        this.lastTimerFetch = now;
       } catch {
         this.timers = null;
       }

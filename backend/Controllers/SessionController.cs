@@ -1098,11 +1098,11 @@ namespace backend.Controllers
                     importedSessions.Add((date, startTime, endTime));
 
                     var exactMatch = await _context.Sessions.FirstOrDefaultAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
-                    
+
                     var mergedSessions = await _context.Sessions
                         .Where(s => s.Date == date && s.Year == year && s.IsMerged)
                         .ToListAsync();
-                    
+
                     var mergedMatches = mergedSessions
                         .Where(s => s.StartTime <= startTime && s.EndTime >= endTime)
                         .ToList();
@@ -1154,7 +1154,7 @@ namespace backend.Controllers
                         _logger.LogInformation($"La session fusionnée existante ID {existingSession.Id} ({existingSession.Date}, {existingSession.StartTime}-{existingSession.EndTime}) couvre déjà cette plage horaire ({date}, {startTime}-{endTime})");
                         continue;
                     }
-                    
+
                     var allSessionsSameDay = await _context.Sessions
                         .Where(s => s.Year == year && s.Date == date)
                         .ToListAsync();
@@ -1208,11 +1208,11 @@ namespace backend.Controllers
                     if (oldSession.Date >= DateTime.Today && !oldSession.IsMerged && !importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)))
                     {
                         bool coveredByMergedSession = existingSessions
-                            .Any(s => s.IsMerged && 
-                                  s.Date == oldSession.Date && 
-                                  s.StartTime <= oldSession.StartTime && 
+                            .Any(s => s.IsMerged &&
+                                  s.Date == oldSession.Date &&
+                                  s.StartTime <= oldSession.StartTime &&
                                   s.EndTime >= oldSession.EndTime);
-                        
+
                         if (!coveredByMergedSession)
                         {
                             _logger.LogInformation($"Suppression de l'ancienne session ID {oldSession.Id} ({oldSession.Date}, {oldSession.StartTime}-{oldSession.EndTime})");
@@ -1640,13 +1640,11 @@ Cordialement";
             var mailTime = backend.Services.TimerService.StaticNextMailExecutionTime;
             var now = DateTime.Now;
             var importRemaining = importTime - now;
-            var mailRemaining = mailTime - now;
             return Ok(new
             {
                 nextImport = importTime,
                 importRemaining = importRemaining.ToString(@"hh\:mm\:ss"),
-                nextMail = mailTime,
-                mailRemaining = mailRemaining.ToString(@"hh\:mm\:ss")
+                nextMail = mailTime
             });
         }
 
