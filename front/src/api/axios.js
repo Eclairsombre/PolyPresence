@@ -3,7 +3,7 @@ import axios from "axios";
 const API_URL = import.meta.env.VITE_API_URL;
 
 const getAccessToken = () => {
-  return sessionStorage.getItem("access_token");
+  return localStorage.getItem("access_token");
 };
 
 const apiClient = axios.create({
@@ -73,9 +73,9 @@ apiClient.interceptors.response.use(
         console.log(
           "Session expirée ou non autorisé. Redirection vers la page de connexion."
         );
-        sessionStorage.removeItem("access_token");
+        localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
-        sessionStorage.removeItem("user_info");
+        localStorage.removeItem("user_info");
         window.location.href = `/login`;
       }
     }

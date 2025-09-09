@@ -14,7 +14,7 @@ const PUBLIC_ROUTES = [
 
 class TokenManager {
   static getAccessToken() {
-    return sessionStorage.getItem("access_token");
+    return localStorage.getItem("access_token");
   }
 
   static getRefreshToken() {
@@ -22,25 +22,25 @@ class TokenManager {
   }
 
   static setTokens(accessToken, refreshToken) {
-    sessionStorage.setItem("access_token", accessToken);
+    localStorage.setItem("access_token", accessToken);
     if (refreshToken) {
       localStorage.setItem("refresh_token", refreshToken);
     }
   }
 
   static clearTokens() {
-    sessionStorage.removeItem("access_token");
+    localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    sessionStorage.removeItem("user_info");
+    localStorage.removeItem("user_info");
   }
 
   static getUserInfo() {
-    const userInfo = sessionStorage.getItem("user_info");
+    const userInfo = localStorage.getItem("user_info");
     return userInfo ? JSON.parse(userInfo) : null;
   }
 
   static setUserInfo(userInfo) {
-    sessionStorage.setItem("user_info", JSON.stringify(userInfo));
+    localStorage.setItem("user_info", JSON.stringify(userInfo));
   }
 
   static isTokenExpiringSoon() {
@@ -114,14 +114,14 @@ axios.interceptors.request.use(
 
     const currentTime = Date.now();
     const lastRefreshAttempt = parseInt(
-      sessionStorage.getItem("last_refresh_attempt") || "0"
+      localStorage.getItem("last_refresh_attempt") || "0"
     );
 
     if (
       TokenManager.isTokenExpiringSoon() &&
       currentTime - lastRefreshAttempt > 60000
     ) {
-      sessionStorage.setItem("last_refresh_attempt", currentTime.toString());
+      localStorage.setItem("last_refresh_attempt", currentTime.toString());
       const refreshToken = TokenManager.getRefreshToken();
       if (refreshToken && !isRefreshing) {
         try {
