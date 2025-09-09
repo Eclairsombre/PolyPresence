@@ -70,25 +70,48 @@ namespace backend.Controllers
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
                 var now = DateTime.Now;
-                _logger.LogInformation($"Vérification des sessions à {now} pour l'envoi de mails au professeur.");
+                _logger.LogInformation($"Vérification des sessions à {now} pour l'envoi de mails aux professeurs.");
+
                 var sessions = await scopedContext.Sessions
-                    .Where(s => !s.IsMailSent && s.Date == now.Date && s.ProfEmail != "")
+                    .Where(s => s.Date == now.Date &&
+                               ((!s.IsMailSent && !string.IsNullOrEmpty(s.ProfEmail)) ||
+                                (!s.IsMailSent2 && !string.IsNullOrEmpty(s.ProfEmail2))))
                     .ToListAsync();
+
                 sessions = sessions
                     .Where(s => s.StartTime <= now.TimeOfDay)
                     .ToList();
+
                 foreach (var session in sessions)
                 {
-                    try
+                    if (!session.IsMailSent && !string.IsNullOrEmpty(session.ProfEmail))
                     {
-                        await SendProfSignatureMail(session);
-                        session.IsMailSent = true;
-                        await scopedContext.SaveChangesAsync();
-                        logger.LogInformation($"Mail envoyé automatiquement au professeur pour la session {session.Id}.");
+                        try
+                        {
+                            await SendProfSignatureMail(session, 1);
+                            session.IsMailSent = true;
+                            await scopedContext.SaveChangesAsync();
+                            logger.LogInformation($"Mail envoyé automatiquement au professeur 1 pour la session {session.Id}.");
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError($"Erreur lors de l'envoi automatique du mail au professeur 1 pour la session {session.Id} : {ex.Message}");
+                        }
                     }
-                    catch (Exception ex)
+
+                    if (!session.IsMailSent2 && !string.IsNullOrEmpty(session.ProfEmail2))
                     {
-                        logger.LogError($"Erreur lors de l'envoi automatique du mail pour la session {session.Id} : {ex.Message}");
+                        try
+                        {
+                            await SendProfSignatureMail(session, 2);
+                            session.IsMailSent2 = true;
+                            await scopedContext.SaveChangesAsync();
+                            logger.LogInformation($"Mail envoyé automatiquement au professeur 2 pour la session {session.Id}.");
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError($"Erreur lors de l'envoi automatique du mail au professeur 2 pour la session {session.Id} : {ex.Message}");
+                        }
                     }
                 }
             }
@@ -135,8 +158,14 @@ namespace backend.Controllers
                     s.ProfEmail,
                     s.ProfSignature,
                     s.ProfSignatureToken,
+                    s.ProfName2,
+                    s.ProfFirstname2,
+                    s.ProfEmail2,
+                    s.ProfSignature2,
+                    s.ProfSignatureToken2,
                     s.IsSent,
-                    s.IsMailSent
+                    s.IsMailSent,
+                    s.IsMailSent2
                 }).ToList();
 
                 return sessionsWithoutCode;
@@ -199,8 +228,14 @@ namespace backend.Controllers
                     session.ProfEmail,
                     session.ProfSignature,
                     session.ProfSignatureToken,
+                    session.ProfName2,
+                    session.ProfFirstname2,
+                    session.ProfEmail2,
+                    session.ProfSignature2,
+                    session.ProfSignatureToken2,
                     session.IsSent,
-                    session.IsMailSent
+                    session.IsMailSent,
+                    session.IsMailSent2
                 });
             }
 
@@ -256,8 +291,14 @@ namespace backend.Controllers
                     s.ProfEmail,
                     s.ProfSignature,
                     s.ProfSignatureToken,
+                    s.ProfName2,
+                    s.ProfFirstname2,
+                    s.ProfEmail2,
+                    s.ProfSignature2,
+                    s.ProfSignatureToken2,
                     s.IsSent,
-                    s.IsMailSent
+                    s.IsMailSent,
+                    s.IsMailSent2
                 }).ToList();
 
                 return sessionsWithoutCode;
@@ -275,6 +316,12 @@ namespace backend.Controllers
         public async Task<ActionResult<Session>> PostSession(Session session)
         {
             session.ProfSignatureToken = Guid.NewGuid().ToString();
+
+            if (!string.IsNullOrEmpty(session.ProfName2) || !string.IsNullOrEmpty(session.ProfFirstname2))
+            {
+                session.ProfSignatureToken2 = Guid.NewGuid().ToString();
+            }
+
             _context.Sessions.Add(session);
             await _context.SaveChangesAsync();
 
@@ -289,7 +336,7 @@ namespace backend.Controllers
         [HttpGet("prof-signature/{token}")]
         public async Task<ActionResult<Session>> GetSessionByProfSignatureToken(string token)
         {
-            var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token);
+            var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token || s.ProfSignatureToken2 == token);
             if (session == null)
             {
                 return NotFound(new { error = true, message = "Session non trouvée pour ce lien." });
@@ -305,16 +352,29 @@ namespace backend.Controllers
         [HttpPost("prof-signature/{token}")]
         public async Task<IActionResult> SaveProfSignature(string token, [FromBody] SignatureModel signatureData)
         {
-            var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token);
+            var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token || s.ProfSignatureToken2 == token);
             if (session == null)
             {
                 return NotFound(new { error = true, message = "Session non trouvée pour ce lien." });
             }
-            session.ProfSignature = signatureData.Signature;
-            if (!string.IsNullOrWhiteSpace(signatureData.Name))
-                session.ProfName = signatureData.Name;
-            if (!string.IsNullOrWhiteSpace(signatureData.Firstname))
-                session.ProfFirstname = signatureData.Firstname;
+
+            if (session.ProfSignatureToken == token)
+            {
+                session.ProfSignature = signatureData.Signature;
+                if (!string.IsNullOrWhiteSpace(signatureData.Name))
+                    session.ProfName = signatureData.Name;
+                if (!string.IsNullOrWhiteSpace(signatureData.Firstname))
+                    session.ProfFirstname = signatureData.Firstname;
+            }
+            else if (session.ProfSignatureToken2 == token)
+            {
+                session.ProfSignature2 = signatureData.Signature;
+                if (!string.IsNullOrWhiteSpace(signatureData.Name))
+                    session.ProfName2 = signatureData.Name;
+                if (!string.IsNullOrWhiteSpace(signatureData.Firstname))
+                    session.ProfFirstname2 = signatureData.Firstname;
+            }
+
             await _context.SaveChangesAsync();
             return Ok(new { message = "Signature du professeur enregistrée avec succès." });
         }
@@ -981,8 +1041,14 @@ namespace backend.Controllers
                     s.ProfEmail,
                     s.ProfSignature,
                     s.ProfSignatureToken,
+                    s.ProfName2,
+                    s.ProfFirstname2,
+                    s.ProfEmail2,
+                    s.ProfSignature2,
+                    s.ProfSignatureToken2,
                     s.IsSent,
-                    s.IsMailSent
+                    s.IsMailSent,
+                    s.IsMailSent2
                 }).ToList();
 
                 return Ok(sessionsWithoutCode);
@@ -1006,7 +1072,25 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Session non trouvée." });
             session.ProfEmail = model.ProfEmail;
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Email du professeur enregistré et mail envoyé." });
+            return Ok(new { message = "Email du professeur 1 enregistré et mail envoyé." });
+        }
+
+        /**
+         * SetProf2Email
+         *
+         * This method sets the second professor's email for a session.
+         */
+        [HttpPost("{sessionId}/set-prof2-email")]
+        public async Task<IActionResult> SetProf2Email(int sessionId, [FromBody] SetProfEmailModel model)
+        {
+            _logger.LogDebug($"Tentative de mise à jour de l'email du professeur 2 pour la session {sessionId}");
+            _logger.LogDebug($"Email du professeur 2 : {model.ProfEmail}");
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null)
+                return NotFound(new { error = true, message = "Session non trouvée." });
+            session.ProfEmail2 = model.ProfEmail;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Email du professeur 2 enregistré et mail envoyé." });
         }
 
         /**
@@ -1019,9 +1103,39 @@ namespace backend.Controllers
         {
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null || string.IsNullOrEmpty(session.ProfEmail))
-                return NotFound(new { error = true, message = "Session ou email du professeur non trouvé." });
-            await SendProfSignatureMail(session);
-            return Ok(new { message = "Mail renvoyé au professeur." });
+                return NotFound(new { error = true, message = "Session ou email du professeur 1 non trouvé." });
+            await SendProfSignatureMail(session, 1);
+            return Ok(new { message = "Mail renvoyé au professeur 1." });
+        }
+
+        /**
+         * ResendProf1Mail
+         *
+         * This method resends the email to the first professor for a session.
+         */
+        [HttpPost("{sessionId}/resend-prof1-mail")]
+        public async Task<IActionResult> ResendProf1Mail(int sessionId)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null || string.IsNullOrEmpty(session.ProfEmail))
+                return NotFound(new { error = true, message = "Session ou email du professeur 1 non trouvé." });
+            await SendProfSignatureMail(session, 1);
+            return Ok(new { message = "Mail renvoyé au professeur 1." });
+        }
+
+        /**
+         * ResendProf2Mail
+         *
+         * This method resends the email to the second professor for a session.
+         */
+        [HttpPost("{sessionId}/resend-prof2-mail")]
+        public async Task<IActionResult> ResendProf2Mail(int sessionId)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null || string.IsNullOrEmpty(session.ProfEmail2))
+                return NotFound(new { error = true, message = "Session ou email du professeur 2 non trouvé." });
+            await SendProfSignatureMail(session, 2);
+            return Ok(new { message = "Mail renvoyé au professeur 2." });
         }
 
         /**
@@ -1044,56 +1158,74 @@ namespace backend.Controllers
                 int createdCount = 0;
                 var existingSessions = await _context.Sessions.Where(s => s.Year == model.Year).ToListAsync();
                 var importedSessions = new HashSet<(DateTime, TimeSpan, TimeSpan)>();
+
+                var eventsByTimeSlot = new Dictionary<(DateTime date, TimeSpan startTime, TimeSpan endTime), List<(string summary, string room, string profName, string profFirstname)>>();
+
                 foreach (var evt in events)
-                {
-                    var frenchTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris") ??
-                                         TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
-
-                    var startDateUtc = evt.Start.AsUtc;
-                    var endDateUtc = evt.End.AsUtc;
-
-                    var startDateLocal = TimeZoneInfo.ConvertTimeFromUtc(startDateUtc, frenchTimeZone);
-                    var endDateLocal = TimeZoneInfo.ConvertTimeFromUtc(endDateUtc, frenchTimeZone);
-
-                    var date = startDateLocal.Date;
-                    var startTime = startDateLocal.TimeOfDay;
-                    var endTime = endDateLocal.TimeOfDay;
-                    var summary = evt.Summary ?? "Session importée";
-                    var year = model.Year;
-
-                    string room = evt.Location ?? string.Empty;
-
-                    string profName = string.Empty;
-                    string profFirstname = string.Empty;
-
-                    if (date < DateTime.Today)
-                        continue;
-                    if (summary.Contains("travail personnel", StringComparison.OrdinalIgnoreCase))
+                    foreach (var icsEvent in events)
                     {
-                        profName = string.Empty;
-                        profFirstname = string.Empty;
-                    }
-                    else
-                    {
-                        if (!string.IsNullOrWhiteSpace(evt.Description))
+                        var frenchTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris") ??
+                                             TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
+
+                        var startDateUtc = icsEvent.Start.AsUtc;
+                        var endDateUtc = icsEvent.End.AsUtc;
+
+                        var startDateLocal = TimeZoneInfo.ConvertTimeFromUtc(startDateUtc, frenchTimeZone);
+                        var endDateLocal = TimeZoneInfo.ConvertTimeFromUtc(endDateUtc, frenchTimeZone);
+
+                        var date = startDateLocal.Date;
+                        var startTime = startDateLocal.TimeOfDay;
+                        var endTime = endDateLocal.TimeOfDay;
+                        var summary = icsEvent.Summary ?? "Session importée";
+
+                        if (date < DateTime.Today)
+                            continue;
+
+                        string room = icsEvent.Location ?? string.Empty;
+                        string profName = string.Empty;
+                        string profFirstname = string.Empty;
+
+                        if (summary.Contains("travail personnel", StringComparison.OrdinalIgnoreCase))
                         {
-                            var descLines = evt.Description.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
-                            var profLine = descLines.LastOrDefault(l => !l.StartsWith("(Exporté le:"));
-                            if (!string.IsNullOrWhiteSpace(profLine))
+                            profName = string.Empty;
+                            profFirstname = string.Empty;
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrWhiteSpace(icsEvent.Description))
                             {
-                                var parts = profLine.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-                                if (parts.Length == 2)
+                                var descLines = icsEvent.Description.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+                                var profLine = descLines.LastOrDefault(l => !l.StartsWith("(Exporté le:"));
+                                if (!string.IsNullOrWhiteSpace(profLine))
                                 {
-                                    profName = parts[0];
-                                    profFirstname = parts[1];
-                                }
-                                else if (parts.Length == 1)
-                                {
-                                    profName = parts[0];
+                                    var parts = profLine.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                                    if (parts.Length == 2)
+                                    {
+                                        profName = parts[0];
+                                        profFirstname = parts[1];
+                                    }
+                                    else if (parts.Length == 1)
+                                    {
+                                        profName = parts[0];
+                                    }
                                 }
                             }
                         }
+
+                        var timeSlot = (date, startTime, endTime);
+                        if (!eventsByTimeSlot.ContainsKey(timeSlot))
+                        {
+                            eventsByTimeSlot[timeSlot] = new List<(string, string, string, string)>();
+                        }
+
+                        eventsByTimeSlot[timeSlot].Add((summary, room, profName, profFirstname));
                     }
+
+                foreach (var kvp in eventsByTimeSlot)
+                {
+                    var (date, startTime, endTime) = kvp.Key;
+                    var eventInfos = kvp.Value;
+                    var year = model.Year;
 
                     importedSessions.Add((date, startTime, endTime));
 
@@ -1107,22 +1239,57 @@ namespace backend.Controllers
                         .Where(s => s.StartTime <= startTime && s.EndTime >= endTime)
                         .ToList();
 
+                    var primaryEvent = eventInfos.First();
+                    string mergedName, mergedRoom, mergedProfName, mergedProfFirstname;
+                    string? profName2 = null, profFirstname2 = null;
+
+                    if (eventInfos.Count > 1)
+                    {
+                        mergedName = string.Join(" / ", eventInfos.Select(e => e.Item1).Distinct());
+                        mergedRoom = string.Join(" / ", eventInfos.Select(e => e.Item2).Where(r => !string.IsNullOrEmpty(r)).Distinct());
+
+                        var firstProf = eventInfos.FirstOrDefault(e => !string.IsNullOrEmpty(e.Item3));
+                        mergedProfName = firstProf.Item3 ?? string.Empty;
+                        mergedProfFirstname = firstProf.Item4 ?? string.Empty;
+
+                        var secondProf = eventInfos.Skip(1).FirstOrDefault(e => !string.IsNullOrEmpty(e.Item3) &&
+                            (e.Item3 != mergedProfName || e.Item4 != mergedProfFirstname));
+                        if (secondProf != default)
+                        {
+                            profName2 = secondProf.Item3;
+                            profFirstname2 = secondProf.Item4;
+                        }
+
+                        _logger.LogInformation($"Fusion de {eventInfos.Count} événements pour le créneau {date} {startTime}-{endTime}: {mergedName}");
+                    }
+                    else
+                    {
+                        mergedName = primaryEvent.Item1;
+                        mergedRoom = primaryEvent.Item2;
+                        mergedProfName = primaryEvent.Item3;
+                        mergedProfFirstname = primaryEvent.Item4;
+                    }
+
                     if (exactMatch != null)
                     {
                         if (exactMatch.IsMerged)
                         {
-                            bool needsUpdate = exactMatch.Name != summary ||
-                                              exactMatch.ProfName != profName ||
-                                              exactMatch.ProfFirstname != profFirstname ||
-                                              exactMatch.Room != room;
+                            bool needsUpdate = exactMatch.Name != mergedName ||
+                                              exactMatch.ProfName != mergedProfName ||
+                                              exactMatch.ProfFirstname != mergedProfFirstname ||
+                                              exactMatch.Room != mergedRoom ||
+                                              exactMatch.ProfName2 != profName2 ||
+                                              exactMatch.ProfFirstname2 != profFirstname2;
 
                             if (needsUpdate)
                             {
                                 _logger.LogInformation($"Mise à jour des informations de la session fusionnée ID {exactMatch.Id} ({exactMatch.Date}, {exactMatch.StartTime}-{exactMatch.EndTime})");
-                                exactMatch.Name = summary;
-                                exactMatch.ProfName = profName;
-                                exactMatch.ProfFirstname = profFirstname;
-                                exactMatch.Room = room;
+                                exactMatch.Name = mergedName;
+                                exactMatch.ProfName = mergedProfName;
+                                exactMatch.ProfFirstname = mergedProfFirstname;
+                                exactMatch.Room = mergedRoom;
+                                exactMatch.ProfName2 = profName2;
+                                exactMatch.ProfFirstname2 = profFirstname2;
                                 _context.Sessions.Update(exactMatch);
                                 await _context.SaveChangesAsync();
                             }
@@ -1134,7 +1301,8 @@ namespace backend.Controllers
                         }
                         else
                         {
-                            if (exactMatch.Name != summary || exactMatch.ProfName != profName || exactMatch.ProfFirstname != profFirstname || exactMatch.Room != room)
+                            if (exactMatch.Name != mergedName || exactMatch.ProfName != mergedProfName ||
+                                exactMatch.ProfFirstname != mergedProfFirstname || exactMatch.Room != mergedRoom)
                             {
                                 var oldAttendances = _context.Attendances.Where(a => a.SessionId == exactMatch.Id);
                                 _context.Attendances.RemoveRange(oldAttendances);
@@ -1177,12 +1345,16 @@ namespace backend.Controllers
                         StartTime = startTime,
                         EndTime = endTime,
                         Year = year,
-                        Name = summary,
-                        ProfName = profName,
-                        ProfFirstname = profFirstname,
-                        Room = room,
+                        Name = mergedName,
+                        ProfName = mergedProfName,
+                        ProfFirstname = mergedProfFirstname,
+                        Room = mergedRoom,
+                        ProfName2 = profName2,
+                        ProfFirstname2 = profFirstname2,
                         ProfSignatureToken = Guid.NewGuid().ToString(),
+                        ProfSignatureToken2 = !string.IsNullOrEmpty(profName2) ? Guid.NewGuid().ToString() : null,
                         ValidationCode = new Random().Next(1000, 9999).ToString(),
+                        IsMerged = eventInfos.Count > 1 
                     };
                     _context.Sessions.Add(session);
                     await _context.SaveChangesAsync();
@@ -1396,13 +1568,47 @@ namespace backend.Controllers
          */
         private async Task SendProfSignatureMail(Session session)
         {
-            if (session == null || string.IsNullOrWhiteSpace(session.ProfEmail) || string.IsNullOrWhiteSpace(session.ProfSignatureToken))
+            // Par défaut, envoi au premier professeur
+            await SendProfSignatureMail(session, 1);
+        }
+
+        /**
+         * SendProfSignatureMail
+         *
+         * This method sends an email to a specific professor for signing the attendance sheet.
+         * @param session The session
+         * @param professorNumber 1 for first professor, 2 for second professor
+         */
+        private async Task SendProfSignatureMail(Session session, int professorNumber)
+        {
+            string? profEmail;
+            string? profSignatureToken;
+            string profName;
+
+            if (professorNumber == 1)
+            {
+                profEmail = session.ProfEmail;
+                profSignatureToken = session.ProfSignatureToken;
+                profName = $"{session.ProfFirstname} {session.ProfName}";
+            }
+            else if (professorNumber == 2)
+            {
+                profEmail = session.ProfEmail2;
+                profSignatureToken = session.ProfSignatureToken2;
+                profName = $"{session.ProfFirstname2} {session.ProfName2}";
+            }
+            else
+            {
+                throw new ArgumentException("Le numéro de professeur doit être 1 ou 2", nameof(professorNumber));
+            }
+
+            if (session == null || string.IsNullOrWhiteSpace(profEmail) || string.IsNullOrWhiteSpace(profSignatureToken))
                 return;
 
             var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:5173";
-            var link = $"{frontendUrl}/prof-signature/{session.ProfSignatureToken}";
+            var link = $"{frontendUrl}/prof-signature/{profSignatureToken}";
             var subject = "Signature de la feuille de présence";
-            var body = $@"Bonjour,
+            var body = $@"Bonjour {profName},
 
 Veuillez cliquer sur le lien suivant pour renseigner votre nom, prénom et signer la feuille de présence :
 {link}
@@ -1439,7 +1645,7 @@ Cordialement";
                     Body = body,
                     IsBodyHtml = false,
                 };
-                mailMessage.To.Add(session.ProfEmail);
+                mailMessage.To.Add(profEmail);
                 mailMessage.Headers.Add("X-Priority", "1");
 
                 await smtpClient.SendMailAsync(mailMessage);

@@ -43,18 +43,34 @@
                             </template>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Email du professeur :</span>
+                            <span class="detail-label">Email du professeur 1 :</span>
                             <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ currentSession.profEmail }}</span>
                             <template v-if="isDelegate">
                                 <template v-if="!profEmailEditMode">
                                     <span class="detail-value">{{ currentSession.profEmail }}</span>
                                     <button @click="showEditProfMailPopup = true" class="edit-btn">Modifier</button>
-                                    <button @click="showResendProfMailPopup = true" class="resend-btn">Renvoyer le mail</button>
+                                    <button @click="showResendProf1MailPopup = true" class="resend-btn">Renvoyer le mail</button>
                                 </template>
                                 <template v-else>
                                     <input v-model="profEmailInput" type="email" class="edit-input" />
                                     <button @click="saveProfEmail" class="save-btn">Enregistrer</button>
                                     <button @click="cancelProfEmailEdit" class="cancel-btn">Annuler</button>
+                                </template>
+                            </template>
+                        </div>
+                        <div v-if="currentSession.profEmail2 || (isDelegate && currentSession.profFirstname2)" class="detail-item">
+                            <span class="detail-label">Email du professeur 2 :</span>
+                            <span class="detail-value" v-if="!isDelegate || prof2EmailEditMode">{{ currentSession.profEmail2 }}</span>
+                            <template v-if="isDelegate">
+                                <template v-if="!prof2EmailEditMode">
+                                    <span class="detail-value">{{ currentSession.profEmail2 || 'Non défini' }}</span>
+                                    <button @click="showEditProf2MailPopup = true" class="edit-btn">Modifier</button>
+                                    <button v-if="currentSession.profEmail2" @click="showResendProf2MailPopup = true" class="resend-btn">Renvoyer le mail</button>
+                                </template>
+                                <template v-else>
+                                    <input v-model="prof2EmailInput" type="email" class="edit-input" />
+                                    <button @click="saveProf2Email" class="save-btn">Enregistrer</button>
+                                    <button @click="cancelProf2EmailEdit" class="cancel-btn">Annuler</button>
                                 </template>
                             </template>
                         </div>
@@ -69,6 +85,9 @@
                 <p>Aucune session en cours.</p>
             </div>
             <PopUpEditProfMail v-if="showEditProfMailPopup" :value="profEmailInput" @close="showEditProfMailPopup = false" @save="onProfMailPopupSave" />
+            <PopUpEditProfMail v-if="showEditProf2MailPopup" :value="prof2EmailInput" @close="showEditProf2MailPopup = false" @save="onProf2MailPopupSave" />
+            <PopUpResendProfMail v-if="showResendProf1MailPopup" @close="showResendProf1MailPopup = false" @confirm="confirmResendProf1Mail" />
+            <PopUpResendProfMail v-if="showResendProf2MailPopup" @close="showResendProf2MailPopup = false" @confirm="confirmResendProf2Mail" />
             <PopUpResendProfMail v-if="showResendProfMailPopup" @close="showResendProfMailPopup = false" @confirm="confirmResendProfMail" />
             <PopUpShowCode v-if="showCodePopup" @confirm="confirmShowCode" @close="showCodePopup = false" />
         </div>
@@ -94,10 +113,15 @@ const attendance = ref(null);
 const hasSignature = ref(false);
 const profEmailEditMode = ref(false);
 const profEmailInput = ref("");
+const prof2EmailEditMode = ref(false);
+const prof2EmailInput = ref("");
 const isDelegate = ref(false);
 const mailSentMessage = ref("");
 const showEditProfMailPopup = ref(false);
+const showEditProf2MailPopup = ref(false);
 const showResendProfMailPopup = ref(false);
+const showResendProf1MailPopup = ref(false);
+const showResendProf2MailPopup = ref(false);
 const showCode = ref(false);
 const showCodePopup = ref(false);
 
@@ -138,6 +162,9 @@ const loadData = async () => {
                 return;
             }
             currentSession.value = session;
+            profEmailInput.value = session.profEmail || "";
+            prof2EmailInput.value = session.profEmail2 || "";
+            
             const at = await sessionStore.getAttendance(authStore.user.studentId, currentSession.value.id);
             attendance.value = at;
             if (!currentSession.value) {
@@ -199,6 +226,51 @@ const confirmResendProfMail = async () => {
     showResendProfMailPopup.value = false;
     await resendProfMail();
 };
+
+const saveProf2Email = async () => {
+    if (!prof2EmailInput.value || !currentSession.value?.id) return;
+    try {
+        await sessionStore.setProf2Email(currentSession.value.id, prof2EmailInput.value);
+        currentSession.value.profEmail2 = prof2EmailInput.value;
+    } catch (e) {
+        error.value = e.response?.data?.message || "Erreur lors de la modification de l'email du professeur 2.";
+        console.error("Erreur:", e);
+    }
+    prof2EmailEditMode.value = false;
+};
+
+const cancelProf2EmailEdit = () => {
+    prof2EmailEditMode.value = false;
+    prof2EmailInput.value = currentSession.value.profEmail2;
+};
+
+const resendProf2Mail = async () => {
+    if (!currentSession.value?.id) return;
+    mailSentMessage.value = "";
+    try {
+        await sessionStore.resendProf2Mail(currentSession.value.id);
+        mailSentMessage.value = "Mail renvoyé au professeur 2.";
+    } catch (e) {
+        mailSentMessage.value = "Erreur lors de l'envoi du mail au professeur 2.";
+        console.error("Erreur:", e);
+    }
+};
+
+const onProf2MailPopupSave = async (newEmail) => {
+    prof2EmailInput.value = newEmail;
+    await saveProf2Email();
+    showEditProf2MailPopup.value = false;
+};
+
+const confirmResendProf2Mail = async () => {
+    showResendProf2MailPopup.value = false;
+    await resendProf2Mail();
+};
+
+const confirmResendProf1Mail = async () => {
+    showResendProf1MailPopup.value = false;
+    await resendProfMail();
+};
 function handleShowCodeClick() {
     if (!showCode.value) {
         showCodePopup.value = true;
@@ -212,6 +284,7 @@ function confirmShowCode() {
 }
 watch(currentSession, (val) => {
     profEmailInput.value = val?.profEmail || "";
+    prof2EmailInput.value = val?.profEmail2 || "";
 });
 
 watch(
@@ -455,6 +528,26 @@ watch(
 
 .show-code-btn:hover {
     background: #2980b9;
+}
+
+.mail-status {
+    margin-left: 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.mail-status.sent {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.mail-status.not-sent {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
 @media (max-width: 768px) {

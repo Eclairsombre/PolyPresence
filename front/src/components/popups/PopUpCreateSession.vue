@@ -76,7 +76,7 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="prof-name">Nom du professeur :</label>
+            <label for="prof-name">Nom du professeur 1 :</label>
             <input
               type="text"
               id="prof-name"
@@ -86,7 +86,7 @@
             >
           </div>
           <div class="form-group">
-            <label for="prof-firstname">Prénom du professeur :</label>
+            <label for="prof-firstname">Prénom du professeur 1 :</label>
             <input
               type="text"
               id="prof-firstname"
@@ -98,7 +98,7 @@
         </div>
         <div class="form-row">
           <div class="form-group" style="flex:1;">
-            <label for="prof-email">Email du professeur :</label>
+            <label for="prof-email">Email du professeur 1 :</label>
             <input
               type="email"
               id="prof-email"
@@ -131,6 +131,43 @@
             </div>
           </div>
         </div>
+        
+        <div class="form-section">
+          <h4>Professeur 2 (optionnel)</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="prof-name2">Nom du professeur 2 :</label>
+              <input
+                type="text"
+                id="prof-name2"
+                v-model="form.profName2"
+                class="form-control"
+              >
+            </div>
+            <div class="form-group">
+              <label for="prof-firstname2">Prénom du professeur 2 :</label>
+              <input
+                type="text"
+                id="prof-firstname2"
+                v-model="form.profFirstname2"
+                class="form-control"
+              >
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label for="prof-email2">Email du professeur 2 :</label>
+              <input
+                type="email"
+                id="prof-email2"
+                v-model="form.profEmail2"
+                class="form-control"
+              >
+            </div>
+            <div style="flex:1;"></div>
+          </div>
+        </div>
+        
         <div class="form-actions">
           <button
             type="submit"
@@ -177,7 +214,10 @@ const form = reactive({
   year: '',
   profName: '',
   profFirstname: '',
-  profEmail: ''
+  profEmail: '',
+  profName2: '',
+  profFirstname2: '',
+  profEmail2: ''
 });
 
 function close() {
@@ -221,7 +261,10 @@ async function handleSubmit() {
     validationCode,
     profName: form.profName,
     profFirstname: form.profFirstname,
-    profEmail: form.profEmail
+    profEmail: form.profEmail,
+    profName2: form.profName2 || null,
+    profFirstname2: form.profFirstname2 || null,
+    profEmail2: form.profEmail2 || null
   };
   try {
     const createdSession = await sessionStore.createSession(sessionData);
@@ -356,6 +399,20 @@ async function handleSubmit() {
 .student-count-info.warning {
   color: #c0392b;
 }
+
+.form-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e8ed;
+}
+
+.form-section h4 {
+  margin: 0 0 15px 0;
+  color: #34495e;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
 @media (max-width: 600px) {
   .modal-content {
     width: 99vw;

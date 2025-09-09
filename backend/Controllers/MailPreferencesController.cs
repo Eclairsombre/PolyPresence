@@ -143,7 +143,13 @@ namespace backend.Controllers
                                 infoCol.Item().Padding(5).Text($"Horaires : {horaires}").FontSize(12);
                                 infoCol.Item().Padding(5).Text($"Salle : {session.Room}").FontSize(12);
                                 infoCol.Item().Padding(5).Text("");
-                                infoCol.Item().Padding(5).Text($"Professeur : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
+                                infoCol.Item().Padding(5).Text($"Professeur {(!string.IsNullOrEmpty(session.ProfName) ? "1" : "")} : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
+
+                                if (!string.IsNullOrEmpty(session.ProfName2))
+                                {
+                                    infoCol.Item().Padding(5).Text($"Professeur 2 : {session.ProfFirstname2} {session.ProfName2} ({session.ProfEmail2})").FontSize(12).FontColor("#34495e");
+                                }
+
                                 if (!string.IsNullOrWhiteSpace(session.ProfSignature))
                                 {
                                     var base64 = session.ProfSignature;
@@ -155,27 +161,64 @@ namespace backend.Controllers
                                             byte[] imageBytes = Convert.FromBase64String(base64Data);
                                             infoCol.Item().Padding(5).Row(row =>
                                             {
-                                                row.ConstantItem(80).AlignMiddle().Text("Signature :").FontSize(12);
+                                                row.ConstantItem(100).AlignMiddle().Text($"Signature du professeur {(!string.IsNullOrEmpty(session.ProfName) ? "1" : "")} :").FontSize(12);
                                                 row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
                                             });
                                         }
                                         catch
                                         {
-                                            infoCol.Item().Padding(5).Text("Signature du professeur : Erreur image");
+                                            infoCol.Item().Padding(5).Text("Signature du professeur 1 : Erreur image");
                                         }
                                     }
                                     else
                                     {
-                                        infoCol.Item().Padding(5).Text("Signature du professeur : Format inconnu");
+                                        infoCol.Item().Padding(5).Text("Signature du professeur 1 : Format inconnu");
                                     }
                                 }
                                 else
                                 {
                                     infoCol.Item().Padding(5).Text(text =>
                                     {
-                                        text.Span("Signature du professeur : ").Italic().FontColor("#888");
+                                        text.Span("Signature du professeur 1 : ").Italic().FontColor("#888");
                                         text.Span("Non signée");
                                     });
+                                }
+
+                                if (!string.IsNullOrEmpty(session.ProfName2))
+                                {
+                                    if (!string.IsNullOrWhiteSpace(session.ProfSignature2))
+                                    {
+                                        var base64_2 = session.ProfSignature2;
+                                        if (base64_2.StartsWith("data:image"))
+                                        {
+                                            var base64Data_2 = base64_2.Substring(base64_2.IndexOf(",") + 1);
+                                            try
+                                            {
+                                                byte[] imageBytes_2 = Convert.FromBase64String(base64Data_2);
+                                                infoCol.Item().Padding(5).Row(row =>
+                                                {
+                                                    row.ConstantItem(100).AlignMiddle().Text("Signature prof. 2 :").FontSize(12);
+                                                    row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes_2).FitArea();
+                                                });
+                                            }
+                                            catch
+                                            {
+                                                infoCol.Item().Padding(5).Text("Signature du professeur 2 : Erreur image");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            infoCol.Item().Padding(5).Text("Signature du professeur 2 : Format inconnu");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        infoCol.Item().Padding(5).Text(text =>
+                                        {
+                                            text.Span("Signature du professeur 2 : ").Italic().FontColor("#888");
+                                            text.Span("Non signée");
+                                        });
+                                    }
                                 }
                             });
 

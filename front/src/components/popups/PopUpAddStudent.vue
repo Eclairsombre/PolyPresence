@@ -93,6 +93,7 @@ export default {
       studentNumber: '',
       email: '',
       year: props.year,
+      group: '',
       isDelegate: false
     });
     

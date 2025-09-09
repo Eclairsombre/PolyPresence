@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import apiClient from "../api/axios"; 
+import apiClient from "../api/axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -546,9 +546,9 @@ export const useSessionStore = defineStore("session", {
     },
 
     /**
-     * Sets the professor's email for a session
+     * Sets the professor 1's email for a session
      * @param {number} sessionId - Session ID
-     * @param {string} profEmail - Professor's email address
+     * @param {string} profEmail - Professor 1's email address
      * @returns {Promise<boolean>} True if successful
      */
     async setProfEmail(sessionId, profEmail) {
@@ -563,7 +563,7 @@ export const useSessionStore = defineStore("session", {
     },
 
     /**
-     * Resends the professor signature email for a session
+     * Resends the professor 1 signature email for a session
      * @param {number} sessionId - Session ID
      * @returns {Promise<boolean>} True if successful
      */
@@ -571,6 +571,58 @@ export const useSessionStore = defineStore("session", {
       try {
         await apiClient.post(
           `${API_URL}/Session/${sessionId}/resend-prof-mail`
+        );
+        return true;
+      } catch (e) {
+        throw e;
+      }
+    },
+
+    /**
+     * Resends the professor 1 signature email for a session
+     * @param {number} sessionId - Session ID
+     * @returns {Promise<boolean>} True if successful
+     */
+    async resendProf1Mail(sessionId) {
+      try {
+        await apiClient.post(
+          `${API_URL}/Session/${sessionId}/resend-prof1-mail`
+        );
+        return true;
+      } catch (e) {
+        throw e;
+      }
+    },
+
+    /**
+     * Sets the professor 2's email for a session
+     * @param {number} sessionId - Session ID
+     * @param {string} profEmail2 - Professor 2's email address
+     * @returns {Promise<boolean>} True if successful
+     */
+    async setProf2Email(sessionId, profEmail2) {
+      try {
+        await apiClient.post(
+          `${API_URL}/Session/${sessionId}/set-prof2-email`,
+          {
+            profEmail: profEmail2,
+          }
+        );
+        return true;
+      } catch (e) {
+        throw e;
+      }
+    },
+
+    /**
+     * Resends the professor 2 signature email for a session
+     * @param {number} sessionId - Session ID
+     * @returns {Promise<boolean>} True if successful
+     */
+    async resendProf2Mail(sessionId) {
+      try {
+        await apiClient.post(
+          `${API_URL}/Session/${sessionId}/resend-prof2-mail`
         );
         return true;
       } catch (e) {

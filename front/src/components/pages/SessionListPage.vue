@@ -76,6 +76,12 @@
             <p v-if="session.name"><strong>Nom :</strong> {{ session.name }}</p>
             <p><strong>Horaires:</strong> {{ formatTime(session.startTime) }} - {{ formatTime(session.endTime) }}</p>
             <p v-if="session.room"><strong>Salle :</strong> {{ session.room }}</p>
+            <div v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')" class="prof-info">
+              <p><strong>Professeur:</strong> {{ session.profFirstname }} {{ session.profName }}</p>
+            </div>
+            <div v-if="(session.profFirstname2 && session.profFirstname2.trim() !== '') || (session.profName2 && session.profName2.trim() !== '')" class="prof-info">
+              <p><strong>Professeur:</strong> {{ session.profFirstname2 }} {{ session.profName2 }}</p>
+            </div>
             <div class="session-actions">
               <router-link
                 :to="{

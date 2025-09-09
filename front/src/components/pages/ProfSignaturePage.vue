@@ -7,6 +7,16 @@
         <li><strong>Date :</strong> {{ session.date ? new Date(session.date).toLocaleDateString() : (session.Date ? new Date(session.Date).toLocaleDateString() : '') }}</li>
         <li><strong>Heure de début :</strong> {{ session.startTime || session.StartTime }}</li>
         <li><strong>Heure de fin :</strong> {{ session.endTime || session.EndTime }}</li>
+        
+        <li v-if="session.profName || session.profFirstname" class="professor-info">
+          <strong>Professeur 1 :</strong> {{ session.profFirstname }} {{ session.profName }}
+          <span v-if="isMainProfessor" class="current-professor-badge">👤 Vous</span>
+        </li>
+        <li v-if="session.profName2 || session.profFirstname2" class="co-professor-info">
+          <strong>Professeur 2 :</strong> {{ session.profFirstname2 }} {{ session.profName2 }}
+          <span v-if="!isMainProfessor" class="current-professor-badge">👤 Vous</span>
+        </li>
+        
         <li class="validation-code-row">
           <strong>Code de validation :</strong>
           <span class="validation-code fancy-validation-code">
@@ -19,7 +29,6 @@
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="prof-content-row">
       <div class="prof-signature-form">
-        <h2>Signature du professeur</h2>
 
         <form @submit.prevent="submitSignature" class="prof-form">
           <div class="form-group">
@@ -105,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted, nextTick, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import SignatureCreator from '../signature/SignatureCreator.vue';
 import { useProfSignatureStore } from '../../stores/profSignatureStore';
@@ -127,6 +136,12 @@ const attendances = ref([]);
 const attendancesLoading = ref(false);
 const editingCommentFor = ref(null);
 const editingComment = ref('');
+
+const isMainProfessor = computed(() => {
+  if (!session.value) return true;
+  return session.value.profSignatureToken === token;
+});
+
 
 async function loadAttendances() {
   if (!session.value?.id) return;
@@ -725,5 +740,30 @@ input[type="text"]:focus {
   .comment-input {
     min-height: 50px;
   }
+}
+
+.professor-info, .co-professor-info {
+  background-color: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+.professor-info {
+  border-left: 3px solid #3498db;
+}
+
+.co-professor-info {
+  border-left: 3px solid #9b59b6;
+}
+
+.current-professor-badge {
+  background-color: #27ae60;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  margin-left: 8px;
+  font-weight: bold;
 }
 </style>

@@ -20,21 +20,40 @@
         </div>
         <div class="prof-info" v-if="session">
           <p v-if="session.name" class="session-name"><strong>Nom de la session :</strong> {{ session.name }}</p>
-            <div class="prof-details" v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')">
-              <strong>Professeur :</strong>
-              {{ session.profFirstname }} {{ session.profName }} {{ session.profEmail ? `(${session.profEmail})` : '' }}
+          <p v-if="session.room" class="session-room"><strong>Salle :</strong> {{ session.room }}</p>
+          
+*          <div class="professors-section">
+            <h3>Encadrement pédagogique</h3>
+            
+            <div class="professor-card" v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')">
+              <div class="professor-details">
+                <span class="professor-name">{{ session.profFirstname }} {{ session.profName }}</span>
+                <span v-if="session.profEmail" class="professor-email">({{ session.profEmail }})</span>
+              </div>
+              <div class="professor-signature" v-if="session.profSignature">
+                <span class="signature-label">Signature :</span>
+                <img :src="session.profSignature" alt="Signature du professeur 1" class="signature-image" />
+              </div>
+              <div class="professor-signature" v-else>
+                <span class="signature-label">Signature : <em>Non signée</em></span>
+              </div>
             </div>
-            <div class="prof-details" v-else>
-              <strong>Professeur :</strong> Travail personnel
-            </div>
-            <div class="prof-signature" v-if="session.profSignature">
-              <span>Signature :</span>
-              <img :src="session.profSignature" alt="Signature du professeur" style="max-height:50px; margin-left:10px;" />
-            </div>
-            <div class="prof-signature" v-else>
-              <span>Signature : <em>Non signée</em></span>
+            
+            <div class="professor-card" v-if="(session.profFirstname2 && session.profFirstname2.trim() !== '') || (session.profName2 && session.profName2.trim() !== '')">
+              <div class="professor-details">
+                <span class="professor-name">{{ session.profFirstname2 }} {{ session.profName2 }}</span>
+                <span v-if="session.profEmail2" class="professor-email">({{ session.profEmail2 }})</span>
+              </div>
+              <div class="professor-signature" v-if="session.profSignature2">
+                <span class="signature-label">Signature :</span>
+                <img :src="session.profSignature2" alt="Signature du professeur 2" class="signature-image" />
+              </div>
+              <div class="professor-signature" v-else>
+                <span class="signature-label">Signature : <em>Non signée</em></span>
+              </div>
             </div>
           </div>
+        </div>
         <div class="actions">
           <button class="back-button" @click="goBack">Retour aux sessions</button>
           <button class="export-button" @click="exportToPDF" :disabled="exporting">
@@ -282,6 +301,77 @@ export default defineComponent({
 .session-info h2 {
   margin: 0 0 10px 0;
   color: #2c3e50;
+}
+
+.prof-info {
+  margin-top: 20px;
+}
+
+.session-name, .session-room {
+  margin: 10px 0;
+  font-size: 1.1em;
+  color: #2c3e50;
+}
+
+.professors-section {
+  margin-top: 20px;
+}
+
+.professors-section h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  font-size: 1.2em;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 8px;
+}
+
+.professor-card {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.professor-header {
+  margin-bottom: 10px;
+  color: #2c3e50;
+  font-size: 1.05em;
+}
+
+.professor-details {
+  margin-bottom: 10px;
+}
+
+.professor-name {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-right: 10px;
+}
+
+.professor-email {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.professor-signature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.signature-label {
+  font-weight: 500;
+  color: #495057;
+}
+
+.signature-image {
+  max-height: 50px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background-color: white;
+  padding: 2px;
 }
 
 .actions {
