@@ -1097,46 +1097,64 @@ namespace backend.Controllers
 
                     importedSessions.Add((date, startTime, endTime));
 
-                    var existingSession = await _context.Sessions.FirstOrDefaultAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
-                    if (existingSession != null)
+                    var exactMatch = await _context.Sessions.FirstOrDefaultAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
+                    
+                    var mergedSessions = await _context.Sessions
+                        .Where(s => s.Date == date && s.Year == year && s.IsMerged)
+                        .ToListAsync();
+                    
+                    var mergedMatches = mergedSessions
+                        .Where(s => s.StartTime <= startTime && s.EndTime >= endTime)
+                        .ToList();
+
+                    if (exactMatch != null)
                     {
-                        if (existingSession.IsMerged)
+                        if (exactMatch.IsMerged)
                         {
-                            bool needsUpdate = existingSession.Name != summary ||
-                                              existingSession.ProfName != profName ||
-                                              existingSession.ProfFirstname != profFirstname ||
-                                              existingSession.Room != room;
+                            bool needsUpdate = exactMatch.Name != summary ||
+                                              exactMatch.ProfName != profName ||
+                                              exactMatch.ProfFirstname != profFirstname ||
+                                              exactMatch.Room != room;
 
                             if (needsUpdate)
                             {
-                                _logger.LogInformation($"Mise à jour des informations de la session fusionnée ID {existingSession.Id} ({existingSession.Date}, {existingSession.StartTime}-{existingSession.EndTime})");
-                                existingSession.Name = summary;
-                                existingSession.ProfName = profName;
-                                existingSession.ProfFirstname = profFirstname;
-                                existingSession.Room = room;
-                                _context.Sessions.Update(existingSession);
+                                _logger.LogInformation($"Mise à jour des informations de la session fusionnée ID {exactMatch.Id} ({exactMatch.Date}, {exactMatch.StartTime}-{exactMatch.EndTime})");
+                                exactMatch.Name = summary;
+                                exactMatch.ProfName = profName;
+                                exactMatch.ProfFirstname = profFirstname;
+                                exactMatch.Room = room;
+                                _context.Sessions.Update(exactMatch);
                                 await _context.SaveChangesAsync();
                             }
                             else
                             {
-                                _logger.LogInformation($"Préservation de la session fusionnée ID {existingSession.Id} (aucune modification nécessaire)");
+                                _logger.LogInformation($"Préservation de la session fusionnée ID {exactMatch.Id} (aucune modification nécessaire)");
                             }
                             continue;
                         }
-
-                        if (existingSession.Name != summary || existingSession.ProfName != profName || existingSession.ProfFirstname != profFirstname || existingSession.Room != room)
-                        {
-                            var oldAttendances = _context.Attendances.Where(a => a.SessionId == existingSession.Id);
-                            _context.Attendances.RemoveRange(oldAttendances);
-                            await _context.SaveChangesAsync();
-                            _context.Sessions.Remove(existingSession);
-                            await _context.SaveChangesAsync();
-                        }
                         else
                         {
-                            continue;
+                            if (exactMatch.Name != summary || exactMatch.ProfName != profName || exactMatch.ProfFirstname != profFirstname || exactMatch.Room != room)
+                            {
+                                var oldAttendances = _context.Attendances.Where(a => a.SessionId == exactMatch.Id);
+                                _context.Attendances.RemoveRange(oldAttendances);
+                                await _context.SaveChangesAsync();
+                                _context.Sessions.Remove(exactMatch);
+                                await _context.SaveChangesAsync();
+                            }
+                            else
+                            {
+                                continue;
+                            }
                         }
                     }
+                    else if (mergedMatches.Any())
+                    {
+                        var existingSession = mergedMatches.First();
+                        _logger.LogInformation($"La session fusionnée existante ID {existingSession.Id} ({existingSession.Date}, {existingSession.StartTime}-{existingSession.EndTime}) couvre déjà cette plage horaire ({date}, {startTime}-{endTime})");
+                        continue;
+                    }
+                    
                     var allSessionsSameDay = await _context.Sessions
                         .Where(s => s.Year == year && s.Date == date)
                         .ToListAsync();
@@ -1187,15 +1205,27 @@ namespace backend.Controllers
                 await _context.SaveChangesAsync();
                 foreach (var oldSession in existingSessions)
                 {
-                    // Ne pas supprimer les sessions fusionnées
-                    if (oldSession.Date >= DateTime.Today && !importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)) && !oldSession.IsMerged)
+                    if (oldSession.Date >= DateTime.Today && !oldSession.IsMerged && !importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)))
                     {
-                        _logger.LogInformation($"Suppression de l'ancienne session ID {oldSession.Id} ({oldSession.Date}, {oldSession.StartTime}-{oldSession.EndTime})");
-                        var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
-                        _context.Attendances.RemoveRange(attendances);
-                        await _context.SaveChangesAsync();
-                        _context.Sessions.Remove(oldSession);
-                        await _context.SaveChangesAsync();
+                        bool coveredByMergedSession = existingSessions
+                            .Any(s => s.IsMerged && 
+                                  s.Date == oldSession.Date && 
+                                  s.StartTime <= oldSession.StartTime && 
+                                  s.EndTime >= oldSession.EndTime);
+                        
+                        if (!coveredByMergedSession)
+                        {
+                            _logger.LogInformation($"Suppression de l'ancienne session ID {oldSession.Id} ({oldSession.Date}, {oldSession.StartTime}-{oldSession.EndTime})");
+                            var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
+                            _context.Attendances.RemoveRange(attendances);
+                            await _context.SaveChangesAsync();
+                            _context.Sessions.Remove(oldSession);
+                            await _context.SaveChangesAsync();
+                        }
+                        else
+                        {
+                            _logger.LogInformation($"Conservation de la session ID {oldSession.Id} car elle est englobée par une session fusionnée");
+                        }
                     }
                 }
             }
