@@ -22,7 +22,7 @@
           <p v-if="session.name" class="session-name"><strong>Nom de la session :</strong> {{ session.name }}</p>
           <p v-if="session.room" class="session-room"><strong>Salle :</strong> {{ session.room }}</p>
           
-*          <div class="professors-section">
+          <div class="professors-section">
             <h3>Encadrement pédagogique</h3>
             
             <div class="professor-card" v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')">
