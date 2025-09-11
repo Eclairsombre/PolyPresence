@@ -1,120 +1,194 @@
 <template>
   <div class="prof-signature-page">
     <div v-if="session" class="session-infos">
-      <h2>Informations de la session</h2>
-      <ul>
-        <li><strong>Année :</strong> {{ session.year || session.Year }}</li>
-        <li><strong>Date :</strong> {{ session.date ? new Date(session.date).toLocaleDateString() : (session.Date ? new Date(session.Date).toLocaleDateString() : '') }}</li>
-        <li><strong>Heure de début :</strong> {{ session.startTime || session.StartTime }}</li>
-        <li><strong>Heure de fin :</strong> {{ session.endTime || session.EndTime }}</li>
-        
-        <li v-if="session.profName || session.profFirstname" class="professor-info">
-          <strong>Professeur 1 :</strong> {{ session.profFirstname }} {{ session.profName }}
-          <span v-if="isMainProfessor" class="current-professor-badge">👤 Vous</span>
-        </li>
-        <li v-if="session.profName2 || session.profFirstname2" class="co-professor-info">
-          <strong>Professeur 2 :</strong> {{ session.profFirstname2 }} {{ session.profName2 }}
-          <span v-if="!isMainProfessor" class="current-professor-badge">👤 Vous</span>
-        </li>
-        
-        <li class="validation-code-row">
-          <strong>Code de validation :</strong>
+      <div class="session-header">
+        <h2>Informations de la session</h2>
+        <div class="validation-code-container">
+          <div class="validation-code-label">Code de validation :</div>
           <span class="validation-code fancy-validation-code">
             <span class="validation-code-inner">{{ validationCode }}</span>
           </span>
-        </li>
-      </ul>
+        </div>
+      </div>
+      
+      <div class="session-details">
+        <div class="session-column">
+          <div class="detail-item">
+            <div class="detail-label">Année :</div>
+            <div class="detail-value">{{ session.year || session.Year }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Date :</div>
+            <div class="detail-value">{{ session.date ? new Date(session.date).toLocaleDateString() : (session.Date ? new Date(session.Date).toLocaleDateString() : '') }}</div>
+          </div>
+        </div>
+        
+        <div class="session-column">
+          <div class="detail-item">
+            <div class="detail-label">Heure de début :</div>
+            <div class="detail-value">{{ session.startTime || session.StartTime }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Heure de fin :</div>
+            <div class="detail-value">{{ session.endTime || session.EndTime }}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="professors-container">
+        <div v-if="session.profName || session.profFirstname" class="professor-info">
+          <div class="professor-title">Professeur 1 :</div>
+          <div class="professor-name">{{ session.profFirstname }} {{ session.profName }}</div>
+          <span v-if="isMainProfessor" class="current-professor-badge">👤 Vous</span>
+        </div>
+        <div v-if="session.profName2 || session.profFirstname2" class="co-professor-info">
+          <div class="professor-title">Professeur 2 :</div>
+          <div class="professor-name">{{ session.profFirstname2 }} {{ session.profName2 }}</div>
+          <span v-if="!isMainProfessor" class="current-professor-badge">👤 Vous</span>
+        </div>
+      </div>
     </div>
-    <div v-if="loading" class="loading">Chargement...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-if="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Chargement des informations de session...</div>
+    </div>
+    <div v-else-if="error" class="error">
+      <div class="error-icon">⚠️</div>
+      <div class="error-message">{{ error }}</div>
+    </div>
     <div v-else class="prof-content-row">
       <div class="prof-signature-form">
-
+        <h3 class="section-title">Signature du Professeur</h3>
+        
         <form @submit.prevent="submitSignature" class="prof-form">
-          <div class="form-group">
-            <label>Nom :</label>
-            <input v-model="profName" type="text" required />
-          </div>
-          <div class="form-group">
-            <label>Prénom :</label>
-            <input v-model="profFirstname" type="text" required />
+          <div class="form-row">
+            <div class="form-group">
+              <label>Prénom :</label>
+              <input v-model="profFirstname" type="text" required placeholder="Entrez votre prénom" />
+            </div>
+            <div class="form-group">
+              <label>Nom :</label>
+              <input v-model="profName" type="text" required placeholder="Entrez votre nom" />
+            </div>
           </div>
           <div class="form-group signature-zone">
             <label>Signature :</label>
-            <SignatureCreator v-bind:hideSaveButton="true" ref="signaturePad" />
+            <div class="signature-container">
+              <SignatureCreator v-bind:hideSaveButton="true" ref="signaturePad" />
+              <div class="signature-instruction">Veuillez signer dans la zone ci-dessus</div>
+            </div>
           </div>
-          <button type="submit" class="submit-btn">Valider</button>
+          <button type="submit" class="submit-btn">
+            <span class="btn-icon">✓</span>
+            <span class="btn-text">Valider la signature</span>
+          </button>
         </form>
-        <div v-if="success" class="success">Signature enregistrée avec succès !</div>
+        <div v-if="success" class="success-message">
+          <div class="success-icon">✓</div>
+          <div class="success-text">Signature enregistrée avec succès !</div>
+        </div>
       </div>
       <div class="attendances">
         <div class="attendances-header">
-          <h2>Liste des présences</h2>
-          <button @click="loadAttendances" class="reload-btn" :disabled="attendancesLoading">Rafraîchir</button>
+          <h3 class="section-title">Liste des présences</h3>
+          <div class="attendances-actions">
+            <button @click="loadAttendances" class="reload-btn" :disabled="attendancesLoading">
+              <span class="reload-icon">↻</span>
+              <span class="reload-text">Rafraîchir</span>
+            </button>
+          </div>
         </div>
-        <div v-if="attendancesLoading" class="loading">Chargement des présences...</div>
-        <table v-else class="attendances-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Nom</th>
-              <th>Prénom</th>
-              <th>Statut</th>
-              <th>Action</th>
-              <th>Commentaire</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(attendance, idx) in attendances" :key="attendance.item1.id">
-              <td>{{ idx + 1 }}</td>
-              <td class="cell-name">{{ attendance.item1.name }}</td>
-              <td class="cell-firstname">{{ attendance.item1.firstname }}</td>
-              <td>
-                <span :class="attendance.item2 === 2 ? 'annule' : (attendance.item2 === 1 ? 'absent' : 'present')">
-                  {{ attendance.item2 === 2 ? 'Présence annulé' : (attendance.item2 === 1 ? 'Absent' : 'Présent') }}
-                </span>
-              </td>
-              <td>
-                <button @click="makeAction(attendance.item2,attendance.item1.studentNumber)" class="action-btn">
-                  {{ attendance.item2 === 2 ? 'Marquer comme présent' : (attendance.item2 === 1 ? 'Marquer comme présent' : 'Annuler la présence') }}
-                </button>
-              </td>
-              <td class="comment-cell">
-                <div v-if="editingCommentFor === attendance.item1.studentNumber" class="comment-edit">
-                  <textarea
-                      v-model="editingComment"
-                      class="comment-input"
-                      placeholder="Ajouter un commentaire..."
-                      @keyup.esc="cancelCommentEdit"
-                  ></textarea>
-                  <div class="comment-actions">
-                    <button class="save-comment-btn" @click="saveComment(attendance.item1.studentNumber)">
-                      <span class="icon">✓</span> Enregistrer
-                    </button>
-                    <button class="cancel-comment-btn" @click="cancelCommentEdit">
-                      <span class="icon">✕</span> Annuler
+        
+        <div v-if="attendancesLoading" class="loading-container attendance-loading">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Chargement des présences...</div>
+        </div>
+        
+        <div v-else-if="attendances.length === 0" class="no-attendances">
+          <div class="no-data-icon">📋</div>
+          <div class="no-data-text">Aucune présence enregistrée pour cette session</div>
+        </div>
+        
+        <div v-else class="attendances-table-container">
+          <table class="attendances-table">
+            <colgroup>
+              <col style="width: 5%;">
+              <col style="width: 18%;">
+              <col style="width: 18%;">
+              <col style="width: 15%;">
+              <col style="width: 18%;">
+              <col style="width: 26%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="column-id">#</th>
+                <th class="column-name">Nom</th>
+                <th class="column-firstname">Prénom</th>
+                <th class="column-status">Statut</th>
+                <th class="column-action">Action</th>
+                <th class="column-comment">Commentaire</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(attendance, idx) in attendances" :key="attendance.item1.id" 
+                  :class="[attendance.item2 === 0 ? 'status-present' : 
+                          attendance.item2 === 1 ? 'status-absent' : 'status-canceled']">
+                <td class="cell-id">{{ idx + 1 }}</td>
+                <td class="cell-name">{{ attendance.item1.name }}</td>
+                <td class="cell-firstname">{{ attendance.item1.firstname }}</td>
+                <td class="cell-status">
+                  <div class="status-badge" :class="getStatusClass(attendance.item2)">
+                    <span class="status-icon">{{ getStatusIcon(attendance.item2) }}</span>
+                    <span class="status-text">
+                      {{ attendance.item2 === 2 ? 'Présence annulée' : (attendance.item2 === 1 ? 'Absent' : 'Présent') }}
+                    </span>
+                  </div>
+                </td>
+                <td class="cell-action">
+                  <button @click="makeAction(attendance.item2,attendance.item1.studentNumber)" 
+                          class="action-btn"
+                          :class="getActionClass(attendance.item2)">
+                    {{ attendance.item2 === 2 || attendance.item2 === 1 ? 'Marquer présent' : 'Annuler présence' }}
+                  </button>
+                </td>
+                <td class="comment-cell">
+                  <div v-if="editingCommentFor === attendance.item1.studentNumber" class="comment-edit">
+                    <textarea
+                        v-model="editingComment"
+                        class="comment-input"
+                        placeholder="Ajouter un commentaire..."
+                        @keyup.esc="cancelCommentEdit"
+                        ref="commentTextarea"
+                    ></textarea>
+                    <div class="comment-actions">
+                      <button class="save-comment-btn" @click="saveComment(attendance.item1.studentNumber)">
+                        <span class="icon">✓</span> Enregistrer
+                      </button>
+                      <button class="cancel-comment-btn" @click="cancelCommentEdit">
+                        <span class="icon">✕</span> Annuler
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else class="comment-display">
+                    <span class="comment-text" :class="{ 'no-comment': !attendance.item1.comment }">
+                      {{ attendance.item1.comment || 'Aucun commentaire' }}
+                    </span>
+                    <button class="edit-comment-btn" @click="startCommentEdit(attendance.item1.studentNumber, attendance.item1.comment || '')">
+                      <span class="icon">✎</span>
                     </button>
                   </div>
-                </div>
-                <div v-else class="comment-display">
-                  <span class="comment-text" :class="{ 'no-comment': !attendance.item1.comment }">
-                    {{ attendance.item1.comment || 'Aucun commentaire' }}
-                  </span>
-                  <button class="edit-comment-btn" @click="startCommentEdit(attendance.item1.studentNumber, attendance.item1.comment || '')">
-                    <span class="icon">✎</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed } from 'vue';
+import { ref, onMounted, nextTick, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import SignatureCreator from '../signature/SignatureCreator.vue';
 import { useProfSignatureStore } from '../../stores/profSignatureStore';
@@ -136,11 +210,39 @@ const attendances = ref([]);
 const attendancesLoading = ref(false);
 const editingCommentFor = ref(null);
 const editingComment = ref('');
+const commentTextarea = ref(null);
 
 const isMainProfessor = computed(() => {
   if (!session.value) return true;
   return session.value.profSignatureToken === token;
 });
+
+const getStatusClass = (status) => {
+  switch(status) {
+    case 0: return 'status-present';
+    case 1: return 'status-absent';
+    case 2: return 'status-canceled';
+    default: return '';
+  }
+};
+
+const getStatusIcon = (status) => {
+  switch(status) {
+    case 0: return '✓';
+    case 1: return '✗';
+    case 2: return '○';
+    default: return '';
+  }
+};
+
+const getActionClass = (status) => {
+  switch(status) {
+    case 0: return 'action-cancel';
+    case 1:
+    case 2: return 'action-mark-present';
+    default: return '';
+  }
+};
 
 
 async function loadAttendances() {
@@ -182,12 +284,28 @@ onMounted(async () => {
 const startCommentEdit = (studentNumber, currentComment) => {
   editingCommentFor.value = studentNumber;
   editingComment.value = currentComment;
+  
+  nextTick(() => {
+    if (commentTextarea.value) {
+      commentTextarea.value.focus();
+    }
+  });
 };
 
 const cancelCommentEdit = () => {
   editingCommentFor.value = null;
   editingComment.value = '';
 };
+
+watch(editingCommentFor, (newValue) => {
+  if (newValue) {
+    nextTick(() => {
+      if (commentTextarea.value) {
+        commentTextarea.value.focus();
+      }
+    });
+  }
+});
 
 const saveComment = async (studentNumber) => {
   if (!session.value?.id) return;
@@ -287,51 +405,123 @@ const makeAction = async (action, studentNumber) => {
 </script>
 
 <style scoped>
-.session-infos {
-  background: #f6f8fa;
-  border: 1px solid #e0e4ea;
-  border-radius: 8px;
-  padding: 18px 16px 10px 16px;
-  margin-bottom: 24px;
-  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
-}
-.session-infos h2 {
-  margin-top: 0;
-  font-size: 1.15em;
-  color: #2c3e50;
-  margin-bottom: 10px;
-}
-.session-infos ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.session-infos li {
-  margin-bottom: 6px;
-  font-size: 1em;
-  color: #34495e;
-}
-.session-infos strong {
-  color: #2980b9;
-}
 .prof-signature-page {
   max-width: 1100px;
   margin: 40px auto;
   background: #fff;
   border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(52,152,219,0.10);
+  box-shadow: 0 4px 24px rgba(52,152,219,0.15);
   padding: 36px 32px 32px 32px;
 }
 
-.validation-code-row {
+/* Session info styling */
+.session-infos {
+  background: #f8fafc;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 10px rgba(52,152,219,0.08);
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e0e7ff;
+  padding-bottom: 15px;
+}
+
+.session-header h2 {
+  margin: 0;
+  font-size: 1.4em;
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+.validation-code-container {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 15px;
 }
+
+.validation-code-label {
+  font-weight: 600;
+  color: #2980b9;
+  font-size: 1.1em;
+}
+
+.session-details {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.session-column {
+  flex: 1;
+  min-width: 200px;
+}
+
+.detail-item {
+  display: flex;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.detail-label {
+  width: 120px;
+  font-weight: 600;
+  color: #2980b9;
+}
+
+.detail-value {
+  flex: 1;
+  font-weight: 500;
+}
+
+.professors-container {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.professor-info, .co-professor-info {
+  flex: 1;
+  min-width: 250px;
+  padding: 12px 15px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.professor-info {
+  background-color: #ecf0f1;
+  border-left: 4px solid #3498db;
+}
+
+.co-professor-info {
+  background-color: #ecf0f1;
+  border-left: 4px solid #9b59b6;
+}
+
+.professor-title {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.professor-name {
+  font-weight: 500;
+}
+
 .validation-code {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 2em;
+  font-size: 1.6em;
   color: #fff;
   background: #217dbb;
   padding: 6px 28px;
@@ -340,246 +530,509 @@ const makeAction = async (action, studentNumber) => {
   font-weight: bold;
   box-shadow: 0 2px 8px rgba(41,128,185,0.10);
   border: 2px solid #217dbb;
-  margin-left: 8px;
 }
 .fancy-validation-code {
   display: inline-flex;
   align-items: center;
-  background: #fffbe6;
+  background: #fffceb;
   border: 2px solid #f7c948;
-  border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(247,201,72,0.10);
-  padding: 2px 18px;
-  margin-left: 8px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(247,201,72,0.15);
+  padding: 8px 20px;
   position: relative;
   font-size: 1em;
-  transition: box-shadow 0.2s;
+  transition: all 0.3s ease;
 }
+
+.fancy-validation-code:hover {
+  box-shadow: 0 6px 16px rgba(247,201,72,0.2);
+  transform: translateY(-1px);
+}
+
 .fancy-validation-code::before {
   content: '\1F511';
-  font-size: 1.1em;
-  margin-right: 8px;
-  color: #f7c948;
-  filter: drop-shadow(0 1px 2px #f7c94833);
+  font-size: 1.3em;
+  margin-right: 12px;
+  color: #e8b215;
+  filter: drop-shadow(0 1px 2px rgba(184, 134, 11, 0.3));
 }
+
 .validation-code-inner {
   font-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', monospace;
-  font-size: 1.08em;
+  font-size: 1.2em;
   color: #b8860b;
-  letter-spacing: 6px;
+  letter-spacing: 8px;
   font-weight: 700;
-  text-shadow: 0 1px 4px #fffbe6, 0 1px 0 #f7c94844;
+  text-shadow: 0 1px 1px rgba(255, 251, 230, 0.8);
   padding: 0 2px;
-  background: none;
 }
-@media (max-width: 600px) {
-  .fancy-validation-code {
-    font-size: 0.98em;
-    padding: 2px 10px;
-  }
-  .validation-code-inner {
-    letter-spacing: 3px;
-  }
+
+.current-professor-badge {
+  background: linear-gradient(to right, #27ae60, #2ecc71);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 30px;
+  font-size: 0.8em;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(46, 204, 113, 0.2);
 }
+
+/* Layout */
 .prof-content-row {
   display: flex;
-  gap: 40px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 30px;
   margin-top: 32px;
+  width: 100%;
 }
+
 .prof-signature-form {
-  flex: 1 1 350px;
-  min-width: 320px;
-  background: #fafdff;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(52,152,219,0.08);
-  padding: 24px 18px 18px 18px;
-}
-.signature-zone {
-  margin-bottom: 30px;
-  position: relative;
-  transform: none;
-}
-.attendances {
-  flex: 1 1 420px;
-  min-width: 340px;
-  margin-top: 0;
-  background: #fafdff;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(52,152,219,0.08);
-  padding: 24px 18px 18px 18px;
-  overflow: hidden; /* Empêche le contenu de déborder */
+  width: 100%;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(52,152,219,0.12);
+  padding: 25px 22px;
   display: flex;
-  flex-direction: column; /* Organisation du contenu en colonne */
+  flex-direction: column;
 }
+
+.section-title {
+  font-size: 1.25em;
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e0e7ff;
+  font-weight: 600;
+}
+
+.form-row {
+  display: flex;
+  gap: 15px;
+}
+
+.signature-zone {
+  margin-bottom: 25px;
+}
+
+.signature-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.signature-instruction {
+  color: #7f8c8d;
+  font-size: 0.9em;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Attendances section */
+.attendances {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(52,152,219,0.12);
+  padding: 25px 22px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .attendances-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
 }
+
+.attendances-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+
+.attendances-table-container {
+  border-radius: 8px;
+  width: 100%;
+}
+
 .attendances-table {
   width: 100%;
-  border-collapse: collapse;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
   background: #fff;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
-  font-size: 1.08em;
+  box-shadow: 0 1px 8px rgba(52,152,219,0.12);
+  font-size: 0.95em;
 }
+
 .attendances-table th, .attendances-table td {
-  padding: 12px 14px;
+  padding: 14px 10px;
   text-align: left;
-  border-bottom: 1px solid #e0e4ea;
+  word-wrap: break-word;
+  overflow: hidden;
 }
+
 .attendances-table th {
-  background: #f6f8fa;
-  color: #217dbb;
-  font-weight: 700;
-  font-size: 1.08em;
-}
-.attendances-table tr:last-child td {
-  border-bottom: none;
-}
-.cell-name, .cell-firstname {
-  font-weight: 500;
+  background: #f8fafc;
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 0.8em;
+  position: sticky;
+  top: 0;
+  box-shadow: 0 1px 0 rgba(52,152,219,0.15);
+  white-space: nowrap;
+  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.annule {
-  color: #888;
-  font-weight: bold;
-  font-style: italic;
+.attendances-table tr {
+  transition: background-color 0.15s;
+}
+
+.attendances-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.attendances-table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid #edf2f7;
+}
+
+.cell-id {
+  text-align: center;
+  font-weight: 600;
+  color: #7f8c8d;
+}
+
+.cell-name, .cell-firstname {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* Status styling */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 30px;
+  font-weight: 500;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.status-present {
+  background-color: rgba(46, 204, 113, 0.15);
+  color: #27ae60;
+}
+
+.status-absent {
+  background-color: rgba(231, 76, 60, 0.15);
+  color: #c0392b;
+}
+
+.status-canceled {
+  background-color: rgba(149, 165, 166, 0.15);
+  color: #7f8c8d;
   text-decoration: line-through;
 }
+
+/* Actions et boutons */
 .reload-btn {
   background: #3498db;
   color: #fff;
   border: none;
-  border-radius: 4px;
-  padding: 7px 18px;
-  font-size: 1em;
+  border-radius: 8px;
+  padding: 8px 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
   cursor: pointer;
-  transition: background 0.2s;
-  font-weight: 600;
-  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
+  transition: all 0.2s;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(52,152,219,0.15);
 }
+
+.reload-icon {
+  font-size: 1.1em;
+}
+
 .reload-btn:disabled {
   background: #b2cbe4;
   cursor: not-allowed;
+  opacity: 0.7;
 }
+
 .reload-btn:hover:not(:disabled) {
   background: #217dbb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(52,152,219,0.2);
 }
+
+/* Form elements */
 .form-group {
-  margin-bottom: 22px;
+  margin-bottom: 20px;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  flex: 1;
 }
+
+.form-group label {
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 0.95em;
+}
+
 input[type="text"] {
-  padding: 12px;
-  border-radius: 5px;
-  border: 1.5px solid #bfc9d1;
-  font-size: 17px;
-  background: #fafdff;
-  transition: border 0.2s;
+  padding: 12px 15px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  font-size: 1em;
+  background: #fff;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8);
 }
 input[type="text"]:focus {
-  border: 2px solid #3498db;
+  border-color: #3498db;
   outline: none;
+  box-shadow: 0 0 0 3px rgba(52,152,219,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
 }
+
 .submit-btn {
   width: 100%;
-  background: linear-gradient(90deg, #3498db 60%, #217dbb 100%);
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  padding: 15px;
-  font-size: 18px;
-  cursor: pointer;
-  margin-top: 12px;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(52,152,219,0.08);
-  transition: background 0.2s;
-  letter-spacing: 1px;
-}
-.submit-btn:hover {
-  background: linear-gradient(90deg, #217dbb 60%, #3498db 100%);
-}
-.success {
-  color: #27ae60;
-  text-align: center;
-  margin-top: 22px;
-  font-weight: 700;
-  font-size: 1.15em;
-}
-.error {
-  color: #e74c3c;
-  text-align: center;
-  margin-top: 22px;
-  font-weight: 700;
-  font-size: 1.15em;
-}
-.loading {
-  text-align: center;
-  color: #888;
-  font-size: 1.1em;
-}
-.action-btn {
   background: #3498db;
   color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 1.05em;
+  cursor: pointer;
+  margin-top: 15px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(52,152,219,0.15);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  letter-spacing: 0.5px;
+}
+
+.btn-icon {
+  font-size: 1.1em;
+}
+
+.submit-btn:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(52,152,219,0.2);
+}
+
+.submit-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(52,152,219,0.15);
+}
+
+/* États et messages */
+.success-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(46, 204, 113, 0.1);
+  border-left: 4px solid #2ecc71;
+  padding: 12px 15px;
+  border-radius: 6px;
+  margin-top: 20px;
+}
+
+.success-icon {
+  background-color: #2ecc71;
+  color: white;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.9em;
+}
+
+.success-text {
+  color: #27ae60;
+  font-weight: 600;
+  font-size: 1em;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(231, 76, 60, 0.1);
+  border-left: 4px solid #e74c3c;
+  padding: 12px 15px;
+  border-radius: 6px;
+  margin: 20px 0;
+}
+
+.error-icon {
+  font-size: 1.5em;
+  color: #e74c3c;
+}
+
+.error-message {
+  color: #c0392b;
+  font-weight: 500;
+}
+
+/* Loader */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 30px 0;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(52,152,219,0.2);
+  border-radius: 50%;
+  border-top-color: #3498db;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  color: #7f8c8d;
+  font-weight: 500;
+  font-size: 1em;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.action-btn {
+  border: none;
+  border-radius: 6px;
   padding: 8px 12px;
-  font-size: 0.95em;
+  font-size: 0.85em;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-  box-shadow: 0 1px 4px rgba(52,152,219,0.07);
-  margin: 0 2px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  margin: 0;
   white-space: nowrap;
+  min-width: 115px;
+  text-align: center;
 }
-.action-btn:hover:not(:disabled) {
-  background: #217dbb;
+
+.action-mark-present {
+  background: #3498db;
+  color: #fff;
 }
+
+.action-cancel {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+}
+
+.action-mark-present:hover {
+  background: #2980b9;
+}
+
+.action-cancel:hover {
+  background: #c0392b;
+}
+
 .action-btn:disabled {
   background: #b2cbe4;
   color: #eee;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
-/* Conteneur de la table avec défilement */
-.attendances > table {
-  display: block;
-  overflow-x: auto;
-  max-width: 100%;
-  -webkit-overflow-scrolling: touch;
+/* Attendances Table Container */
+.attendances-table-container {
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 /* Styles pour les commentaires */
 .comment-cell {
   position: relative;
-  min-width: 200px;
-  word-break: break-word;
+  width: 26%;
+}
+
+.no-attendances {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: #7f8c8d;
+  gap: 15px;
+}
+
+.no-data-icon {
+  font-size: 3em;
+  color: #b2bec3;
+}
+
+.no-data-text {
+  font-size: 1.1em;
+  font-weight: 500;
 }
 
 .comment-display {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  position: relative;
 }
 
 .comment-text {
-  font-size: 0.95em;
+  font-size: 0.9em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 150px;
+  flex: 1;
+  padding: 4px 0;
+  transition: all 0.2s;
+  border-radius: 4px;
+}
+
+.comment-text:hover {
+  white-space: normal;
+  overflow: visible;
+  background-color: #f8f9fa;
+  padding: 4px 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  width: calc(100% - 40px);
 }
 
 .no-comment {
   font-style: italic;
-  color: #aaa;
+  color: #b2bec3;
 }
 
 .edit-comment-btn {
@@ -587,183 +1040,384 @@ input[type="text"]:focus {
   border: none;
   color: #3498db;
   cursor: pointer;
-  font-size: 1.1em;
-  padding: 2px 8px;
+  font-size: 1em;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border-radius: 50%;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.2s;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .edit-comment-btn:hover {
   background: #eaf6fb;
   color: #217dbb;
+  transform: scale(1.1);
 }
 
 .icon {
-  font-size: 1em;
+  font-size: 0.9em;
   display: inline-block;
+  line-height: 1;
 }
 
 .comment-edit {
   width: 100%;
+  position: relative;
+  z-index: 5;
 }
 
 .comment-input {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #bfc9d1;
-  border-radius: 4px;
-  font-size: 0.95em;
+  padding: 10px 12px;
+  border: 2px solid #dfe6e9;
+  border-radius: 8px;
+  font-size: 0.9em;
   font-family: inherit;
   resize: vertical;
-  min-height: 70px;
-  margin-bottom: 8px;
+  min-height: 80px;
+  margin-bottom: 10px;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .comment-input:focus {
   outline: none;
   border-color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15), inset 0 1px 3px rgba(0,0,0,0.02);
 }
 
 .comment-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .save-comment-btn, .cancel-comment-btn {
-  padding: 5px 10px;
-  border-radius: 4px;
+  padding: 7px 12px;
+  border-radius: 6px;
   border: none;
   font-size: 0.85em;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  font-weight: 500;
 }
 
 .save-comment-btn {
   background: #3498db;
   color: white;
+  box-shadow: 0 2px 6px rgba(52,152,219,0.2);
 }
 
 .save-comment-btn:hover {
-  background: #217dbb;
+  background: #2980b9;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(52,152,219,0.25);
 }
 
 .cancel-comment-btn {
-  background: #f1f2f6;
+  background: #f5f6fa;
   color: #576574;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
 .cancel-comment-btn:hover {
-  background: #dfe4ea;
+  background: #e9ecf2;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
 }
 
+/* Responsive Styles */
 @media (max-width: 1100px) {
   .prof-signature-page {
-    padding: 24px 20px;
+    padding: 25px 20px;
     margin: 20px auto;
-  }
-  .prof-content-row {
-    gap: 18px;
+    max-width: 95%;
   }
   
-  .comment-text {
-    max-width: 120px;
+  .prof-content-row {
+    gap: 20px;
+  }
+  
+  .validation-code-inner {
+    letter-spacing: 6px;
+  }
+  
+  .session-details {
+    gap: 20px;
+  }
+  
+  .form-row {
+    flex-direction: column;
   }
 }
 
 @media (max-width: 900px) {
-  .prof-content-row {
+  .session-header {
     flex-direction: column;
-    gap: 18px;
-  }
-  .attendances, .prof-signature-form {
-    min-width: unset;
-    width: 100%;
+    align-items: flex-start;
   }
   
-  .comment-text {
-    max-width: 180px;
+  .validation-code-container {
+    width: 100%;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  
+  .attendances-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .reload-btn {
+    width: auto;
+    justify-content: center;
+  }
+  
+  .column-action {
+    width: 22%;
+  }
+  
+  .column-comment {
+    width: 22%;
   }
 }
 
 @media (max-width: 768px) {
   .prof-signature-page {
-    padding: 16px 12px;
-    margin: 10px auto;
-    border-radius: 8px;
+    padding: 20px 15px;
+    margin: 15px auto;
+    border-radius: 10px;
+  }
+  
+  .session-details {
+    flex-direction: column;
+    gap: 5px;
   }
   
   .attendances-table th, .attendances-table td {
-    padding: 10px 8px;
+    padding: 12px 8px;
+    font-size: 0.9em;
   }
   
   .action-btn {
-    padding: 6px 10px;
-    font-size: 0.9em;
+    padding: 6px 8px;
+    font-size: 0.8em;
+    min-width: auto;
+  }
+  
+  table.attendances-table {
+    table-layout: fixed;
+  }
+  
+  table.attendances-table colgroup col:nth-child(1) {
+    width: 5%;
+  }
+  table.attendances-table colgroup col:nth-child(2) {
+    width: 17%;
+  }
+  table.attendances-table colgroup col:nth-child(3) {
+    width: 17%;
+  }
+  table.attendances-table colgroup col:nth-child(4) {
+    width: 15%;
+  }
+  table.attendances-table colgroup col:nth-child(5) {
+    width: 20%;
+  }
+  table.attendances-table colgroup col:nth-child(6) {
+    width: 26%;
   }
 }
+  
 
 @media (max-width: 600px) {
   .prof-signature-page {
-    padding: 12px 8px;
-    margin: 0;
-    border-radius: 0;
-    box-shadow: none;
+    padding: 15px 12px;
+    margin: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 15px rgba(52,152,219,0.10);
   }
+  
   .prof-content-row {
-    flex-direction: column;
-    gap: 10px;
+    gap: 15px;
   }
+  
   .prof-signature-form, .attendances {
-    padding: 12px 10px;
-    min-width: unset;
+    padding: 15px;
+    border-radius: 8px;
+  }
+  
+  /* Réorganisation de la table pour téléphone */
+  .attendances-table {
+    display: block;
+  }
+  
+  .attendances-table thead {
+    display: none; /* Cacher l'en-tête sur mobile */
+  }
+  
+  .attendances-table tbody {
+    display: block;
     width: 100%;
   }
-  .attendances-table th, .attendances-table td {
-    padding: 6px 4px;
+  
+  .attendances-table tr {
+    display: block;
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    border: 1px solid #e0e7ff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  }
+  
+  .attendances-table td {
+    display: block;
+    padding: 8px 4px;
     font-size: 0.9em;
+    border: none;
+    text-align: left;
+    width: 100%;
+  }
+  
+  /* Ajouter des labels pour remplacer les en-têtes de colonne */
+  .cell-name::before {
+    content: "Nom: ";
+    font-weight: bold;
+    color: #2980b9;
+  }
+  
+  .cell-firstname::before {
+    content: "Prénom: ";
+    font-weight: bold;
+    color: #2980b9;
+  }
+  
+  /* Cacher le numéro pour économiser de l'espace */
+  .cell-id {
+    display: none;
+  }
+  
+  .cell-status {
+    margin: 10px 0;
+  }
+  
+  .status-badge {
+    display: inline-flex;
+    padding: 6px 10px;
+    font-size: 0.95em;
+  }
+  
+  .action-btn {
+    padding: 10px 15px;
+    font-size: 0.9em;
+    min-width: 0;
+    width: 100%;
+    margin: 8px 0;
   }
   
   .comment-cell {
-    min-width: 120px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 10px;
+    padding-top: 10px !important;
+  }
+  
+  .comment-cell::before {
+    content: "Commentaire: ";
+    font-weight: bold;
+    color: #2980b9;
+    display: block;
+    margin-bottom: 5px;
   }
   
   .comment-text {
-    max-width: 80px;
+    white-space: normal;
+    padding: 5px 0;
+  }
+  
+  .comment-text:hover {
+    white-space: normal;
+    overflow: visible;
+    background-color: transparent;
+    box-shadow: none;
+    position: static;
+    width: auto;
+    padding: 5px 0;
+  }
+  
+  .validation-code-inner {
+    letter-spacing: 3px;
+    font-size: 0.9em;
+  }
+  
+  .fancy-validation-code::before {
+    font-size: 1.1em;
+    margin-right: 8px;
+  }
+  
+  .fancy-validation-code {
+    padding: 5px 10px;
+  }
+  
+  .submit-btn {
+    padding: 12px;
+  }
+  
+  .section-title {
+    font-size: 1.1em;
+  }
+}
+
+/* Pour les très petits écrans */
+@media (max-width: 400px) {
+  .prof-signature-page {
+    padding: 10px 8px;
+    margin: 5px;
+  }
+  
+  .attendances-table tr {
+    padding: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .attendances-table td {
+    padding: 5px 3px;
+    font-size: 0.8em;
+  }
+  
+  .action-btn {
+    padding: 8px 10px;
+    font-size: 0.8em;
+  }
+  
+  .status-badge {
+    padding: 5px 8px;
+    font-size: 0.85em;
+  }
+  
+  .comment-cell {
+    padding-top: 8px !important;
   }
   
   .comment-input {
-    min-height: 50px;
+    min-height: 60px;
   }
-}
-
-.professor-info, .co-professor-info {
-  background-color: #f8f9fa;
-  padding: 8px;
-  border-radius: 4px;
-  margin: 4px 0;
-}
-
-.professor-info {
-  border-left: 3px solid #3498db;
-}
-
-.co-professor-info {
-  border-left: 3px solid #9b59b6;
-}
-
-.current-professor-badge {
-  background-color: #27ae60;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.8em;
-  margin-left: 8px;
-  font-weight: bold;
+  
+  .comment-actions button {
+    padding: 6px 8px;
+    font-size: 0.8em;
+  }
+  
+  .validation-code-inner {
+    letter-spacing: 2px;
+    font-size: 0.8em;
+  }
 }
 </style>
