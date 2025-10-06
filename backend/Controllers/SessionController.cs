@@ -1072,7 +1072,7 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Session non trouvée." });
             session.ProfEmail = model.ProfEmail;
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Email du professeur 1 enregistré et mail envoyé." });
+            return Ok(new { message = "Email du professeur 1 enregistré" });
         }
 
         /**
@@ -1354,7 +1354,7 @@ namespace backend.Controllers
                         ProfSignatureToken = Guid.NewGuid().ToString(),
                         ProfSignatureToken2 = !string.IsNullOrEmpty(profName2) ? Guid.NewGuid().ToString() : null,
                         ValidationCode = new Random().Next(1000, 9999).ToString(),
-                        IsMerged = eventInfos.Count > 1 
+                        IsMerged = eventInfos.Count > 1
                     };
                     _context.Sessions.Add(session);
                     await _context.SaveChangesAsync();
@@ -1590,17 +1590,21 @@ namespace backend.Controllers
                 profEmail = session.ProfEmail;
                 profSignatureToken = session.ProfSignatureToken;
                 profName = $"{session.ProfFirstname} {session.ProfName}";
+                session.IsMailSent = true;
             }
             else if (professorNumber == 2)
             {
                 profEmail = session.ProfEmail2;
                 profSignatureToken = session.ProfSignatureToken2;
                 profName = $"{session.ProfFirstname2} {session.ProfName2}";
+                session.IsMailSent2 = true;
             }
             else
             {
                 throw new ArgumentException("Le numéro de professeur doit être 1 ou 2", nameof(professorNumber));
             }
+
+            await _context.SaveChangesAsync();
 
             if (session == null || string.IsNullOrWhiteSpace(profEmail) || string.IsNullOrWhiteSpace(profSignatureToken))
                 return;

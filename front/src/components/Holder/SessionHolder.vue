@@ -182,7 +182,6 @@ const loadData = async () => {
         loading.value = false;
     }
 };
-const API_URL = import.meta.env.VITE_API_URL;
 
 onMounted(async () => {
     await loadData();
