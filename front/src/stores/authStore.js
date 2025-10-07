@@ -35,12 +35,48 @@ class TokenManager {
   }
 
   static getUserInfo() {
-    const userInfo = localStorage.getItem("user_info");
-    return userInfo ? JSON.parse(userInfo) : null;
+    const encryptedInfo = localStorage.getItem("user_info");
+    if (!encryptedInfo) return null;
+
+    try {
+      const key = import.meta.env.VITE_COOKIE_SECRET;
+      let decrypted = "";
+      const encoded = atob(encryptedInfo);
+
+      for (let i = 0; i < encoded.length; i++) {
+        decrypted += String.fromCharCode(
+          encoded.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+        );
+      }
+
+      return JSON.parse(decrypted);
+    } catch (error) {
+      console.error("Failed to decrypt user info:", error);
+      return null;
+    }
   }
 
   static setUserInfo(userInfo) {
-    localStorage.setItem("user_info", JSON.stringify(userInfo));
+    if (!userInfo) {
+      localStorage.removeItem("user_info");
+      return;
+    }
+
+    try {
+      const key = import.meta.env.VITE_COOKIE_SECRET;
+      const data = JSON.stringify(userInfo);
+      let encrypted = "";
+
+      for (let i = 0; i < data.length; i++) {
+        encrypted += String.fromCharCode(
+          data.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+        );
+      }
+
+      localStorage.setItem("user_info", btoa(encrypted));
+    } catch (error) {
+      console.error("Failed to encrypt user info:", error);
+    }
   }
 
   static isTokenExpiringSoon() {
