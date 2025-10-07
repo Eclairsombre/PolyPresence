@@ -132,9 +132,9 @@ namespace backend.Controllers
             var dto = new UserDto
             {
                 Id = user.Id,
-                Name = user.Name,
+                Lastname = user.Name,
                 Firstname = user.Firstname,
-                StudentNumber = user.StudentNumber,
+                StudentId = user.StudentNumber,
                 Email = user.Email,
                 Year = user.Year,
                 IsAdmin = user.IsAdmin,
@@ -520,9 +520,9 @@ namespace backend.Controllers
                 var userInfo = new UserDto
                 {
                     Id = user.Id,
-                    Name = user.Name,
+                    Lastname = user.Name,
                     Firstname = user.Firstname,
-                    StudentNumber = user.StudentNumber,
+                    StudentId = user.StudentNumber,
                     Email = user.Email,
                     Year = user.Year,
                     IsAdmin = user.IsAdmin,
@@ -551,9 +551,9 @@ namespace backend.Controllers
                     User = new UserDto
                     {
                         Id = user.Id,
-                        Name = user.Name,
+                        Lastname = user.Name,
                         Firstname = user.Firstname,
-                        StudentNumber = user.StudentNumber,
+                        StudentId = user.StudentNumber,
                         Email = user.Email,
                         Year = user.Year,
                         IsAdmin = user.IsAdmin,
@@ -652,9 +652,9 @@ namespace backend.Controllers
                 var userInfo = new UserDto
                 {
                     Id = user.Id,
-                    Name = user.Name,
+                    Lastname = user.Name,
                     Firstname = user.Firstname,
-                    StudentNumber = user.StudentNumber,
+                    StudentId = user.StudentNumber,
                     Email = user.Email,
                     Year = user.Year,
                     IsAdmin = user.IsAdmin,
@@ -683,9 +683,9 @@ namespace backend.Controllers
                     User = new UserDto
                     {
                         Id = user.Id,
-                        Name = user.Name,
+                        Lastname = user.Name,
                         Firstname = user.Firstname,
-                        StudentNumber = user.StudentNumber,
+                        StudentId = user.StudentNumber,
                         Email = user.Email,
                         Year = user.Year,
                         IsAdmin = user.IsAdmin,
