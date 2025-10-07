@@ -23,19 +23,22 @@ namespace backend.Controllers
         private readonly IJwtService _jwtService;
         private readonly IPasswordService _passwordService;
         private readonly IRateLimitService _rateLimitService;
+        private readonly ICookieEncryptionService _cookieEncryptionService;
 
         public UserController(
             ApplicationDbContext context,
             ILogger<UserController> logger,
             IJwtService jwtService,
             IPasswordService passwordService,
-            IRateLimitService rateLimitService)
+            IRateLimitService rateLimitService,
+            ICookieEncryptionService cookieEncryptionService)
         {
             _context = context;
             _logger = logger;
             _jwtService = jwtService;
             _passwordService = passwordService;
             _rateLimitService = rateLimitService;
+            _cookieEncryptionService = cookieEncryptionService;
         }
         /**
          * GetUsers
@@ -104,6 +107,41 @@ namespace backend.Controllers
             }
 
             return requestedUser;
+        }
+
+        /**
+         * GetCurrentUser
+         *
+         * Returns the currently authenticated user's basic info.
+         */
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+            {
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+            }
+
+            var user = await _context.Users.FindAsync(currentUserId);
+            if (user == null)
+            {
+                return NotFound(new { message = "Utilisateur introuvable." });
+            }
+
+            var dto = new UserDto
+            {
+                Id = user.Id,
+                Name = user.Name,
+                Firstname = user.Firstname,
+                StudentNumber = user.StudentNumber,
+                Email = user.Email,
+                Year = user.Year,
+                IsAdmin = user.IsAdmin,
+                IsDelegate = user.IsDelegate
+            };
+
+            return Ok(dto);
         }
 
         /**
@@ -478,6 +516,33 @@ namespace backend.Controllers
 
                 _logger.LogInformation("Successful login for user: {StudentNumber}", user.StudentNumber);
 
+                // Prepare user info to store in a HttpOnly encrypted cookie
+                var userInfo = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Firstname = user.Firstname,
+                    StudentNumber = user.StudentNumber,
+                    Email = user.Email,
+                    Year = user.Year,
+                    IsAdmin = user.IsAdmin,
+                    IsDelegate = user.IsDelegate
+                };
+
+                var userInfoJson = System.Text.Json.JsonSerializer.Serialize(userInfo);
+                var protectedUserInfo = _cookieEncryptionService.Protect(userInfoJson);
+
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Path = "/",
+                    Expires = DateTime.UtcNow.AddDays(7)
+                };
+
+                Response.Cookies.Append("user_info", protectedUserInfo, cookieOptions);
+
                 return Ok(new LoginResponse
                 {
                     Success = true,
@@ -583,6 +648,33 @@ namespace backend.Controllers
 
                 _logger.LogInformation("Token refreshed for user: {StudentNumber}", user.StudentNumber);
 
+                // Update HttpOnly encrypted cookie with refreshed user info
+                var userInfo = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Firstname = user.Firstname,
+                    StudentNumber = user.StudentNumber,
+                    Email = user.Email,
+                    Year = user.Year,
+                    IsAdmin = user.IsAdmin,
+                    IsDelegate = user.IsDelegate
+                };
+
+                var userInfoJson = System.Text.Json.JsonSerializer.Serialize(userInfo);
+                var protectedUserInfo = _cookieEncryptionService.Protect(userInfoJson);
+
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Path = "/",
+                    Expires = DateTime.UtcNow.AddDays(7)
+                };
+
+                Response.Cookies.Append("user_info", protectedUserInfo, cookieOptions);
+
                 return Ok(new LoginResponse
                 {
                     Success = true,
@@ -636,6 +728,15 @@ namespace backend.Controllers
                     await _jwtService.RevokeAllUserTokensAsync(userId);
                     _logger.LogInformation("User logged out successfully: {UserId}", userId);
                 }
+
+                // Clear user_info cookie on logout
+                Response.Cookies.Delete("user_info", new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Path = "/"
+                });
 
                 return Ok(new { Success = true, Message = "Déconnexion réussie" });
             }

@@ -31,52 +31,6 @@ class TokenManager {
   static clearTokens() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user_info");
-  }
-
-  static getUserInfo() {
-    const encryptedInfo = localStorage.getItem("user_info");
-    if (!encryptedInfo) return null;
-
-    try {
-      const key = import.meta.env.VITE_COOKIE_SECRET;
-      let decrypted = "";
-      const encoded = atob(encryptedInfo);
-
-      for (let i = 0; i < encoded.length; i++) {
-        decrypted += String.fromCharCode(
-          encoded.charCodeAt(i) ^ key.charCodeAt(i % key.length)
-        );
-      }
-
-      return JSON.parse(decrypted);
-    } catch (error) {
-      console.error("Failed to decrypt user info:", error);
-      return null;
-    }
-  }
-
-  static setUserInfo(userInfo) {
-    if (!userInfo) {
-      localStorage.removeItem("user_info");
-      return;
-    }
-
-    try {
-      const key = import.meta.env.VITE_COOKIE_SECRET;
-      const data = JSON.stringify(userInfo);
-      let encrypted = "";
-
-      for (let i = 0; i < data.length; i++) {
-        encrypted += String.fromCharCode(
-          data.charCodeAt(i) ^ key.charCodeAt(i % key.length)
-        );
-      }
-
-      localStorage.setItem("user_info", btoa(encrypted));
-    } catch (error) {
-      console.error("Failed to encrypt user info:", error);
-    }
   }
 
   static isTokenExpiringSoon() {
@@ -165,24 +119,22 @@ axios.interceptors.request.use(
           const response = await axios.post(`${API_URL}/User/refresh-token`, {
             RefreshToken: refreshToken,
           });
+          if (response.data) {
+            const success = response.data.success ?? response.data.Success;
+            const token = response.data.token ?? response.data.Token;
+            if (success && token) {
+              const access = token.accessToken ?? token.AccessToken;
+              const refresh = token.refreshToken ?? token.RefreshToken;
 
-          if (response.data && response.data.success && response.data.token) {
-            TokenManager.setTokens(
-              response.data.token.accessToken,
-              response.data.token.refreshToken
-            );
+              TokenManager.setTokens(access, refresh);
 
-            const userInfo = TokenManager.extractUserInfoFromToken(
-              response.data.token.accessToken
-            );
-            if (userInfo) {
-              TokenManager.setUserInfo(userInfo);
-              if (authStoreRef) {
+              const userInfo = TokenManager.extractUserInfoFromToken(access);
+              if (userInfo && authStoreRef) {
                 authStoreRef.user = userInfo;
               }
-            }
 
-            processQueue(null, response.data.token.accessToken);
+              processQueue(null, access);
+            }
           }
         } catch (error) {
           console.error("Erreur lors du refresh du token:", error);
@@ -273,6 +225,28 @@ export const useAuthStore = defineStore("auth", {
     initialize() {
       setAuthStoreReference(this);
       this.checkSession();
+
+      // If there is an access token but no user in state, attempt to fetch user from backend
+      const token = TokenManager.getAccessToken();
+      if (token && !this.user) {
+        axios
+          .get(`${API_URL}/User/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .then((res) => {
+            if (res.data) {
+              this.user = res.data;
+            }
+          })
+          .catch((err) => {
+            console.warn("Failed to fetch current user:", err);
+            // If unauthorized, clear tokens
+            if (err.response && err.response.status === 401) {
+              TokenManager.clearTokens();
+              this.user = null;
+            }
+          });
+      }
     },
 
     /**
@@ -319,36 +293,28 @@ export const useAuthStore = defineStore("auth", {
      */
     checkSession() {
       const accessToken = TokenManager.getAccessToken();
-      const userInfo = TokenManager.getUserInfo();
+      if (!accessToken) {
+        this.user = null;
+        return;
+      }
 
-      if (accessToken && userInfo) {
-        if (accessToken) {
-          try {
-            const payload = JSON.parse(atob(accessToken.split(".")[1]));
+      try {
+        const payload = JSON.parse(atob(accessToken.split(".")[1]));
+        const expiryTime = payload.exp * 1000;
+        const currentTime = Date.now();
+        const isExpired = expiryTime <= currentTime;
 
-            const expiryTime = payload.exp * 1000;
-            const currentTime = Date.now();
-            const isExpired = expiryTime <= currentTime;
-
-            if (isExpired) {
-              this.user = null;
-              TokenManager.clearTokens();
-              return;
-            }
-
-            userInfo.studentId = payload.studentNumber || userInfo.studentId;
-            TokenManager.setUserInfo(userInfo);
-          } catch (error) {
-            console.error(
-              "Erreur lors de l'extraction des infos du token:",
-              error
-            );
-          }
+        if (isExpired) {
+          this.user = null;
+          TokenManager.clearTokens();
+          return;
         }
 
-        this.user = userInfo;
-      } else {
+        // If token is valid but we don't have user info in state, initialize() will try to fetch it from backend
+      } catch (error) {
+        console.error("Erreur lors de l'extraction des infos du token:", error);
         this.user = null;
+        TokenManager.clearTokens();
       }
     },
 
@@ -398,7 +364,6 @@ export const useAuthStore = defineStore("auth", {
         );
 
         this.user.isAdmin = response.data.isAdmin;
-        TokenManager.setUserInfo(this.user);
         return this.user.isAdmin;
       } catch (error) {
         console.error(
@@ -425,22 +390,28 @@ export const useAuthStore = defineStore("auth", {
           password: password,
         });
 
-        if (!response.data || !response.data.success || !response.data.token) {
+        if (!response.data) {
+          throw new Error("Format de réponse invalide");
+        }
+
+        const success = response.data.success ?? response.data.Success;
+        const token = response.data.token ?? response.data.Token;
+        if (!success || !token) {
           throw new Error(
-            response.data.message || "Format de réponse invalide"
+            response.data.message ||
+              response.data.Message ||
+              "Format de réponse invalide"
           );
         }
 
-        TokenManager.setTokens(
-          response.data.token.accessToken,
-          response.data.token.refreshToken
-        );
+        const access = token.accessToken ?? token.AccessToken;
+        const refresh = token.refreshToken ?? token.RefreshToken;
 
-        const userFromResponse = response.data.user;
+        TokenManager.setTokens(access, refresh);
 
-        const userInfoFromToken = TokenManager.extractUserInfoFromToken(
-          response.data.token.accessToken
-        );
+        const userFromResponse = response.data.user ?? response.data.User;
+
+        const userInfoFromToken = TokenManager.extractUserInfoFromToken(access);
 
         const userInfo = {
           ...userInfoFromToken,
@@ -455,7 +426,6 @@ export const useAuthStore = defineStore("auth", {
         };
 
         this.user = userInfo;
-        TokenManager.setUserInfo(userInfo);
 
         return userInfo;
       } catch (error) {
@@ -484,7 +454,6 @@ export const useAuthStore = defineStore("auth", {
      */
     updateUserLocalStorage(userData) {
       this.user = userData;
-      TokenManager.setUserInfo(userData);
     },
 
     /**

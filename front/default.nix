@@ -17,7 +17,6 @@ buildNpmPackage rec {
   buildPhase = ''
     export VITE_API_URL="${apiUrl}"
     export VITE_BASE_URL="${baseUrl}"
-    export VITE_COOKIE_SECRET="${cookieSecret}"
     npm run build
   '';
 

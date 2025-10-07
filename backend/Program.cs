@@ -96,6 +96,8 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
 builder.Services.AddSingleton<TimerService>();
 builder.Services.AddSingleton<AdminTokenService>();
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<ICookieEncryptionService, CookieEncryptionService>();
 
 // Services d'arrière-plan
 builder.Services.AddHostedService<RateLimitCleanupService>();
