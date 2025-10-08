@@ -647,6 +647,11 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
             }
 
+            if (attendance.Status == AttendanceStatus.Present)
+            {
+                return Conflict(new { error = true, message = "La présence a déjà été validée pour cette session." });
+            }
+
             // Mise à jour du statut de présence
             attendance.Status = AttendanceStatus.Present;
             await _context.SaveChangesAsync();
