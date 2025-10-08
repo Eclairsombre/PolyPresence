@@ -790,13 +790,12 @@ namespace backend.Controllers
             }
 
             var attendanceDto = new
-                {
-                    attendance.Id,
-                    attendance.SessionId,
-                    attendance.StudentId,
-                    attendance.Status,
-                    attendance.Comment
-                };
+            {
+                attendance.Id,
+                attendance.SessionId,
+                attendance.StudentId,
+                attendance.Status,
+            };
 
             return Ok(attendanceDto);
         }
