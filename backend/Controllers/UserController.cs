@@ -548,17 +548,7 @@ namespace backend.Controllers
                     Success = true,
                     Message = "Connexion réussie",
                     Token = tokenResponse,
-                    User = new UserDto
-                    {
-                        Id = user.Id,
-                        Lastname = user.Name,
-                        Firstname = user.Firstname,
-                        StudentId = user.StudentNumber,
-                        Email = user.Email,
-                        Year = user.Year,
-                        IsAdmin = user.IsAdmin,
-                        IsDelegate = user.IsDelegate
-                    }
+                    User = userInfo
                 });
             }
             catch (Exception ex)
