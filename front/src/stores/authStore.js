@@ -416,9 +416,9 @@ export const useAuthStore = defineStore("auth", {
         const userInfo = {
           ...userInfoFromToken,
           id: userFromResponse.id,
-          studentId: userFromResponse.studentNumber,
+          studentId: userFromResponse.studentId,
           firstname: userFromResponse.firstname,
-          lastname: userFromResponse.name,
+          lastname: userFromResponse.lastname,
           email: userFromResponse.email,
           isAdmin: userFromResponse.isAdmin,
           isDelegate: userFromResponse.isDelegate,
