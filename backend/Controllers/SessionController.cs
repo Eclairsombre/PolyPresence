@@ -789,90 +789,16 @@ namespace backend.Controllers
                 return Forbid();
             }
 
-            var userDto = new
-            {
-                user.Id,
-                user.Name,
-                user.Firstname,
-                user.StudentNumber,
-                user.Email,
-                user.Year,
-                user.Signature,
-                user.IsAdmin,
-                user.IsDelegate
-            };
-
-            if (!isAdmin && !isDelegate)
-            {
-                _logger.LogInformation("Hiding validation code in attendance response");
-
-                var sessionDto = new
-                {
-                    session.Id,
-                    session.Date,
-                    session.StartTime,
-                    session.EndTime,
-                    session.Year,
-                    session.Name,
-                    session.Room,
-                    session.ProfName,
-                    session.ProfFirstname,
-                    session.ProfEmail,
-                    session.ProfSignature,
-                    session.ProfSignatureToken,
-                    session.IsSent,
-                    session.IsMailSent
-                };
-
-                var attendanceDto = new
+            var attendanceDto = new
                 {
                     attendance.Id,
                     attendance.SessionId,
-                    Session = sessionDto,
                     attendance.StudentId,
-                    User = userDto,
                     attendance.Status,
                     attendance.Comment
                 };
 
-                return Ok(attendanceDto);
-            }
-            else
-            {
-                _logger.LogInformation("Returning attendance with validation code");
-
-                var sessionDto = new
-                {
-                    session.Id,
-                    session.Date,
-                    session.StartTime,
-                    session.EndTime,
-                    session.Year,
-                    session.Name,
-                    session.Room,
-                    session.ValidationCode,  // Inclus pour admin/délégué
-                    session.ProfName,
-                    session.ProfFirstname,
-                    session.ProfEmail,
-                    session.ProfSignature,
-                    session.ProfSignatureToken,
-                    session.IsSent,
-                    session.IsMailSent
-                };
-
-                var attendanceDto = new
-                {
-                    attendance.Id,
-                    attendance.SessionId,
-                    Session = sessionDto,
-                    attendance.StudentId,
-                    User = userDto,
-                    attendance.Status,
-                    attendance.Comment
-                };
-
-                return Ok(attendanceDto);
-            }
+            return Ok(attendanceDto);
         }
 
         /**
