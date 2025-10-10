@@ -89,9 +89,11 @@ namespace backend.Services
 
         private void InitDailyMailTimer()
         {
+            _logger.LogInformation("Initialisation du timer d'envoi des feuilles de présence à l'administration");
             _nextMailExecutionTime = GetNextMailExecutionTime();
             StaticNextMailExecutionTime = _nextMailExecutionTime;
             _dailyMailTimer = new System.Timers.Timer((_nextMailExecutionTime - DateTime.Now).TotalMilliseconds);
+            _logger.LogInformation($"Prochain envoi des feuilles de présence à {_nextMailExecutionTime}, dans {(_nextMailExecutionTime - DateTime.Now).TotalMinutes:F1} min");
             _dailyMailTimer.Elapsed += async (sender, e) => await SendDailyAttendanceSheets();
             _dailyMailTimer.AutoReset = false;
             _dailyMailTimer.Start();
@@ -157,17 +159,9 @@ namespace backend.Services
             }
         }
 
-        private async Task CheckAndSendSessionMailsWithTimeWindow()
-        {
-            var now = DateTime.Now;
-            if (now.Hour >= 8 && now.Hour < 19)
-            {
-                await CheckAndSendSessionMails();
-            }
-        }
-
         private async Task SendDailyAttendanceSheets()
         {
+            _logger.LogInformation("Envoi quotidien des feuilles de présence à l'administration");
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -180,6 +174,7 @@ namespace backend.Services
             if (_dailyMailTimer != null)
             {
                 _dailyMailTimer.Interval = (_nextMailExecutionTime - DateTime.Now).TotalMilliseconds;
+                _logger.LogInformation($"Prochain envoi des feuilles de présence à {_nextMailExecutionTime}, dans {(_nextMailExecutionTime - DateTime.Now).TotalMinutes:F1} min");
                 _dailyMailTimer.Start();
             }
         }

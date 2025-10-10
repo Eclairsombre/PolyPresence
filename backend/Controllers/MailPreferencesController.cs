@@ -351,11 +351,14 @@ namespace backend.Controllers
         public async Task GenerateAndSendZip()
         {
 
+            _logger.LogInformation("Génération des ZIPs des feuilles de présence pour les utilisateurs avec des préférences actives");
             var usersWithPrefs = _context.Users
                 .Include(u => u.MailPreferences)
                 .Where(u => u.MailPreferences != null && u.MailPreferences.Active)
                 .ToList();
 
+
+            _logger.LogInformation($"Nombre d'utilisateurs avec des préférences actives : {usersWithPrefs.Count}");
 
             foreach (var user in usersWithPrefs)
             {
@@ -369,7 +372,7 @@ namespace backend.Controllers
                     .Where(s => !_context.SessionSentToUsers.Any(ssu => ssu.SessionId == s.Id && ssu.UserId == user.Id) &&
                                 s.Date <= DateTime.Now)
                     .ToList();
-
+                _logger.LogInformation($"Utilisateur {user.StudentNumber} ({prefs.EmailTo}) - Sessions à inclure dans le ZIP : {sessions.Count}");
                 if (sessions.Count == 0) continue;
 
                 using var zipStream = new MemoryStream();
