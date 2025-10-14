@@ -222,30 +222,28 @@ export const useAuthStore = defineStore("auth", {
     /**
      * Initialize the auth store by checking for existing session
      */
-    initialize() {
+    async initialize() {
       setAuthStoreReference(this);
       this.checkSession();
 
       // If there is an access token but no user in state, attempt to fetch user from backend
       const token = TokenManager.getAccessToken();
       if (token && !this.user) {
-        axios
-          .get(`${API_URL}/User/me`, {
+        try {
+          const res = await axios.get(`${API_URL}/User/me`, {
             headers: { Authorization: `Bearer ${token}` },
-          })
-          .then((res) => {
-            if (res.data) {
-              this.user = res.data;
-            }
-          })
-          .catch((err) => {
-            console.warn("Failed to fetch current user:", err);
-            // If unauthorized, clear tokens
-            if (err.response && err.response.status === 401) {
-              TokenManager.clearTokens();
-              this.user = null;
-            }
           });
+          if (res.data) {
+            this.user = res.data;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch current user:", err);
+          // If unauthorized, clear tokens
+          if (err.response && err.response.status === 401) {
+            TokenManager.clearTokens();
+            this.user = null;
+          }
+        }
       }
     },
 
