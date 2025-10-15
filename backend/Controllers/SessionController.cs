@@ -619,6 +619,11 @@ namespace backend.Controllers
                 return BadRequest(new { error = true, message = "Le code de validation est incorrect." });
             }
 
+            if(session.Date != DateTime.Today)
+            {
+                return BadRequest(new { error = true, message = "La validation de présence n'est autorisée que le jour de la session." });
+            }
+
             // Récupération de l'utilisateur cible (celui dont on valide la présence)
             var targetUser = await _context.Users
                 .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
