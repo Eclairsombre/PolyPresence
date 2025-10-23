@@ -20,7 +20,7 @@ const studentNumber = ref('');
 const errorMessage = ref('');
 const successMessage = ref('');
 const loading = ref(false);
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 import { useRouter } from 'vue-router';
 const router = useRouter();

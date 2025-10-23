@@ -54,7 +54,7 @@ const sending = ref(false);
 const loading = ref(true);
 const loadingError = ref('');
 const router = useRouter();
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const fetchAllStudents = async () => {
   errorMessage.value = '';
