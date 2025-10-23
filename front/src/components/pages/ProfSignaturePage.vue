@@ -390,15 +390,16 @@ const makeAction = async (action, studentNumber) => {
   try {
     
     const headers = { "Prof-Signature-Token": token };
-    console.log("En-têtes explicites:", headers);
-
     await sessionStore.changeAttendanceStatus(session.value.id, studentNumber, newStatus, headers);
-    console.log("Requête changeAttendanceStatus réussie");
-    await loadAttendances();
+    
+    const attendanceIndex = attendances.value.findIndex(
+      a => a.item1.studentNumber === studentNumber
+    );
+    
+    if (attendanceIndex !== -1) {
+      attendances.value[attendanceIndex].item2 = newStatus;
+    }
   } catch (e) {
-    console.error("Erreur détaillée:", e);
-    console.error("Response status:", e.response?.status);
-    console.error("Response data:", e.response?.data);
     error.value = "Erreur lors du changement de statut: " + (e.response?.status === 403 ? "Autorisation refusée" : e.message);
   }
 };
