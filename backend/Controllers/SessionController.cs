@@ -2,15 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Text.Json.Serialization;
-using System.Security.Cryptography;
 using System.Net.Mail;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.Net;
+using Ical.Net.CalendarComponents;
+using Ical.Net.Proxies;
 
 namespace backend.Controllers
 {
@@ -1072,10 +1069,10 @@ namespace backend.Controllers
         }
 
         /**
-         * ImportIcs
-         *
-         * This method imports ICS data from a URL and processes it.
-         */
+        * ImportIcs
+        *
+        * This method imports ICS data from a URL and processes it.
+        */
         [HttpPost("import-ics")]
         public async Task<IActionResult> ImportIcs([FromBody] ImportIcsModel model)
         {
@@ -1084,264 +1081,512 @@ namespace backend.Controllers
 
             try
             {
-                using var httpClient = new HttpClient();
-                var icsContent = await httpClient.GetStringAsync(model.IcsUrl);
+                var icsContent = await FetchIcsContent(model.IcsUrl);
                 var calendar = Ical.Net.Calendar.Load(icsContent);
-                var events = calendar.Events;
-                int createdCount = 0;
-                var existingSessions = await _context.Sessions.Where(s => s.Year == model.Year).ToListAsync();
+
+                var eventsByTimeSlot = await ParseIcsEvents(calendar.Events);
+                var existingSessions = await _context.Sessions
+                    .Where(s => s.Year == model.Year)
+                    .ToListAsync();
+
                 var importedSessions = new HashSet<(DateTime, TimeSpan, TimeSpan)>();
 
-                var eventsByTimeSlot = new Dictionary<(DateTime date, TimeSpan startTime, TimeSpan endTime), List<(string summary, string room, string profName, string profFirstname)>>();
+                await ProcessTimeSlots(eventsByTimeSlot, model.Year, existingSessions, importedSessions);
+                await CleanupOldSessions(existingSessions, importedSessions);
 
-                foreach (var evt in events)
-                    foreach (var icsEvent in events)
-                    {
-                        var frenchTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris") ??
-                                             TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
-
-                        var startDateUtc = icsEvent.Start.AsUtc;
-                        var endDateUtc = icsEvent.End.AsUtc;
-
-                        var startDateLocal = TimeZoneInfo.ConvertTimeFromUtc(startDateUtc, frenchTimeZone);
-                        var endDateLocal = TimeZoneInfo.ConvertTimeFromUtc(endDateUtc, frenchTimeZone);
-
-                        var date = startDateLocal.Date;
-                        var startTime = startDateLocal.TimeOfDay;
-                        var endTime = endDateLocal.TimeOfDay;
-                        var summary = icsEvent.Summary ?? "Session importée";
-
-                        if (date < DateTime.Today)
-                            continue;
-
-                        string room = icsEvent.Location ?? string.Empty;
-                        string profName = string.Empty;
-                        string profFirstname = string.Empty;
-
-                        if (summary.Contains("travail personnel", StringComparison.OrdinalIgnoreCase))
-                        {
-                            profName = string.Empty;
-                            profFirstname = string.Empty;
-                        }
-                        else
-                        {
-                            if (!string.IsNullOrWhiteSpace(icsEvent.Description))
-                            {
-                                var descLines = icsEvent.Description.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
-                                var profLine = descLines.LastOrDefault(l => !l.StartsWith("(Exporté le:"));
-                                if (!string.IsNullOrWhiteSpace(profLine))
-                                {
-                                    var parts = profLine.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-                                    if (parts.Length == 2)
-                                    {
-                                        profName = parts[0];
-                                        profFirstname = parts[1];
-                                    }
-                                    else if (parts.Length == 1)
-                                    {
-                                        profName = parts[0];
-                                    }
-                                }
-                            }
-                        }
-
-                        var timeSlot = (date, startTime, endTime);
-                        if (!eventsByTimeSlot.ContainsKey(timeSlot))
-                        {
-                            eventsByTimeSlot[timeSlot] = new List<(string, string, string, string)>();
-                        }
-
-                        eventsByTimeSlot[timeSlot].Add((summary, room, profName, profFirstname));
-                    }
-
-                foreach (var kvp in eventsByTimeSlot)
-                {
-                    var (date, startTime, endTime) = kvp.Key;
-                    var eventInfos = kvp.Value;
-                    var year = model.Year;
-
-                    importedSessions.Add((date, startTime, endTime));
-
-                    var exactMatch = await _context.Sessions.FirstOrDefaultAsync(s => s.Date == date && s.StartTime == startTime && s.EndTime == endTime && s.Year == year);
-
-                    var mergedSessions = await _context.Sessions
-                        .Where(s => s.Date == date && s.Year == year && s.IsMerged)
-                        .ToListAsync();
-
-                    var mergedMatches = mergedSessions
-                        .Where(s => s.StartTime <= startTime && s.EndTime >= endTime)
-                        .ToList();
-
-                    var primaryEvent = eventInfos.First();
-                    string mergedName, mergedRoom, mergedProfName, mergedProfFirstname;
-                    string? profName2 = null, profFirstname2 = null;
-
-                    if (eventInfos.Count > 1)
-                    {
-                        mergedName = string.Join(" / ", eventInfos.Select(e => e.Item1).Distinct());
-                        mergedRoom = string.Join(" / ", eventInfos.Select(e => e.Item2).Where(r => !string.IsNullOrEmpty(r)).Distinct());
-
-                        var firstProf = eventInfos.FirstOrDefault(e => !string.IsNullOrEmpty(e.Item3));
-                        mergedProfName = firstProf.Item3 ?? string.Empty;
-                        mergedProfFirstname = firstProf.Item4 ?? string.Empty;
-
-                        var secondProf = eventInfos.Skip(1).FirstOrDefault(e => !string.IsNullOrEmpty(e.Item3) &&
-                            (e.Item3 != mergedProfName || e.Item4 != mergedProfFirstname));
-                        if (secondProf != default)
-                        {
-                            profName2 = secondProf.Item3;
-                            profFirstname2 = secondProf.Item4;
-                        }
-
-                        _logger.LogInformation($"Fusion de {eventInfos.Count} événements pour le créneau {date} {startTime}-{endTime}: {mergedName}");
-                    }
-                    else
-                    {
-                        mergedName = primaryEvent.Item1;
-                        mergedRoom = primaryEvent.Item2;
-                        mergedProfName = primaryEvent.Item3;
-                        mergedProfFirstname = primaryEvent.Item4;
-                    }
-
-                    if (exactMatch != null)
-                    {
-                        if (exactMatch.IsMerged)
-                        {
-                            bool needsUpdate = exactMatch.Name != mergedName ||
-                                              exactMatch.ProfName != mergedProfName ||
-                                              exactMatch.ProfFirstname != mergedProfFirstname ||
-                                              exactMatch.Room != mergedRoom ||
-                                              exactMatch.ProfName2 != profName2 ||
-                                              exactMatch.ProfFirstname2 != profFirstname2;
-
-                            if (needsUpdate)
-                            {
-                                _logger.LogInformation($"Mise à jour des informations de la session fusionnée ID {exactMatch.Id} ({exactMatch.Date}, {exactMatch.StartTime}-{exactMatch.EndTime})");
-                                exactMatch.Name = mergedName;
-                                exactMatch.ProfName = mergedProfName;
-                                exactMatch.ProfFirstname = mergedProfFirstname;
-                                exactMatch.Room = mergedRoom;
-                                exactMatch.ProfName2 = profName2;
-                                exactMatch.ProfFirstname2 = profFirstname2;
-                                _context.Sessions.Update(exactMatch);
-                                await _context.SaveChangesAsync();
-                            }
-                            else
-                            {
-                                _logger.LogInformation($"Préservation de la session fusionnée ID {exactMatch.Id} (aucune modification nécessaire)");
-                            }
-                            continue;
-                        }
-                        else
-                        {
-                            if (exactMatch.Name != mergedName || exactMatch.ProfName != mergedProfName ||
-                                exactMatch.ProfFirstname != mergedProfFirstname || exactMatch.Room != mergedRoom)
-                            {
-                                var oldAttendances = _context.Attendances.Where(a => a.SessionId == exactMatch.Id);
-                                _context.Attendances.RemoveRange(oldAttendances);
-                                await _context.SaveChangesAsync();
-                                _context.Sessions.Remove(exactMatch);
-                                await _context.SaveChangesAsync();
-                            }
-                            else
-                            {
-                                continue;
-                            }
-                        }
-                    }
-                    else if (mergedMatches.Any())
-                    {
-                        var existingSession = mergedMatches.First();
-                        _logger.LogInformation($"La session fusionnée existante ID {existingSession.Id} ({existingSession.Date}, {existingSession.StartTime}-{existingSession.EndTime}) couvre déjà cette plage horaire ({date}, {startTime}-{endTime})");
-                        continue;
-                    }
-
-                    var allSessionsSameDay = await _context.Sessions
-                        .Where(s => s.Year == year && s.Date == date)
-                        .ToListAsync();
-                    var overlappingSessions = allSessionsSameDay
-                        .Where(s => s.StartTime < endTime && s.EndTime > startTime && !s.IsMerged) // Ne pas supprimer les sessions fusionnées
-                        .ToList();
-                    foreach (var overlap in overlappingSessions)
-                    {
-                        _logger.LogInformation($"Suppression de la session qui se chevauche ID {overlap.Id} ({overlap.Date}, {overlap.StartTime}-{overlap.EndTime})");
-                        var attendances = _context.Attendances.Where(a => a.SessionId == overlap.Id);
-                        _context.Attendances.RemoveRange(attendances);
-                        await _context.SaveChangesAsync();
-                        _context.Sessions.Remove(overlap);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    var session = new Session
-                    {
-                        Date = date,
-                        StartTime = startTime,
-                        EndTime = endTime,
-                        Year = year,
-                        Name = mergedName,
-                        ProfName = mergedProfName,
-                        ProfFirstname = mergedProfFirstname,
-                        Room = mergedRoom,
-                        ProfName2 = profName2,
-                        ProfFirstname2 = profFirstname2,
-                        ProfSignatureToken = Guid.NewGuid().ToString(),
-                        ProfSignatureToken2 = !string.IsNullOrEmpty(profName2) ? Guid.NewGuid().ToString() : null,
-                        ValidationCode = new Random().Next(1000, 9999).ToString(),
-                        IsMerged = eventInfos.Count > 1
-                    };
-                    _context.Sessions.Add(session);
-                    await _context.SaveChangesAsync();
-
-                    var sessionId = session.Id;
-                    var students = await _context.Users.Where(u => u.Year == year).ToListAsync();
-                    foreach (var student in students)
-                    {
-                        var attendance = new Attendance
-                        {
-                            SessionId = sessionId,
-                            StudentId = student.Id,
-                            Status = AttendanceStatus.Absent,
-                            Comment = string.Empty
-                        };
-                        _context.Attendances.Add(attendance);
-                    }
-                    createdCount++;
-                }
-                await _context.SaveChangesAsync();
-                foreach (var oldSession in existingSessions)
-                {
-                    if (oldSession.Date >= DateTime.Today && !oldSession.IsMerged && !importedSessions.Contains((oldSession.Date, oldSession.StartTime, oldSession.EndTime)))
-                    {
-                        bool coveredByMergedSession = existingSessions
-                            .Any(s => s.IsMerged &&
-                                  s.Date == oldSession.Date &&
-                                  s.StartTime <= oldSession.StartTime &&
-                                  s.EndTime >= oldSession.EndTime);
-
-                        if (!coveredByMergedSession)
-                        {
-                            _logger.LogInformation($"Suppression de l'ancienne session ID {oldSession.Id} ({oldSession.Date}, {oldSession.StartTime}-{oldSession.EndTime})");
-                            var attendances = _context.Attendances.Where(a => a.SessionId == oldSession.Id);
-                            _context.Attendances.RemoveRange(attendances);
-                            await _context.SaveChangesAsync();
-                            _context.Sessions.Remove(oldSession);
-                            await _context.SaveChangesAsync();
-                        }
-                        else
-                        {
-                            _logger.LogInformation($"Conservation de la session ID {oldSession.Id} car elle est englobée par une session fusionnée");
-                        }
-                    }
-                }
+                return await MergeSameSessions(model.Year);
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Erreur lors de l'import ICS : {ex.Message}");
                 return StatusCode(500, new { error = true, message = "Erreur lors de l'import ICS." });
             }
+        }
 
-            return await MergeSameSessions(model.Year);
+        /**
+         * FetchIcsContent
+         *
+         * This method fetches the ICS content from a given URL.
+         */
+        private async Task<string> FetchIcsContent(string icsUrl)
+        {
+            using var httpClient = new HttpClient();
+            return await httpClient.GetStringAsync(icsUrl);
+        }
 
+        private async Task<Dictionary<(DateTime date, TimeSpan startTime, TimeSpan endTime), List<EventInfo>>>
+            ParseIcsEvents(IUniqueComponentList<CalendarEvent> events)
+        {
+            var frenchTimeZone = GetFrenchTimeZone();
+            var eventsByTimeSlot = new Dictionary<(DateTime, TimeSpan, TimeSpan), List<EventInfo>>();
+
+            foreach (var icsEvent in events)
+            {
+                var eventInfo = ParseSingleEvent(icsEvent, frenchTimeZone);
+
+                if (eventInfo == null || eventInfo.Date < DateTime.Today)
+                    continue;
+
+                var timeSlot = (eventInfo.Date, eventInfo.StartTime, eventInfo.EndTime);
+
+                if (!eventsByTimeSlot.ContainsKey(timeSlot))
+                    eventsByTimeSlot[timeSlot] = new List<EventInfo>();
+
+                eventsByTimeSlot[timeSlot].Add(eventInfo);
+            }
+
+            return eventsByTimeSlot;
+        }
+
+
+        /**
+        * ParseSingleEvent
+        *
+        * This method parses a single ICS event into an EventInfo object.
+        */
+        private EventInfo ParseSingleEvent(CalendarEvent icsEvent, TimeZoneInfo frenchTimeZone)
+        {
+            var startDateLocal = TimeZoneInfo.ConvertTimeFromUtc(icsEvent.Start.AsUtc, frenchTimeZone);
+            var endDateLocal = TimeZoneInfo.ConvertTimeFromUtc(icsEvent.End.AsUtc, frenchTimeZone);
+
+            var eventInfo = new EventInfo
+            {
+                Date = startDateLocal.Date,
+                StartTime = startDateLocal.TimeOfDay,
+                EndTime = endDateLocal.TimeOfDay,
+                Summary = icsEvent.Summary ?? "Session importée",
+                Room = icsEvent.Location ?? string.Empty
+            };
+
+            if (!eventInfo.Summary.Contains("travail personnel", StringComparison.OrdinalIgnoreCase))
+            {
+                ExtractProfessorInfo(icsEvent.Description, eventInfo);
+            }
+
+            return eventInfo;
+        }
+
+        /**
+        * ExtractProfessorInfo
+        *   
+        * This method extracts professor information from the event description.
+        */
+        private void ExtractProfessorInfo(string description, EventInfo eventInfo)
+        {
+            if (string.IsNullOrWhiteSpace(description))
+                return;
+
+            var descLines = description
+                .Split('\n')
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToList();
+
+            var profLine = descLines.LastOrDefault(l => !l.StartsWith("(Exporté le:"));
+
+            if (string.IsNullOrWhiteSpace(profLine))
+                return;
+
+            var parts = profLine.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length >= 1)
+                eventInfo.ProfName = parts[0];
+
+            if (parts.Length >= 2)
+                eventInfo.ProfFirstname = parts[1];
+        }
+
+        private TimeZoneInfo GetFrenchTimeZone()
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris")
+                ?? TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
+        }
+
+        /**
+        * ProcessTimeSlots
+        *
+        * This method processes each time slot and updates or creates sessions accordingly.
+        */
+        private async Task ProcessTimeSlots(
+            Dictionary<(DateTime date, TimeSpan startTime, TimeSpan endTime), List<EventInfo>> eventsByTimeSlot,
+            string year,
+            List<Session> existingSessions,
+            HashSet<(DateTime, TimeSpan, TimeSpan)> importedSessions)
+        {
+            foreach (var (timeSlot, eventInfos) in eventsByTimeSlot)
+            {
+                var (date, startTime, endTime) = timeSlot;
+                importedSessions.Add(timeSlot);
+
+                var exactMatch = await FindExactMatch(date, startTime, endTime, year);
+                var mergedMatches = FindMergedMatches(existingSessions, date, startTime, endTime, year);
+
+                if (await HandleExistingSession(exactMatch, mergedMatches, eventInfos))
+                    continue;
+
+                await RemoveOverlappingSessions(existingSessions, date, startTime, endTime, year);
+                await CreateNewSession(timeSlot, eventInfos, year);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        /**
+        * FindExactMatch
+        *
+        * This method finds an exact matching session based on date, start time, end time, and year.
+        */
+        private async Task<Session?> FindExactMatch(DateTime date, TimeSpan startTime, TimeSpan endTime, string year)
+        {
+            return await _context.Sessions.FirstOrDefaultAsync(s =>
+                s.Date == date &&
+                s.StartTime == startTime &&
+                s.EndTime == endTime &&
+                s.Year == year);
+        }
+
+        /**
+        * FindMergedMatches
+        *
+        * This method finds merged sessions that cover the specified time slot.
+        */
+        private List<Session> FindMergedMatches(
+            List<Session> existingSessions,
+            DateTime date,
+            TimeSpan startTime,
+            TimeSpan endTime,
+            string year)
+        {
+            return existingSessions
+                .Where(s => s.Date == date &&
+                            s.Year == year &&
+                            s.IsMerged &&
+                            s.StartTime <= startTime &&
+                            s.EndTime >= endTime)
+                .ToList();
+        }
+
+        /**
+        * HandleExistingSession
+        * This method handles existing sessions based on exact and merged matches.
+        */
+        private async Task<bool> HandleExistingSession(
+            Session? exactMatch,
+            List<Session> mergedMatches,
+            List<EventInfo> eventInfos)
+        {
+            if (exactMatch != null)
+            {
+                if (exactMatch.IsMerged)
+                {
+                    await UpdateMergedSessionIfNeeded(exactMatch, eventInfos);
+                    return true;
+                }
+                else
+                {
+                    return await HandleNonMergedExactMatch(exactMatch, eventInfos);
+                }
+            }
+
+            if (mergedMatches.Any())
+            {
+                var existingSession = mergedMatches.First();
+                _logger.LogInformation(
+                    $"La session fusionnée existante ID {existingSession.Id} " +
+                    $"({existingSession.Date}, {existingSession.StartTime}-{existingSession.EndTime}) " +
+                    $"couvre déjà cette plage horaire");
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+        * UpdateMergedSessionIfNeeded
+        *
+        * This method updates a merged session if its information differs from the merged event info.
+        */
+        private async Task UpdateMergedSessionIfNeeded(Session exactMatch, List<EventInfo> eventInfos)
+        {
+            var mergedInfo = MergeEventInfos(eventInfos);
+
+            bool needsUpdate = exactMatch.Name != mergedInfo.MergedName ||
+                            exactMatch.ProfName != mergedInfo.ProfName ||
+                            exactMatch.ProfFirstname != mergedInfo.ProfFirstname ||
+                            exactMatch.Room != mergedInfo.Room ||
+                            exactMatch.ProfName2 != mergedInfo.ProfName2 ||
+                            exactMatch.ProfFirstname2 != mergedInfo.ProfFirstname2;
+
+            if (needsUpdate)
+            {
+                _logger.LogInformation(
+                    $"Mise à jour des informations de la session fusionnée ID {exactMatch.Id} " +
+                    $"({exactMatch.Date}, {exactMatch.StartTime}-{exactMatch.EndTime})");
+
+                exactMatch.Name = mergedInfo.MergedName;
+                exactMatch.ProfName = mergedInfo.ProfName;
+                exactMatch.ProfFirstname = mergedInfo.ProfFirstname;
+                exactMatch.Room = mergedInfo.Room;
+                exactMatch.ProfName2 = mergedInfo.ProfName2;
+                exactMatch.ProfFirstname2 = mergedInfo.ProfFirstname2;
+
+                _context.Sessions.Update(exactMatch);
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                _logger.LogInformation(
+                    $"Préservation de la session fusionnée ID {exactMatch.Id} " +
+                    "(aucune modification nécessaire)");
+            }
+        }
+
+        /**
+        * HandleNonMergedExactMatch
+        * This method handles a non-merged exact match session.
+        */
+        private async Task<bool> HandleNonMergedExactMatch(Session exactMatch, List<EventInfo> eventInfos)
+        {
+            var mergedInfo = MergeEventInfos(eventInfos);
+
+            if (exactMatch.Name != mergedInfo.MergedName ||
+                exactMatch.ProfName != mergedInfo.ProfName ||
+                exactMatch.ProfFirstname != mergedInfo.ProfFirstname ||
+                exactMatch.Room != mergedInfo.Room)
+            {
+                await DeleteSessionWithAttendances(exactMatch);
+                return false;
+            }
+
+            return true;
+        }
+
+        /**
+        * RemoveOverlappingSessions
+        * This method removes sessions that overlap with the specified time slot.
+        */
+        private async Task RemoveOverlappingSessions(
+            List<Session> existingSessions,
+            DateTime date,
+            TimeSpan startTime,
+            TimeSpan endTime,
+            string year)
+        {
+            var allSessionsSameDay = await _context.Sessions
+                .Where(s => s.Year == year && s.Date == date)
+                .ToListAsync();
+
+            var overlappingSessions = allSessionsSameDay
+                .Where(s => s.StartTime < endTime &&
+                            s.EndTime > startTime &&
+                            !s.IsMerged)
+                .ToList();
+
+            foreach (var overlap in overlappingSessions)
+            {
+                _logger.LogInformation(
+                    $"Suppression de la session qui se chevauche ID {overlap.Id} " +
+                    $"({overlap.Date}, {overlap.StartTime}-{overlap.EndTime})");
+
+                await DeleteSessionWithAttendances(overlap);
+            }
+        }
+        /**
+        * CreateNewSession
+        * This method creates a new session and associated attendances.
+        */
+        private async Task CreateNewSession(
+            (DateTime date, TimeSpan startTime, TimeSpan endTime) timeSlot,
+            List<EventInfo> eventInfos,
+            string year)
+        {
+            var (date, startTime, endTime) = timeSlot;
+            var mergedInfo = MergeEventInfos(eventInfos);
+
+            var session = new Session
+            {
+                Date = date,
+                StartTime = startTime,
+                EndTime = endTime,
+                Year = year,
+                Name = mergedInfo.MergedName,
+                ProfName = mergedInfo.ProfName,
+                ProfFirstname = mergedInfo.ProfFirstname,
+                Room = mergedInfo.Room,
+                ProfName2 = mergedInfo.ProfName2,
+                ProfFirstname2 = mergedInfo.ProfFirstname2,
+                ProfSignatureToken = Guid.NewGuid().ToString(),
+                ProfSignatureToken2 = !string.IsNullOrEmpty(mergedInfo.ProfName2)
+                    ? Guid.NewGuid().ToString()
+                    : null,
+                ValidationCode = new Random().Next(1000, 9999).ToString(),
+                IsMerged = eventInfos.Count > 1
+            };
+
+            _context.Sessions.Add(session);
+            await _context.SaveChangesAsync();
+
+            await CreateAttendancesForSession(session, year);
+        }
+
+        /**
+        * CreateAttendancesForSession
+        * This method creates attendance records for all students in the specified year for a session.
+        */
+        private async Task CreateAttendancesForSession(Session session, string year)
+        {
+            var students = await _context.Users
+                .Where(u => u.Year == year)
+                .ToListAsync();
+
+            foreach (var student in students)
+            {
+                var attendance = new Attendance
+                {
+                    SessionId = session.Id,
+                    StudentId = student.Id,
+                    Status = AttendanceStatus.Absent,
+                    Comment = string.Empty
+                };
+                _context.Attendances.Add(attendance);
+            }
+        }
+
+        /**
+        * CleanupOldSessions
+        * This method cleans up old sessions that are no longer present in the imported data.
+        */
+        private async Task CleanupOldSessions(
+            List<Session> existingSessions,
+            HashSet<(DateTime, TimeSpan, TimeSpan)> importedSessions)
+        {
+            foreach (var oldSession in existingSessions)
+            {
+                if (ShouldDeleteSession(oldSession, importedSessions, existingSessions))
+                {
+                    _logger.LogInformation(
+                        $"Suppression de l'ancienne session ID {oldSession.Id} " +
+                        $"({oldSession.Date}, {oldSession.StartTime}-{oldSession.EndTime})");
+
+                    await DeleteSessionWithAttendances(oldSession);
+                }
+            }
+        }
+
+        /**
+        * ShouldDeleteSession
+        * This method determines whether a session should be deleted based on various criteria.
+        */
+        private bool ShouldDeleteSession(
+            Session session,
+            HashSet<(DateTime, TimeSpan, TimeSpan)> importedSessions,
+            List<Session> existingSessions)
+        {
+            if (session.Date < DateTime.Today)
+                return false;
+
+            if (session.IsMerged)
+                return false;
+
+            if (importedSessions.Contains((session.Date, session.StartTime, session.EndTime)))
+                return false;
+
+            bool coveredByMergedSession = existingSessions.Any(s =>
+                s.IsMerged &&
+                s.Date == session.Date &&
+                s.StartTime <= session.StartTime &&
+                s.EndTime >= session.EndTime);
+
+            if (coveredByMergedSession)
+            {
+                _logger.LogInformation(
+                    $"Conservation de la session ID {session.Id} " +
+                    "car elle est englobée par une session fusionnée");
+                return false;
+            }
+
+            return true;
+        }
+
+        /**
+        * DeleteSessionWithAttendances
+        * This method deletes a session along with all its associated attendance records.
+        */
+        private async Task DeleteSessionWithAttendances(Session session)
+        {
+            var attendances = _context.Attendances.Where(a => a.SessionId == session.Id);
+            _context.Attendances.RemoveRange(attendances);
+            await _context.SaveChangesAsync();
+
+            _context.Sessions.Remove(session);
+            await _context.SaveChangesAsync();
+        }
+
+        /**
+        * MergeEventInfos
+        * This method merges multiple EventInfo objects into a single MergedEventInfo.
+        */
+        private MergedEventInfo MergeEventInfos(List<EventInfo> eventInfos)
+        {
+            var primaryEvent = eventInfos.First();
+
+            if (eventInfos.Count == 1)
+            {
+                return new MergedEventInfo
+                {
+                    MergedName = primaryEvent.Summary,
+                    Room = primaryEvent.Room,
+                    ProfName = primaryEvent.ProfName,
+                    ProfFirstname = primaryEvent.ProfFirstname
+                };
+            }
+
+            _logger.LogInformation(
+                $"Fusion de {eventInfos.Count} événements pour le créneau " +
+                $"{primaryEvent.Date} {primaryEvent.StartTime}-{primaryEvent.EndTime}");
+
+            var mergedName = string.Join(" / ", eventInfos.Select(e => e.Summary).Distinct());
+            var mergedRoom = string.Join(" / ",
+                eventInfos.Select(e => e.Room).Where(r => !string.IsNullOrEmpty(r)).Distinct());
+
+            var firstProf = eventInfos.FirstOrDefault(e => !string.IsNullOrEmpty(e.ProfName));
+            var secondProf = eventInfos
+                .Skip(1)
+                .FirstOrDefault(e => !string.IsNullOrEmpty(e.ProfName) &&
+                                    (e.ProfName != firstProf?.ProfName ||
+                                    e.ProfFirstname != firstProf?.ProfFirstname));
+
+            return new MergedEventInfo
+            {
+                MergedName = mergedName,
+                Room = mergedRoom,
+                ProfName = firstProf?.ProfName ?? string.Empty,
+                ProfFirstname = firstProf?.ProfFirstname ?? string.Empty,
+                ProfName2 = secondProf?.ProfName ?? string.Empty,
+                ProfFirstname2 = secondProf?.ProfFirstname ?? string.Empty
+            };
+        }
+
+
+        private class EventInfo
+        {
+            public DateTime Date { get; set; }
+            public TimeSpan StartTime { get; set; }
+            public TimeSpan EndTime { get; set; }
+            public string Summary { get; set; } = string.Empty;
+            public string Room { get; set; } = string.Empty;
+            public string ProfName { get; set; } = string.Empty;
+            public string ProfFirstname { get; set; } = string.Empty;
+        }
+
+        private class MergedEventInfo
+        {
+            public string MergedName { get; set; } = string.Empty;
+            public string Room { get; set; } = string.Empty;
+            public string ProfName { get; set; } = string.Empty;
+            public string ProfFirstname { get; set; } = string.Empty;
+            public string ProfName2 { get; set; } = string.Empty;
+            public string ProfFirstname2 { get; set; } = string.Empty;
         }
         /**
          * MergeSameSessions
