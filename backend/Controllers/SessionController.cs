@@ -1221,6 +1221,14 @@ namespace backend.Controllers
                 var exactMatch = await FindExactMatch(date, startTime, endTime, year);
                 var mergedMatches = FindMergedMatches(existingSessions, date, startTime, endTime, year);
 
+                if (mergedMatches.Any())
+                {
+                    foreach (var mergedSession in mergedMatches)
+                    {
+                        importedSessions.Add((mergedSession.Date, mergedSession.StartTime, mergedSession.EndTime));
+                    }
+                }
+
                 if (await HandleExistingSession(exactMatch, mergedMatches, eventInfos))
                     continue;
 
@@ -1460,9 +1468,12 @@ namespace backend.Controllers
             List<Session> existingSessions,
             HashSet<(DateTime, TimeSpan, TimeSpan)> importedSessions)
         {
+            // Récupérer toutes les sessions fusionnées de l'année pour cette vérification
+            var mergedSessions = existingSessions.Where(s => s.IsMerged).ToList();
+
             foreach (var oldSession in existingSessions)
             {
-                if (ShouldDeleteSession(oldSession, importedSessions, existingSessions))
+                if (ShouldDeleteSession(oldSession, importedSessions, existingSessions, mergedSessions))
                 {
                     _logger.LogInformation(
                         $"Suppression de l'ancienne session ID {oldSession.Id} " +
@@ -1480,7 +1491,8 @@ namespace backend.Controllers
         private bool ShouldDeleteSession(
             Session session,
             HashSet<(DateTime, TimeSpan, TimeSpan)> importedSessions,
-            List<Session> existingSessions)
+            List<Session> existingSessions,
+            List<Session> mergedSessions)
         {
             if (session.Date < DateTime.Today)
                 return false;
@@ -1490,6 +1502,24 @@ namespace backend.Controllers
 
             if (importedSessions.Contains((session.Date, session.StartTime, session.EndTime)))
                 return false;
+
+            // Vérifier si cette session fait partie d'une session fusionnée
+            bool isPartOfMergedSession = mergedSessions.Any(merged =>
+                merged.Date == session.Date &&
+                merged.StartTime <= session.StartTime &&
+                merged.EndTime >= session.EndTime &&
+                merged.Name == session.Name &&
+                merged.Room == session.Room &&
+                merged.ProfName == session.ProfName &&
+                merged.ProfFirstname == session.ProfFirstname);
+
+            if (isPartOfMergedSession)
+            {
+                _logger.LogInformation(
+                    $"Conservation de la session ID {session.Id} " +
+                    "car elle fait partie d'une session fusionnée avec les mêmes informations");
+                return false;
+            }
 
             bool coveredByMergedSession = existingSessions.Any(s =>
                 s.IsMerged &&
