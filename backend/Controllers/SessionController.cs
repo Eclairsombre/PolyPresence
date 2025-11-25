@@ -38,21 +38,31 @@ namespace backend.Controllers
          */
         public async Task ImportAllIcsLinks(ApplicationDbContext context, ILogger logger)
         {
+            var importStartTime = DateTime.Now;
+            logger.LogInformation($"====== DÉBUT IMPORT GLOBAL ICS à {importStartTime:yyyy-MM-dd HH:mm:ss} ======");
+
             var icsLinks = await context.IcsLinks.ToListAsync();
+            logger.LogInformation($"Nombre de liens ICS à importer : {icsLinks.Count}");
+
             foreach (var link in icsLinks)
             {
                 try
                 {
+                    logger.LogInformation($"Import du lien ICS : {link.Url} pour l'année {link.Year}");
                     var importModel = new ImportIcsModel { IcsUrl = link.Url, Year = link.Year };
                     var controller = new SessionController(context, (ILogger<SessionController>)logger, _serviceScopeFactory);
                     await controller.ImportIcs(importModel);
+                    logger.LogInformation($"Import terminé pour {link.Url}");
                 }
                 catch (Exception ex)
                 {
                     logger.LogError($"Erreur lors de l'import ICS pour {link.Url} : {ex.Message}");
                 }
-
             }
+
+            var importEndTime = DateTime.Now;
+            var duration = importEndTime - importStartTime;
+            logger.LogInformation($"====== FIN IMPORT GLOBAL ICS à {importEndTime:yyyy-MM-dd HH:mm:ss} (durée: {duration.TotalSeconds:F2}s) ======");
         }
 
         /**
@@ -1076,6 +1086,8 @@ namespace backend.Controllers
         [HttpPost("import-ics")]
         public async Task<IActionResult> ImportIcs([FromBody] ImportIcsModel model)
         {
+            _logger.LogInformation($"=== DÉBUT ImportIcs pour l'année {model.Year} à {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+
             if (string.IsNullOrWhiteSpace(model.IcsUrl) || string.IsNullOrWhiteSpace(model.Year))
                 return BadRequest(new { error = true, message = "URL ICS ou année manquante." });
 
@@ -1085,16 +1097,23 @@ namespace backend.Controllers
                 var calendar = Ical.Net.Calendar.Load(icsContent);
 
                 var eventsByTimeSlot = await ParseIcsEvents(calendar.Events);
+                _logger.LogInformation($"Nombre d'événements parsés : {eventsByTimeSlot.Count}");
+
                 var existingSessions = await _context.Sessions
                     .Where(s => s.Year == model.Year)
                     .ToListAsync();
+                _logger.LogInformation($"Nombre de sessions existantes pour {model.Year} : {existingSessions.Count} (dont {existingSessions.Count(s => s.IsMerged)} fusionnées)");
 
                 var importedSessions = new HashSet<(DateTime, TimeSpan, TimeSpan)>();
 
                 await ProcessTimeSlots(eventsByTimeSlot, model.Year, existingSessions, importedSessions);
                 await CleanupOldSessions(existingSessions, importedSessions);
 
-                return await MergeSameSessions(model.Year);
+                _logger.LogInformation($"=== Début fusion des sessions pour {model.Year} ===");
+                var mergeResult = await MergeSameSessions(model.Year);
+                _logger.LogInformation($"=== FIN ImportIcs pour {model.Year} à {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+
+                return mergeResult;
             }
             catch (Exception ex)
             {
@@ -1227,6 +1246,12 @@ namespace backend.Controllers
                     {
                         importedSessions.Add((mergedSession.Date, mergedSession.StartTime, mergedSession.EndTime));
                     }
+
+                    // PROTECTION : Si une session fusionnée couvre déjà cette plage, on ne fait RIEN
+                    _logger.LogInformation(
+                        $"Session fusionnée ID {mergedMatches.First().Id} couvre déjà " +
+                        $"la plage {date:yyyy-MM-dd} {startTime}-{endTime}. Aucune action nécessaire.");
+                    continue;
                 }
 
                 if (await HandleExistingSession(exactMatch, mergedMatches, eventInfos))
@@ -1392,6 +1417,18 @@ namespace backend.Controllers
 
             foreach (var overlap in overlappingSessions)
             {
+                // PROTECTION : Ne pas supprimer une session avec des étudiants présents
+                var hasPresent = await _context.Attendances
+                    .AnyAsync(a => a.SessionId == overlap.Id && a.Status == AttendanceStatus.Present);
+
+                if (hasPresent)
+                {
+                    _logger.LogInformation(
+                        $"Conservation de la session qui se chevauche ID {overlap.Id} " +
+                        $"({overlap.Date}, {overlap.StartTime}-{overlap.EndTime}) - Contient des étudiants présents");
+                    continue;
+                }
+
                 _logger.LogInformation(
                     $"Suppression de la session qui se chevauche ID {overlap.Id} " +
                     $"({overlap.Date}, {overlap.StartTime}-{overlap.EndTime})");
@@ -1473,6 +1510,15 @@ namespace backend.Controllers
 
             foreach (var oldSession in existingSessions)
             {
+                // PROTECTION ABSOLUE : Ne jamais supprimer une session fusionnée
+                if (oldSession.IsMerged)
+                {
+                    _logger.LogInformation(
+                        $"Préservation obligatoire de la session fusionnée ID {oldSession.Id} " +
+                        $"({oldSession.Date}, {oldSession.StartTime}-{oldSession.EndTime})");
+                    continue;
+                }
+
                 if (ShouldDeleteSession(oldSession, importedSessions, existingSessions, mergedSessions))
                 {
                     _logger.LogInformation(
@@ -1497,8 +1543,26 @@ namespace backend.Controllers
             if (session.Date < DateTime.Today)
                 return false;
 
+            // PROTECTION : Ne jamais supprimer les sessions fusionnées, même futures
             if (session.IsMerged)
+            {
+                _logger.LogInformation(
+                    $"Conservation de la session fusionnée ID {session.Id} " +
+                    $"({session.Date}, {session.StartTime}-{session.EndTime}) - Protection active");
                 return false;
+            }
+
+            // PROTECTION : Ne jamais supprimer une session avec des étudiants présents
+            var hasPresent = _context.Attendances
+                .Any(a => a.SessionId == session.Id && a.Status == AttendanceStatus.Present);
+
+            if (hasPresent)
+            {
+                _logger.LogInformation(
+                    $"Conservation de la session ID {session.Id} " +
+                    $"({session.Date}, {session.StartTime}-{session.EndTime}) - Contient des étudiants présents");
+                return false;
+            }
 
             if (importedSessions.Contains((session.Date, session.StartTime, session.EndTime)))
                 return false;
