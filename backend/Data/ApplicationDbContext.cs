@@ -44,7 +44,7 @@ namespace backend.Data
             if (_logger == null) return;
 
             var sessionEntries = ChangeTracker.Entries<Session>()
-                .Where(e => e.State == EntityState.Modified || e.State == EntityState.Deleted)
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)
                 .ToList();
 
             foreach (var entry in sessionEntries)
@@ -52,7 +52,17 @@ namespace backend.Data
                 var session = entry.Entity;
                 var stackTrace = Environment.StackTrace;
 
-                if (entry.State == EntityState.Modified)
+                if (entry.State == EntityState.Added)
+                {
+                    var createMessage = $"✅ NOUVELLE SESSION CRÉÉE à {DateTime.Now:HH:mm:ss}\n" +
+                                      $"  Date={session.Date:yyyy-MM-dd}, {session.StartTime}-{session.EndTime}\n" +
+                                      $"  Nom={session.Name}, Année={session.Year}, IsMerged={session.IsMerged}\n" +
+                                      $"  Stack trace: {stackTrace.Split('\n').Take(5).Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l)).FirstOrDefault()}";
+
+                    _logger.LogInformation(createMessage);
+                    WriteToLogFile(createMessage);
+                }
+                else if (entry.State == EntityState.Modified)
                 {
                     var modifiedProperties = entry.Properties
                         .Where(p => p.IsModified)
