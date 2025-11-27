@@ -93,18 +93,6 @@ namespace backend.Data
 
                                 _logger.LogError(errorMessage);
                                 WriteToLogFile(errorMessage);
-
-                                // Restaurer les valeurs originales
-                                if (startTimeModified)
-                                    entry.Property("StartTime").CurrentValue = entry.Property("StartTime").OriginalValue;
-                                if (endTimeModified)
-                                    entry.Property("EndTime").CurrentValue = entry.Property("EndTime").OriginalValue;
-                                if (isMergedModified)
-                                    entry.Property("IsMerged").CurrentValue = entry.Property("IsMerged").OriginalValue;
-
-                                entry.Property("StartTime").IsModified = false;
-                                entry.Property("EndTime").IsModified = false;
-                                entry.Property("IsMerged").IsModified = false;
                             }
                         }
                     }
