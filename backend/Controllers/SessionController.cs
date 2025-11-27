@@ -417,24 +417,6 @@ namespace backend.Controllers
                 _logger.LogWarning($"Tentative d'accès non autorisé: {currentUser.StudentNumber} a tenté de modifier la session ID {id}");
                 return Forbid();
             }
-
-            // PROTECTION : Log détaillé de la modification
-            var existingSession = await _context.Sessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
-            if (existingSession != null)
-            {
-                _logger.LogWarning($"⚠️ MODIFICATION SESSION ID {id} par {currentUser.StudentNumber}:");
-                _logger.LogWarning($"  AVANT: Date={existingSession.Date:yyyy-MM-dd}, {existingSession.StartTime}-{existingSession.EndTime}, IsMerged={existingSession.IsMerged}, Nom={existingSession.Name}");
-                _logger.LogWarning($"  APRÈS: Date={session.Date:yyyy-MM-dd}, {session.StartTime}-{session.EndTime}, IsMerged={session.IsMerged}, Nom={session.Name}");
-
-                // PROTECTION CRITIQUE : Empêcher la modification des horaires d'une session fusionnée
-                if (existingSession.IsMerged &&
-                    (existingSession.StartTime != session.StartTime || existingSession.EndTime != session.EndTime))
-                {
-                    _logger.LogError($"❌ TENTATIVE DE MODIFICATION DES HORAIRES D'UNE SESSION FUSIONNÉE BLOQUÉE !");
-                    return BadRequest(new { error = true, message = "Impossible de modifier les horaires d'une session fusionnée. Veuillez contacter l'administrateur." });
-                }
-            }
-
             _context.Entry(session).State = EntityState.Modified;
 
             try
@@ -1718,15 +1700,7 @@ namespace backend.Controllers
                     .ThenBy(s => s.StartTime.Hours * 60 + s.StartTime.Minutes) // Convertir en minutes pour le tri
                     .ToList();
 
-                var mergedCount = sessions.Count(s => s.IsMerged);
-                _logger.LogInformation($"Début de la fusion des sessions pour l'année {year}. {sessions.Count} sessions trouvées (dont {mergedCount} déjà fusionnées).");
-
-                // Log des sessions fusionnées existantes pour diagnostic
-                foreach (var merged in sessions.Where(s => s.IsMerged))
-                {
-                    _logger.LogInformation($"Session fusionnée existante : ID={merged.Id}, Date={merged.Date:yyyy-MM-dd}, {merged.StartTime}-{merged.EndTime}, Nom={merged.Name}");
-                }
-
+                _logger.LogInformation($"Début de la fusion des sessions pour l'année {year}. {sessions.Count} sessions trouvées.");
                 bool anyChanges = false;
 
                 using var transaction = await _context.Database.BeginTransactionAsync();
