@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 /**
  * Store for managing ICS calendar links and imports
@@ -15,6 +15,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
     message: "",
     success: false,
     timers: null,
+    autoImportEnabled: true,
   }),
   actions: {
     /**
@@ -141,9 +142,51 @@ export const useIcsLinkStore = defineStore("icsLink", {
       try {
         const res = await axios.get(`${API_URL}/Session/timers`);
         this.timers = res.data;
+        this.autoImportEnabled = res.data.autoImportEnabled ?? true;
         this.lastTimerFetch = now;
       } catch {
         this.timers = null;
+      }
+    },
+
+    /**
+     * Fetches the auto import status
+     */
+    async fetchAutoImportStatus() {
+      try {
+        const res = await axios.get(`${API_URL}/Session/auto-import-status`);
+        this.autoImportEnabled = res.data.enabled;
+      } catch (e) {
+        console.error(
+          "Erreur lors de la récupération du statut de l'import automatique",
+          e
+        );
+      }
+    },
+
+    /**
+     * Sets the auto import status
+     * @param {boolean} enabled - Whether auto import should be enabled
+     */
+    async setAutoImportStatus(enabled) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const res = await axios.post(`${API_URL}/Session/auto-import-status`, {
+          enabled,
+        });
+        this.autoImportEnabled = res.data.enabled;
+        this.message = res.data.message;
+        this.success = true;
+        await this.fetchTimers();
+      } catch (e) {
+        this.error = e;
+        this.message =
+          e.response?.data?.message ||
+          "Erreur lors de la modification du statut.";
+        this.success = false;
+      } finally {
+        this.loading = false;
       }
     },
 

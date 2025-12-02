@@ -1,9 +1,24 @@
 <template>
   <div class="import-ics-container">
     <h2>Importer des sessions depuis un lien ICS</h2>
-    <p v-if="nextImportTimer" class="import-timer">
+    
+    <div class="auto-import-toggle">
+      <label class="toggle-label">
+        <span>Import automatique quotidien :</span>
+        <div class="toggle-switch" @click="toggleAutoImport">
+          <input type="checkbox" :checked="autoImportEnabled" disabled />
+          <span class="slider" :class="{ active: autoImportEnabled }"></span>
+        </div>
+        <span class="status-text">{{ autoImportEnabled ? 'Activé' : 'Désactivé' }}</span>
+      </label>
+    </div>
+    
+    <p v-if="nextImportTimer && autoImportEnabled" class="import-timer">
       Prochain import automatique de l'EDT :
       <span>{{ new Date(nextImportTimer).toLocaleString('fr-FR') }}</span>
+    </p>
+    <p v-if="!autoImportEnabled" class="import-timer-disabled">
+      L'import automatique est désactivé
     </p>
     <div class="ics-links-list">
       <h3>Liens ICS enregistrés</h3>
@@ -53,10 +68,12 @@ const success = computed(() => icsLinkStore.success);
 const loading = computed(() => icsLinkStore.loading);
 const editingId = ref(null);
 const nextImportTimer = computed(() => icsLinkStore.timers ? icsLinkStore.timers.nextImport : null);
+const autoImportEnabled = computed(() => icsLinkStore.autoImportEnabled);
 
 const fetchAll = async () => {
   await icsLinkStore.fetchIcsLinks();
   await icsLinkStore.fetchTimers();
+  await icsLinkStore.fetchAutoImportStatus();
 };
 
 const saveIcsLink = async () => {
@@ -87,6 +104,11 @@ const cancelEdit = () => {
 const deleteLink = async (id) => {
   if (!confirm('Supprimer ce lien ?')) return;
   await icsLinkStore.deleteIcsLink(id);
+};
+
+const toggleAutoImport = async () => {
+  const newStatus = !autoImportEnabled.value;
+  await icsLinkStore.setAutoImportStatus(newStatus);
 };
 
 onMounted(fetchAll);
@@ -230,6 +252,89 @@ onMounted(fetchAll);
 .cancel-btn:hover {
   background: #636e72;
   color: #fff;
+}
+
+.auto-import-toggle {
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  border-radius: 26px;
+  transition: 0.3s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+.slider.active {
+  background-color: #27ae60;
+}
+
+.slider.active:before {
+  transform: translateX(24px);
+}
+
+.status-text {
+  font-weight: 600;
+  color: #555;
+}
+
+.import-timer {
+  font-size: 0.95rem;
+  color: #27ae60;
+  font-weight: 500;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.import-timer-disabled {
+  font-size: 0.95rem;
+  color: #e74c3c;
+  font-weight: 500;
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 @media (max-width: 600px) {

@@ -2125,8 +2125,52 @@ Cordialement";
             {
                 nextImport = importTime,
                 importRemaining = importRemaining.ToString(@"hh\:mm\:ss"),
-                nextMail = mailTime
+                nextMail = mailTime,
+                autoImportEnabled = backend.Services.TimerService.IsAutoImportEnabled
             });
+        }
+
+        /**
+         * GetAutoImportStatus
+         *
+         * This method retrieves the status of automatic EDT import.
+         */
+        [HttpGet("auto-import-status")]
+        public IActionResult GetAutoImportStatus()
+        {
+            return Ok(new
+            {
+                enabled = backend.Services.TimerService.IsAutoImportEnabled
+            });
+        }
+
+        /**
+         * SetAutoImportStatus
+         *
+         * This method enables or disables automatic EDT import.
+         */
+        [HttpPost("auto-import-status")]
+        public IActionResult SetAutoImportStatus([FromBody] AutoImportStatusModel model)
+        {
+            if (model.Enabled)
+            {
+                backend.Services.TimerService.EnableAutoImport(_logger);
+            }
+            else
+            {
+                backend.Services.TimerService.DisableAutoImport(_logger);
+            }
+
+            return Ok(new
+            {
+                enabled = backend.Services.TimerService.IsAutoImportEnabled,
+                message = model.Enabled ? "Import automatique activé" : "Import automatique désactivé"
+            });
+        }
+
+        public class AutoImportStatusModel
+        {
+            public bool Enabled { get; set; }
         }
 
 

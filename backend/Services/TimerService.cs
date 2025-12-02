@@ -17,6 +17,7 @@ namespace backend.Services
         private DateTime _nextMailExecutionTime;
         public static DateTime StaticNextSessionExecutionTime { get; private set; }
         public static DateTime StaticNextMailExecutionTime { get; private set; }
+        public static bool IsAutoImportEnabled { get; private set; } = true;
 
         public TimerService(IServiceScopeFactory serviceScopeFactory, ILogger<TimerService> logger)
         {
@@ -29,6 +30,12 @@ namespace backend.Services
 
         private void InitDailySessionTimer()
         {
+            if (!IsAutoImportEnabled)
+            {
+                _logger.LogInformation("Import automatique de l'EDT désactivé");
+                return;
+            }
+
             _nextSessionExecutionTime = GetNextSessionExecutionTime();
             StaticNextSessionExecutionTime = _nextSessionExecutionTime;
             _dailySessionTimer = new System.Timers.Timer((_nextSessionExecutionTime - DateTime.Now).TotalMilliseconds);
@@ -131,6 +138,12 @@ namespace backend.Services
 
         private async Task DailySessionSync()
         {
+            if (!IsAutoImportEnabled)
+            {
+                _logger.LogInformation("Import automatique désactivé, synchronisation annulée");
+                return;
+            }
+
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -177,6 +190,18 @@ namespace backend.Services
                 _logger.LogInformation($"Prochain envoi des feuilles de présence à {_nextMailExecutionTime}, dans {(_nextMailExecutionTime - DateTime.Now).TotalMinutes:F1} min");
                 _dailyMailTimer.Start();
             }
+        }
+
+        public static void EnableAutoImport(ILogger logger)
+        {
+            IsAutoImportEnabled = true;
+            logger.LogInformation("Import automatique de l'EDT activé");
+        }
+
+        public static void DisableAutoImport(ILogger logger)
+        {
+            IsAutoImportEnabled = false;
+            logger.LogInformation("Import automatique de l'EDT désactivé");
         }
     }
 }
