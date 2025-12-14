@@ -148,9 +148,10 @@ namespace backend.Services
             {
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
+                var importLogger = scope.ServiceProvider.GetRequiredService<ILogger<ImportController>>();
                 logger.LogInformation("Synchronisation quotidienne des sessions et attendances à 01:00");
-                var controller = new SessionController(scopedContext, logger, _serviceScopeFactory);
-                await controller.ImportAllIcsLinks(scopedContext, logger);
+                var controller = new ImportController(scopedContext, importLogger, _serviceScopeFactory);
+                await controller.ImportAllIcsLinks(scopedContext, importLogger);
             }
             _nextSessionExecutionTime = GetNextSessionExecutionTime();
             StaticNextSessionExecutionTime = _nextSessionExecutionTime;

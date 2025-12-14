@@ -112,7 +112,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
       this.loading = true;
       this.error = null;
       try {
-        await axios.post(`${API_URL}/Session/import-ics`, { icsUrl, year });
+        await axios.post(`${API_URL}/Import/import-ics`, { icsUrl, year });
         this.message = "Import effectué !";
         this.success = true;
       } catch (e) {

@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const PUBLIC_ROUTES = [
@@ -383,6 +383,7 @@ export const useAuthStore = defineStore("auth", {
       if (!username || !password)
         throw new Error("Identifiant ou mot de passe manquant");
       try {
+        console.log(API_URL);
         const response = await axios.post(`${API_URL}/User/login`, {
           studentNumber: username,
           password: password,
