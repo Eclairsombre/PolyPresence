@@ -31,6 +31,8 @@ services:
         image: cloudflare/cloudflared:latest
         command: tunnel --no-autoupdate run
         restart: always
+        profiles:
+            - production
         networks:
             - app_network_web
         environment:
