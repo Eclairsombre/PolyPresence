@@ -6,20 +6,16 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ["${{ github.ref == 'refs/heads/main' && 'prod' || 'preprod' }}"]
+    runs-on: [ "self-hosted" ]
     steps:
       - name: Build and start containers
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             cd /home/emargement/PolyPresence
           else
-            cd /root/PolyPresence
+            cd /home/emargement/PolyPresence_preprod
           fi
           git fetch origin
           git reset --hard origin/${{ github.ref_name }}
           docker compose build
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker compose --profile production up -d
-          else
-            docker compose up -d
-          fi
+          docker compose up -d
