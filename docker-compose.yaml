@@ -1,6 +1,5 @@
 services:
     backend:
-        container_name: backend
         build: backend
         restart: always
         env_file: backend/.env
@@ -12,7 +11,6 @@ services:
             - ./backend_data:/data
 
     frontend:
-        container_name: frontend
         build:
             context: front
         restart: always
@@ -27,7 +25,6 @@ services:
             - app_network_web
 
     cloudflared:
-        container_name: cloudflared
         image: cloudflare/cloudflared:latest
         command: tunnel --no-autoupdate run
         restart: always
