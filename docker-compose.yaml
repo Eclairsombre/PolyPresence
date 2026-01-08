@@ -25,14 +25,12 @@ services:
         networks:
             - app_network
             - app_network_web
-    
+
     cloudflared:
         container_name: cloudflared
         image: cloudflare/cloudflared:latest
         command: tunnel --no-autoupdate run
         restart: always
-        profiles:
-            - production
         networks:
             - app_network_web
         environment:
