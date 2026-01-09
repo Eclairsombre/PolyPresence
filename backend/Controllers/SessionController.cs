@@ -290,6 +290,7 @@ namespace backend.Controllers
         [HttpPost]
         public async Task<ActionResult<Session>> PostSession(Session session)
         {
+            _logger.LogInformation("Création d'une nouvelle session");
             session.ProfSignatureToken = Guid.NewGuid().ToString();
 
             if (!string.IsNullOrEmpty(session.ProfName2) || !string.IsNullOrEmpty(session.ProfFirstname2))
