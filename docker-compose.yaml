@@ -9,6 +9,8 @@ services:
             - app_network
         volumes:
             - ./backend_data:/data
+        logging:
+          driver: journald
 
     frontend:
         build:
@@ -21,6 +23,8 @@ services:
         networks:
             - app_network
             - app_network_web
+        logging:
+          driver: journald
 
     cloudflared:
         image: cloudflare/cloudflared:latest
@@ -31,6 +35,8 @@ services:
         environment:
             - "TUNNEL_TOKEN=${TUNNEL_TOKEN}"
             - TZ=Europe/Paris
+        logging:
+          driver: journald
 
 networks:
     app_network:
