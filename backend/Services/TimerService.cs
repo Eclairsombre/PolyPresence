@@ -35,6 +35,10 @@ namespace backend.Services
                 _logger.LogInformation("Import automatique de l'EDT désactivé");
                 return;
             }
+            _logger.LogInformation("Initialisation du timer de synchronisation quotidienne des sessions et attendances à " +
+                                   $"{Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_HOUR")}:" +
+                                   $"{Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_MINUTE")}:" +
+                                   $"{Environment.GetEnvironmentVariable("EDT_IMPORT_TIME_SECOND")}");
 
             _nextSessionExecutionTime = GetNextSessionExecutionTime();
             StaticNextSessionExecutionTime = _nextSessionExecutionTime;

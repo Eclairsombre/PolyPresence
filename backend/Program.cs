@@ -152,6 +152,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseRequestLogging();
+
 // Configuration des headers de sécurité
 app.Use(async (context, next) =>
 {
