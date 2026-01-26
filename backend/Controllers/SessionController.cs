@@ -585,6 +585,11 @@ namespace backend.Controllers
             {
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
+            // Vérification si la session a déjà été signée par le professeur
+            if (session.ProfSignature != null || session.ProfSignature2 != null)
+            {
+                return BadRequest(new { error = true, message = "La session a déjà été signée par le professeur, la validation de présence est fermée." });
+            }
 
             // Vérification du code de validation
             if (model.ValidationCode != session.ValidationCode)

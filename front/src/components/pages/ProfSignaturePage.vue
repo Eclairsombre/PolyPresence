@@ -1,5 +1,6 @@
 <template>
   <div class="prof-signature-page">
+    <PopUpProfSignatureWarning v-if="showSignatureWarning" @close="showSignatureWarning = false" @confirm="handleSignatureConfirm" />
     <div v-if="session" class="session-infos">
       <div class="session-header">
         <h2>Informations de la session</h2>
@@ -60,7 +61,7 @@
       <div class="prof-signature-form">
         <h3 class="section-title">Signature du Professeur</h3>
         
-        <form @submit.prevent="submitSignature" class="prof-form">
+        <form @submit.prevent="openSignatureWarning" class="prof-form">
           <div class="form-row">
             <div class="form-group">
               <label>Prénom :</label>
@@ -191,6 +192,7 @@
 import { ref, onMounted, nextTick, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import SignatureCreator from '../signature/SignatureCreator.vue';
+import PopUpProfSignatureWarning from '../popups/PopUpProfSignatureWarning.vue';
 import { useProfSignatureStore } from '../../stores/profSignatureStore';
 import { useSessionStore } from '../../stores/sessionStore';
 
@@ -211,6 +213,16 @@ const attendancesLoading = ref(false);
 const editingCommentFor = ref(null);
 const editingComment = ref('');
 const commentTextarea = ref(null);
+const showSignatureWarning = ref(false);
+
+function openSignatureWarning() {
+  showSignatureWarning.value = true;
+}
+
+async function handleSignatureConfirm() {
+  showSignatureWarning.value = false;
+  await submitSignature();
+}
 
 const isMainProfessor = computed(() => {
   if (!session.value) return true;
