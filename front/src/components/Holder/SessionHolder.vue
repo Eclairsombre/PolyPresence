@@ -165,8 +165,8 @@ const loadData = async () => {
                 return;
             }
             currentSession.value = session;
-          
-            professor1.value = await professorStore.fetchProfessorById(session.profId);
+            if(session.profId)
+                professor1.value = await professorStore.fetchProfessorById(session.profId);
             if (session.profId2)
                 professor2.value = await professorStore.fetchProfessorById(session.profId2);
 
