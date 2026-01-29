@@ -959,7 +959,7 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Session non trouvée." });
             if (!int.TryParse(session.ProfId, out int profId))
                 return NotFound(new { error = true, message = "Professeur non trouvé (ID invalide)." });
-            var professor = await _context.Users.FindAsync(profId);
+            var professor = await _context.Professors.FindAsync(profId);
             if (professor == null)
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
             professor.Email = model.ProfEmail;
@@ -980,7 +980,9 @@ namespace backend.Controllers
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
                 return NotFound(new { error = true, message = "Session non trouvée." });
-            var professor2 = await _context.Users.FindAsync(session.ProfId2);
+            if (!int.TryParse(session.ProfId2, out int profId2))
+                return NotFound(new { error = true, message = "Professeur 2 non trouvé (ID invalide)." });
+            var professor2 = await _context.Professors.FindAsync(profId2);
             if (professor2 == null)
                 return NotFound(new { error = true, message = "Professeur 2 non trouvé." });
             professor2.Email = model.ProfEmail;
