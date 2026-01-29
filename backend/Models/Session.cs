@@ -12,15 +12,12 @@ namespace backend.Models
         public string Name { get; set; } = string.Empty;
         public string Room { get; set; } = string.Empty;
         public string ValidationCode { get; set; } = string.Empty;
-        public string ProfName { get; set; } = string.Empty;
-        public string ProfFirstname { get; set; } = string.Empty;
-        public string ProfEmail { get; set; } = string.Empty;
+
+        public string? ProfId { get; set; }
+
         public string? ProfSignature { get; set; }
         public string? ProfSignatureToken { get; set; }
-
-        public string? ProfName2 { get; set; }
-        public string? ProfFirstname2 { get; set; }
-        public string? ProfEmail2 { get; set; }
+        public string? ProfId2 { get; set; }
         public string? ProfSignature2 { get; set; }
         public string? ProfSignatureToken2 { get; set; }
 
@@ -29,7 +26,7 @@ namespace backend.Models
         public List<Attendance> Attendances { get; set; } = new List<Attendance>();
         public bool IsSent { get; set; } = false;
         public bool IsMailSent { get; set; } = false;
-        public bool IsMailSent2 { get; set; } = false; 
+        public bool IsMailSent2 { get; set; } = false;
         public bool IsMerged { get; set; } = false;
     }
 }

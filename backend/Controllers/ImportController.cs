@@ -110,6 +110,25 @@ namespace backend.Controllers
                 // Extraction des professeurs depuis la description
                 var (p1, f1, p2, f2) = ExtractProfessors(component.Description);
 
+                var professor1 = await _context.Professors
+                    .FirstOrDefaultAsync(p => p.Name.ToLower() == p1.ToLower() && p.Firstname.ToLower() == f1.ToLower());
+
+                var professor2 = await _context.Professors
+                    .FirstOrDefaultAsync(p => p.Name.ToLower() == p2.ToLower() && p.Firstname.ToLower() == f2.ToLower());
+
+                if (professor1 == null && !string.IsNullOrEmpty(p1))
+                {
+                    professor1 = new Professor { Name = p1, Firstname = f1, Email = "" };
+                    _context.Professors.Add(professor1);
+                    await _context.SaveChangesAsync();
+                }
+                if (professor2 == null && !string.IsNullOrEmpty(p2))
+                {
+                    professor2 = new Professor { Name = p2, Firstname = f2, Email = "" };
+                    _context.Professors.Add(professor2);
+                    await _context.SaveChangesAsync();
+                }
+
                 sessions.Add(new ImportedSession
                 {
                     Date = start.Date,
@@ -117,10 +136,8 @@ namespace backend.Controllers
                     End = end.TimeOfDay,
                     Name = component.Summary ?? "Sans titre",
                     Room = component.Location ?? "",
-                    ProfName = p1,
-                    ProfFirstname = f1,
-                    ProfName2 = p2,
-                    ProfFirstname2 = f2,
+                    ProfId = professor1?.Id != null ? professor1.Id.ToString() : "",
+                    ProfId2 = professor2?.Id != null ? professor2.Id.ToString() : "",
                     Year = year
                 });
             }
@@ -205,18 +222,16 @@ namespace backend.Controllers
                         current.Room = CombineStrings(current.Room, other.Room);
 
                         // Fusion des profs (déduplication)
-                        var allProfs = new List<(string N, string F)>
+                        var allProfs = new List<string>
                         {
-                            (current.ProfName, current.ProfFirstname),
-                            (current.ProfName2, current.ProfFirstname2),
-                            (other.ProfName, other.ProfFirstname),
-                            (other.ProfName2, other.ProfFirstname2)
-                        }.Where(p => !string.IsNullOrEmpty(p.N)).Distinct().ToList();
+                            current.ProfId,
+                            current.ProfId2,
+                            other.ProfId,
+                            other.ProfId2
+                        }.Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
 
-                        current.ProfName = allProfs.Count > 0 ? allProfs[0].N : "";
-                        current.ProfFirstname = allProfs.Count > 0 ? allProfs[0].F : "";
-                        current.ProfName2 = allProfs.Count > 1 ? allProfs[1].N : "";
-                        current.ProfFirstname2 = allProfs.Count > 1 ? allProfs[1].F : "";
+                        current.ProfId = allProfs.Count > 0 ? allProfs[0] : "";
+                        current.ProfId2 = allProfs.Count > 1 ? allProfs[1] : "";
 
                         // Extension de la plage horaire
                         if (other.Start < current.Start) current.Start = other.Start;
@@ -249,8 +264,7 @@ namespace backend.Controllers
                 var next = sessions[i];
 
                 // Critères : Même prof, même salle, même nom, écart de 15 min exactement
-                bool sameProf = current.ProfName == next.ProfName && current.ProfFirstname == next.ProfFirstname &&
-                                current.ProfName2 == next.ProfName2 && current.ProfFirstname2 == next.ProfFirstname2;
+                bool sameProf = current.ProfId == next.ProfId && current.ProfId2 == next.ProfId2;
                 bool sameRoom = current.Room == next.Room;
                 bool sameName = current.Name == next.Name;
 
@@ -316,10 +330,8 @@ namespace backend.Controllers
                     bool changed = false;
                     if (match.Name != imported.Name) { match.Name = imported.Name; changed = true; }
                     if (match.Room != imported.Room) { match.Room = imported.Room; changed = true; }
-                    if (match.ProfName != imported.ProfName) { match.ProfName = imported.ProfName; changed = true; }
-                    if (match.ProfFirstname != imported.ProfFirstname) { match.ProfFirstname = imported.ProfFirstname; changed = true; }
-                    if (match.ProfName2 != imported.ProfName2) { match.ProfName2 = imported.ProfName2; changed = true; }
-                    if (match.ProfFirstname2 != imported.ProfFirstname2) { match.ProfFirstname2 = imported.ProfFirstname2; changed = true; }
+                    if (match.ProfId != imported.ProfId) { match.ProfId = imported.ProfId; changed = true; }
+                    if (match.ProfId2 != imported.ProfId2) { match.ProfId2 = imported.ProfId2; changed = true; }
                     if (match.IsMerged != imported.IsMerged) { match.IsMerged = imported.IsMerged; changed = true; }
 
                     if (changed) sessionsToUpdate.Add(match);
@@ -338,14 +350,12 @@ namespace backend.Controllers
                         Year = year,
                         Name = imported.Name,
                         Room = imported.Room,
-                        ProfName = imported.ProfName,
-                        ProfFirstname = imported.ProfFirstname,
-                        ProfName2 = imported.ProfName2,
-                        ProfFirstname2 = imported.ProfFirstname2,
+                        ProfId = imported.ProfId,
+                        ProfId2 = imported.ProfId2,
                         IsMerged = imported.IsMerged,
                         ValidationCode = new Random().Next(1000, 9999).ToString(),
                         ProfSignatureToken = Guid.NewGuid().ToString(),
-                        ProfSignatureToken2 = !string.IsNullOrEmpty(imported.ProfName2) ? Guid.NewGuid().ToString() : null
+                        ProfSignatureToken2 = !string.IsNullOrEmpty(imported.ProfId2) ? Guid.NewGuid().ToString() : null
                     };
                     sessionsToAdd.Add(newSession);
                 }
@@ -407,10 +417,9 @@ namespace backend.Controllers
             public TimeSpan End { get; set; }
             public string Name { get; set; } = "";
             public string Room { get; set; } = "";
-            public string ProfName { get; set; } = "";
-            public string ProfFirstname { get; set; } = "";
-            public string ProfName2 { get; set; } = "";
-            public string ProfFirstname2 { get; set; } = "";
+
+            public string ProfId { get; set; } = "";
+            public string ProfId2 { get; set; } = "";
             public string Year { get; set; } = "";
             public bool IsMerged { get; set; }
         }

@@ -49,8 +49,8 @@ namespace backend.Controllers
 
                 var sessions = await scopedContext.Sessions
                     .Where(s => s.Date == now.Date &&
-                               ((!s.IsMailSent && !string.IsNullOrEmpty(s.ProfEmail)) ||
-                                (!s.IsMailSent2 && !string.IsNullOrEmpty(s.ProfEmail2))))
+                            ((!s.IsMailSent && s.ProfId != null) ||
+                                (!s.IsMailSent2 && s.ProfId2 != null)))
                     .ToListAsync();
 
                 sessions = sessions
@@ -59,7 +59,7 @@ namespace backend.Controllers
 
                 foreach (var session in sessions)
                 {
-                    if (!session.IsMailSent && !string.IsNullOrEmpty(session.ProfEmail))
+                    if (!session.IsMailSent && !string.IsNullOrEmpty(session.ProfId))
                     {
                         try
                         {
@@ -74,7 +74,7 @@ namespace backend.Controllers
                         }
                     }
 
-                    if (!session.IsMailSent2 && !string.IsNullOrEmpty(session.ProfEmail2))
+                    if (!session.IsMailSent2 && !string.IsNullOrEmpty(session.ProfId2))
                     {
                         try
                         {
@@ -128,14 +128,10 @@ namespace backend.Controllers
                     s.Year,
                     s.Name,
                     s.Room,
-                    s.ProfName,
-                    s.ProfFirstname,
-                    s.ProfEmail,
+                    s.ProfId,
                     s.ProfSignature,
                     s.ProfSignatureToken,
-                    s.ProfName2,
-                    s.ProfFirstname2,
-                    s.ProfEmail2,
+                    s.ProfId2,
                     s.ProfSignature2,
                     s.ProfSignatureToken2,
                     s.IsSent,
@@ -198,14 +194,10 @@ namespace backend.Controllers
                     session.Year,
                     session.Name,
                     session.Room,
-                    session.ProfName,
-                    session.ProfFirstname,
-                    session.ProfEmail,
+                    session.ProfId,
                     session.ProfSignature,
                     session.ProfSignatureToken,
-                    session.ProfName2,
-                    session.ProfFirstname2,
-                    session.ProfEmail2,
+                    session.ProfId2,
                     session.ProfSignature2,
                     session.ProfSignatureToken2,
                     session.IsSent,
@@ -261,14 +253,10 @@ namespace backend.Controllers
                     s.Year,
                     s.Name,
                     s.Room,
-                    s.ProfName,
-                    s.ProfFirstname,
-                    s.ProfEmail,
+                    s.ProfId,
                     s.ProfSignature,
                     s.ProfSignatureToken,
-                    s.ProfName2,
-                    s.ProfFirstname2,
-                    s.ProfEmail2,
+                    s.ProfId2,
                     s.ProfSignature2,
                     s.ProfSignatureToken2,
                     s.IsSent,
@@ -293,7 +281,7 @@ namespace backend.Controllers
             _logger.LogInformation("Création d'une nouvelle session");
             session.ProfSignatureToken = Guid.NewGuid().ToString();
 
-            if (!string.IsNullOrEmpty(session.ProfName2) || !string.IsNullOrEmpty(session.ProfFirstname2))
+            if (!string.IsNullOrEmpty(session.ProfId2))
             {
                 session.ProfSignatureToken2 = Guid.NewGuid().ToString();
             }
@@ -337,22 +325,14 @@ namespace backend.Controllers
             if (session.ProfSignatureToken == token)
             {
                 session.ProfSignature = signatureData.Signature;
-                if (!string.IsNullOrWhiteSpace(signatureData.Name))
-                    session.ProfName = signatureData.Name;
-                if (!string.IsNullOrWhiteSpace(signatureData.Firstname))
-                    session.ProfFirstname = signatureData.Firstname;
             }
             else if (session.ProfSignatureToken2 == token)
             {
                 session.ProfSignature2 = signatureData.Signature;
-                if (!string.IsNullOrWhiteSpace(signatureData.Name))
-                    session.ProfName2 = signatureData.Name;
-                if (!string.IsNullOrWhiteSpace(signatureData.Firstname))
-                    session.ProfFirstname2 = signatureData.Firstname;
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { message = "Signature du professeur enregistrée avec succès." });
+            return Ok(new { message = "Signature enregistrée avec succès." });
         }
 
         /**
@@ -509,9 +489,6 @@ namespace backend.Controllers
                     currentSession.Year,
                     currentSession.Name,
                     currentSession.Room,
-                    currentSession.ProfName,
-                    currentSession.ProfFirstname,
-                    currentSession.ProfEmail,
                     currentSession.IsSent,
                     currentSession.IsMailSent
                 });
@@ -950,14 +927,10 @@ namespace backend.Controllers
                     s.Year,
                     s.Name,
                     s.Room,
-                    s.ProfName,
-                    s.ProfFirstname,
-                    s.ProfEmail,
+                    s.ProfId,
                     s.ProfSignature,
                     s.ProfSignatureToken,
-                    s.ProfName2,
-                    s.ProfFirstname2,
-                    s.ProfEmail2,
+                    s.ProfId2,
                     s.ProfSignature2,
                     s.ProfSignatureToken2,
                     s.IsSent,
@@ -984,7 +957,10 @@ namespace backend.Controllers
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
                 return NotFound(new { error = true, message = "Session non trouvée." });
-            session.ProfEmail = model.ProfEmail;
+            var professor = await _context.Users.FindAsync(session.ProfId);
+            if (professor == null)
+                return NotFound(new { error = true, message = "Professeur non trouvé." });
+            professor.Email = model.ProfEmail;
             await _context.SaveChangesAsync();
             return Ok(new { message = "Email du professeur 1 enregistré" });
         }
@@ -1002,7 +978,10 @@ namespace backend.Controllers
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
                 return NotFound(new { error = true, message = "Session non trouvée." });
-            session.ProfEmail2 = model.ProfEmail;
+            var professor2 = await _context.Users.FindAsync(session.ProfId2);
+            if (professor2 == null)
+                return NotFound(new { error = true, message = "Professeur 2 non trouvé." });
+            professor2.Email = model.ProfEmail;
             await _context.SaveChangesAsync();
             return Ok(new { message = "Email du professeur 2 enregistré et mail envoyé." });
         }
@@ -1016,22 +995,7 @@ namespace backend.Controllers
         public async Task<IActionResult> ResendProfMail(int sessionId)
         {
             var session = await _context.Sessions.FindAsync(sessionId);
-            if (session == null || string.IsNullOrEmpty(session.ProfEmail))
-                return NotFound(new { error = true, message = "Session ou email du professeur 1 non trouvé." });
-            await SendProfSignatureMail(session, 1);
-            return Ok(new { message = "Mail renvoyé au professeur 1." });
-        }
-
-        /**
-         * ResendProf1Mail
-         *
-         * This method resends the email to the first professor for a session.
-         */
-        [HttpPost("{sessionId}/resend-prof1-mail")]
-        public async Task<IActionResult> ResendProf1Mail(int sessionId)
-        {
-            var session = await _context.Sessions.FindAsync(sessionId);
-            if (session == null || string.IsNullOrEmpty(session.ProfEmail))
+            if (session == null || string.IsNullOrEmpty(session.ProfId))
                 return NotFound(new { error = true, message = "Session ou email du professeur 1 non trouvé." });
             await SendProfSignatureMail(session, 1);
             return Ok(new { message = "Mail renvoyé au professeur 1." });
@@ -1046,7 +1010,7 @@ namespace backend.Controllers
         public async Task<IActionResult> ResendProf2Mail(int sessionId)
         {
             var session = await _context.Sessions.FindAsync(sessionId);
-            if (session == null || string.IsNullOrEmpty(session.ProfEmail2))
+            if (session == null || string.IsNullOrEmpty(session.ProfId2))
                 return NotFound(new { error = true, message = "Session ou email du professeur 2 non trouvé." });
             await SendProfSignatureMail(session, 2);
             return Ok(new { message = "Mail renvoyé au professeur 2." });
@@ -1080,16 +1044,20 @@ namespace backend.Controllers
 
             if (professorNumber == 1)
             {
-                profEmail = session.ProfEmail;
+                var profIdInt = int.TryParse(session.ProfId, out var id1) ? id1 : 0;
+                var professor = await _context.Professors.FindAsync(profIdInt);
+                profEmail = professor?.Email;
                 profSignatureToken = session.ProfSignatureToken;
-                profName = $"{session.ProfFirstname} {session.ProfName}";
+                profName = $"{professor?.Firstname} {professor?.Name}";
                 session.IsMailSent = true;
             }
             else if (professorNumber == 2)
             {
-                profEmail = session.ProfEmail2;
+                var profId2Int = int.TryParse(session.ProfId2, out var id2) ? id2 : 0;
+                var professor2 = await _context.Professors.FindAsync(profId2Int);
+                profEmail = professor2?.Email;
                 profSignatureToken = session.ProfSignatureToken2;
-                profName = $"{session.ProfFirstname2} {session.ProfName2}";
+                profName = $"{professor2?.Firstname} {professor2?.Name}";
                 session.IsMailSent2 = true;
             }
             else
@@ -1257,10 +1225,10 @@ Cordialement";
 
             if (!string.IsNullOrEmpty(profTokenValue))
             {
-                if (profTokenValue != session.ProfSignatureToken)
+                if (profTokenValue != session.ProfSignatureToken && profTokenValue != session.ProfSignatureToken2)
                 {
                     var sessionByToken = await _context.Sessions
-                        .FirstOrDefaultAsync(s => s.ProfSignatureToken == profTokenValue);
+                        .FirstOrDefaultAsync(s => s.ProfSignatureToken == profTokenValue || s.ProfSignatureToken2 == profTokenValue);
 
                     if (sessionByToken != null)
                     {
@@ -1270,10 +1238,10 @@ Cordialement";
                     }
                 }
 
-                if (profTokenValue == session.ProfSignatureToken)
+                if (profTokenValue == session.ProfSignatureToken || profTokenValue == session.ProfSignatureToken2)
                 {
                     isAuthorized = true;
-                    _logger.LogInformation($"Accès autorisé par token professeur pour modifier le statut de présence de {studentNumber} dans la session {sessionId}");
+                    _logger.LogInformation($"Accès autorisé par token professeur (1 ou 2) pour modifier le statut de présence de {studentNumber} dans la session {sessionId}");
                 }
             }
 
@@ -1507,10 +1475,10 @@ Cordialement";
                 }
             }
 
-            if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue != sessionNormal.ProfSignatureToken)
+            if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue != sessionNormal.ProfSignatureToken && profTokenValue != sessionNormal.ProfSignatureToken2)
             {
                 var sessionByToken = await _context.Sessions
-                    .FirstOrDefaultAsync(s => s.ProfSignatureToken == profTokenValue);
+                    .FirstOrDefaultAsync(s => s.ProfSignatureToken == profTokenValue || s.ProfSignatureToken2 == profTokenValue);
 
                 if (sessionByToken != null)
                 {
@@ -1520,11 +1488,11 @@ Cordialement";
                 }
             }
 
-            if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue == sessionNormal.ProfSignatureToken)
+            if (!string.IsNullOrEmpty(profTokenValue) && (profTokenValue == sessionNormal.ProfSignatureToken || profTokenValue == sessionNormal.ProfSignatureToken2))
             {
                 isAuthorized = true;
                 accessType = "prof-token";
-                _logger.LogInformation($"Accès autorisé par token professeur pour modifier le commentaire de présence de {studentNumber} dans la session {sessionId}");
+                _logger.LogInformation($"Accès autorisé par token professeur (1 ou 2) pour modifier le commentaire de présence de {studentNumber} dans la session {sessionId}");
             }
             else if (User.Identity?.IsAuthenticated == true)
             {

@@ -37,14 +37,16 @@
       </div>
       
       <div class="professors-container">
-        <div v-if="session.profName || session.profFirstname" class="professor-info">
+        <div v-if="professor1?.firstname" class="professor-info">
           <div class="professor-title">Professeur 1 :</div>
-          <div class="professor-name">{{ session.profFirstname }} {{ session.profName }}</div>
+          <div class="professor-name">{{ professor1.firstname }} {{ professor1.name }}</div>
+          <div class="professor-email">{{ professor1.email }}</div>
           <span v-if="isMainProfessor" class="current-professor-badge">👤 Vous</span>
         </div>
-        <div v-if="session.profName2 || session.profFirstname2" class="co-professor-info">
+        <div v-if="professor2?.firstname" class="co-professor-info">
           <div class="professor-title">Professeur 2 :</div>
-          <div class="professor-name">{{ session.profFirstname2 }} {{ session.profName2 }}</div>
+          <div class="professor-name">{{ professor2.firstname }} {{ professor2.name }}</div>
+          <div class="professor-email">{{ professor2.email }}</div>
           <span v-if="!isMainProfessor" class="current-professor-badge">👤 Vous</span>
         </div>
       </div>
@@ -195,6 +197,7 @@ import SignatureCreator from '../signature/SignatureCreator.vue';
 import PopUpProfSignatureWarning from '../popups/PopUpProfSignatureWarning.vue';
 import { useProfSignatureStore } from '../../stores/profSignatureStore';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useProfessorStore } from '../../stores/professorStore';
 
 const route = useRoute();
 const token = route.params.token;
@@ -213,6 +216,9 @@ const attendancesLoading = ref(false);
 const editingCommentFor = ref(null);
 const editingComment = ref('');
 const commentTextarea = ref(null);
+const professor1 = ref(null);
+const professor2 = ref(null);
+const professorStore = useProfessorStore();
 const showSignatureWarning = ref(false);
 
 function openSignatureWarning() {
@@ -278,9 +284,15 @@ onMounted(async () => {
   if (data) {
     session.value = data;
     validationCode.value = data.validationCode || '';
+    if (data.profId) {
+      professor1.value = await professorStore.fetchProfessorById(data.profId);
+    }
+    if (data.profId2) {
+      professor2.value = await professorStore.fetchProfessorById(data.profId2);
+    }
+    console.log("Professeur 1 chargé:", professor1.value);
     loading.value = false;
     await loadAttendances();
-    
     await nextTick();
     setTimeout(() => {
       if (signaturePad.value && signaturePad.value.forceCanvasReset) {

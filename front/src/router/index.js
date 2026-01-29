@@ -38,6 +38,12 @@ const routes = [
     beforeEnter: requiresAdmin,
   },
   {
+    path: "/professors",
+    name: "professors",
+    component: () => import("../components/pages/ProfessorList.vue"),
+    beforeEnter: requiresAdmin,
+  },
+  {
     path: "/unauthorized",
     name: "unauthorized",
     component: () =>
@@ -97,7 +103,6 @@ const router = createRouter({
 
 import { useAuthStore } from "../stores/authStore";
 router.beforeEach(async (to, from, next) => {
-
   const authStore = useAuthStore();
   await authStore.initialize();
 
@@ -114,7 +119,7 @@ router.beforeEach(async (to, from, next) => {
     publicPages.includes(to.name) ||
     to.name === "home" ||
     to.path.startsWith("/prof-signature") ||
-    to.path.startsWith("/reset-password") 
+    to.path.startsWith("/reset-password")
   ) {
     return next();
   }

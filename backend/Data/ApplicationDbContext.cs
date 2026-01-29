@@ -15,6 +15,8 @@ namespace backend.Data
         public DbSet<Attendance> Attendances { get; set; } = null!;
         public DbSet<MailPreferences> MailPreferences { get; set; }
 
+        public DbSet<Professor> Professors { get; set; }
+
         public DbSet<SessionSentToUser> SessionSentToUsers { get; set; }
         public DbSet<IcsLink> IcsLinks { get; set; }
 

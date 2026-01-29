@@ -579,22 +579,6 @@ export const useSessionStore = defineStore("session", {
     },
 
     /**
-     * Resends the professor 1 signature email for a session
-     * @param {number} sessionId - Session ID
-     * @returns {Promise<boolean>} True if successful
-     */
-    async resendProf1Mail(sessionId) {
-      try {
-        await apiClient.post(
-          `${API_URL}/Session/${sessionId}/resend-prof1-mail`
-        );
-        return true;
-      } catch (e) {
-        throw e;
-      }
-    },
-
-    /**
      * Sets the professor 2's email for a session
      * @param {number} sessionId - Session ID
      * @param {string} profEmail2 - Professor 2's email address

@@ -76,11 +76,11 @@
             <p v-if="session.name"><strong>Nom :</strong> {{ session.name }}</p>
             <p><strong>Horaires:</strong> {{ formatTime(session.startTime) }} - {{ formatTime(session.endTime) }}</p>
             <p v-if="session.room"><strong>Salle :</strong> {{ session.room }}</p>
-            <div v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')" class="prof-info">
-              <p><strong>Professeur:</strong> {{ session.profFirstname }} {{ session.profName }}</p>
+            <div v-if="session.profId" class="prof-info">
+              <p><strong>Professeur:</strong> {{ getProfName(session.profId) }}</p>
             </div>
-            <div v-if="(session.profFirstname2 && session.profFirstname2.trim() !== '') || (session.profName2 && session.profName2.trim() !== '')" class="prof-info">
-              <p><strong>Professeur:</strong> {{ session.profFirstname2 }} {{ session.profName2 }}</p>
+            <div v-if="session.profId2" class="prof-info">
+              <p><strong>Professeur:</strong> {{ getProfName(session.profId2) }}</p>
             </div>
             <div class="session-actions">
               <router-link
@@ -118,6 +118,7 @@ import { defineComponent, ref, computed, onMounted, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useStudentsStore } from '../../stores/studentsStore';
+import { useProfessorStore } from '../../stores/professorStore';
 import ExportSessionsPdf from '../exports/ExportSessionsPdf.vue';
 import PopUpCreateSession from '../popups/PopUpCreateSession.vue';
 import PopUpSignSession from '../popups/PopUpSignSession.vue';
@@ -132,6 +133,7 @@ export default defineComponent({
   setup() {
     const sessionStore = useSessionStore();
     const studentsStore = useStudentsStore();
+    const professorStore = useProfessorStore();
     const route = useRoute();
     const router = useRouter();
     const selectedYear = ref(route.query.year || '');
@@ -295,7 +297,15 @@ export default defineComponent({
       loadSessions();
     };
 
+    const getProfName = (id) => {
+      if (!id) return '';
+      const prof = professorStore.professors.find(p => p.id == id);
+      if (!prof) return '';
+      return `${prof.firstname} ${prof.name}`;
+    };
+
     onMounted(() => {
+      professorStore.fetchProfessors();
       loadSessions();
     });
     
@@ -322,7 +332,8 @@ export default defineComponent({
       showEditSessionModal,
       selectedSession,
       openEditSessionModal,
-      handleSessionUpdated
+      handleSessionUpdated,
+      getProfName,
     };
   }
 });
@@ -436,6 +447,7 @@ export default defineComponent({
   border-radius: 4px;
   margin-top: 10px;
   cursor: pointer;
+  font-weight: 500;
 }
 
 .retry-button:hover {

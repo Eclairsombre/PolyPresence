@@ -30,6 +30,7 @@
 import { ref, watch } from 'vue';
 import { useSessionStore } from '../../stores/sessionStore';
 import SignatureCreator from '../signature/SignatureCreator.vue';
+import { useProfessorStore } from '../../stores/professorStore';
 
 const props = defineProps({
   session: {
@@ -46,12 +47,21 @@ const editSession = ref({
   firstname: '',
   signature: ''
 });
+const professorStore = useProfessorStore();
+const professor = ref(null);
 const signaturePad = ref(null);
 
 watch(
   () => props.session,
-  (newSession) => {
-    if (newSession) {
+  async (newSession) => {
+    if (newSession && newSession.profId) {
+      professor.value = await professorStore.fetchProfessorById(newSession.profId);
+      editSession.value = {
+        name: professor.value?.name || '',
+        firstname: professor.value?.firstname || '',
+        signature: newSession.profSignature || ''
+      };
+    } else if (newSession) {
       editSession.value = {
         name: newSession.profName || '',
         firstname: newSession.profFirstname || '',
@@ -67,8 +77,21 @@ const submitEdit = async () => {
   if (!signatureData) {
     return;
   }
-  props.session.profName = editSession.value.name;
-  props.session.profFirstname = editSession.value.firstname;
+
+
+  // Utilisation du store pour obtenir/créer le professeur
+  let profId = props.session.profId;
+  if (!profId) {
+    profId = await professorStore.findOrCreateProfessor({
+      name: editSession.value.name,
+      firstname: editSession.value.firstname,
+      email: professor.value?.email || ''
+    });
+    if (!profId) return;
+  }
+
+  // Met à jour la session avec l'id du professeur et la signature
+  props.session.profId = profId.toString();
   props.session.profSignature = signatureData;
   await sessionStore.updateSession(props.session);
   emit('sessionUpdated');

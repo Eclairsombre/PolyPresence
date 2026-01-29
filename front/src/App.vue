@@ -8,14 +8,24 @@
         <h1>PolyPresence</h1>
       </div>
       <nav class="app-nav">
-          <router-link to="/">Accueil</router-link>
-          <router-link to="/signature" v-if="user">Ma signature</router-link>
-          <router-link v-if="isAdmin" to="/students">Étudiants</router-link>
-          <router-link v-if="isAdmin" to="/sessions">Sessions</router-link>
-          <router-link v-if="isAdmin" to="/mail-preferences">Préférences de Mail</router-link>
-          <router-link v-if="isAdmin" to="/admin/import-edt">Importer l'EDT</router-link>
+        <router-link to="/">Accueil</router-link>
+        <router-link to="/signature" v-if="user && !isAdmin">Ma signature</router-link>
+        <div v-if="isAdmin" class="admin-menu">
+          <button class="admin-menu-btn" @click="showAdminMenu = !showAdminMenu">
+            Administration <span class="arrow" :class="{ open: showAdminMenu }">▼</span>
+          </button>
+          <div v-if="showAdminMenu" class="admin-dropdown">
+            <router-link to="/professors">Professeurs</router-link>
+            <router-link to="/students">Étudiants</router-link>
+            <router-link to="/sessions">Sessions</router-link>
+            <router-link to="/mail-preferences">Préférences de Mail</router-link>
+            <router-link to="/admin/import-edt">Importer l'EDT</router-link>
+          </div>
+        </div>
+        <div class="auth-actions">
           <button v-if="!user" class="auth-btn" @click="goToLogin">Se connecter</button>
           <button v-else class="auth-btn" @click="logout">Se déconnecter</button>
+        </div>
       </nav>
     </header>
     <main class="app-content">
@@ -27,9 +37,10 @@
   </div>
 </template>
   
+
 <script setup>
 import { useAuthStore } from './stores/authStore';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const authStore = useAuthStore();
@@ -40,6 +51,8 @@ const isAdmin = computed(() => {
   return authStore.user && authStore.user.isAdmin === true;
 });
 const user = computed(() => authStore.user);
+
+const showAdminMenu = ref(false);
 
 const goToLogin = () => {
   router.push({ name: 'login' });
@@ -60,6 +73,7 @@ onMounted(() => {
     authStore.isAdmin();
   }
 });
+
 </script>
 
 <style>
@@ -97,22 +111,79 @@ body {
   font-weight: 500;
 }
 
+
 .app-nav {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
-.app-nav a {
+.app-nav > a,
+.app-nav > .admin-menu > .admin-menu-btn {
   color: white;
   text-decoration: none;
-  padding: 5px ;
+  padding: 5px 10px;
   border-radius: 4px;
   transition: background-color 0.3s;
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  display: inline-block;
 }
 
-.app-nav a:hover, .app-nav a.router-link-active {
+.app-nav > a:hover, .app-nav > a.router-link-active,
+.admin-menu-btn:hover, .admin-menu-btn:focus {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.admin-menu {
+  position: relative;
+  display: inline-block;
+}
+.admin-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.arrow {
+  font-size: 0.8em;
+  margin-left: 2px;
+  transition: transform 0.2s;
+}
+.arrow.open {
+  transform: rotate(180deg);
+}
+.admin-dropdown {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background: #34495e;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  min-width: 180px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+.admin-dropdown a {
+  color: white;
+  text-decoration: none;
+  padding: 8px 18px;
+  border-radius: 0;
+  transition: background 0.2s;
+  font-size: 1em;
+}
+.admin-dropdown a:hover, .admin-dropdown a.router-link-active {
+  background: #217dbb;
+}
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 18px;
 }
 
 .app-content {
@@ -152,15 +223,24 @@ pre {
 }
 
 
-@media (max-width: 768px) {
+
+@media (max-width: 900px) {
+  .app-nav {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .admin-dropdown {
+    min-width: 140px;
+    font-size: 0.97em;
+  }
   .app-header h1 {
     font-size: 1.5rem;
   }
-  
   .app-content {
     padding: 15px;
   }
 }
+
 
 @media (max-width: 600px) {
   .app-header {
@@ -176,6 +256,10 @@ pre {
     flex-wrap: wrap;
     gap: 4px;
   }
+  .admin-dropdown {
+    min-width: 110px;
+    font-size: 0.93em;
+  }
   .app-content {
     padding: 6px;
     margin-top: 10px;
@@ -183,6 +267,11 @@ pre {
   .app-footer {
     padding: 8px;
     font-size: 0.8rem;
+  }
+  .auth-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 
