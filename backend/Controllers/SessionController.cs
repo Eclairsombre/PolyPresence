@@ -957,7 +957,9 @@ namespace backend.Controllers
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
                 return NotFound(new { error = true, message = "Session non trouvée." });
-            var professor = await _context.Users.FindAsync(session.ProfId);
+            if (!int.TryParse(session.ProfId, out int profId))
+                return NotFound(new { error = true, message = "Professeur non trouvé (ID invalide)." });
+            var professor = await _context.Users.FindAsync(profId);
             if (professor == null)
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
             professor.Email = model.ProfEmail;
