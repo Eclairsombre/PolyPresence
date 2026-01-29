@@ -44,10 +44,10 @@
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Email du professeur 1 :</span>
-                            <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ professor1.email }}</span>
+                            <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ professor1?.email || 'Non défini' }}</span>
                             <template v-if="isDelegate">
                                 <template v-if="!profEmailEditMode">
-                                    <span class="detail-value">{{ professor1.email }}</span>
+                                    <span class="detail-value">{{ professor1?.email || '' }}</span>
                                     <button @click="showEditProfMailPopup = true" class="edit-btn">Modifier</button>
                                     <button @click="showResendProf1MailPopup = true" class="resend-btn">Renvoyer le mail</button>
                                 </template>
@@ -60,10 +60,10 @@
                         </div>
                         <div v-if="professor2?.email || (isDelegate && currentSession.profFirstname2)" class="detail-item">
                             <span class="detail-label">Email du professeur 2 :</span>
-                            <span class="detail-value" v-if="!isDelegate || prof2EmailEditMode">{{ professor2.email }}</span>
+                            <span class="detail-value" v-if="!isDelegate || prof2EmailEditMode">{{ professor2?.email || 'Non défini' }}</span>
                             <template v-if="isDelegate">
                                 <template v-if="!prof2EmailEditMode">
-                                    <span class="detail-value">{{ professor2.email || 'Non défini' }}</span>
+                                    <span class="detail-value">{{ professor2?.email || '' }}</span>
                                     <button @click="showEditProf2MailPopup = true" class="edit-btn">Modifier</button>
                                     <button v-if="professor2.email" @click="showResendProf2MailPopup = true" class="resend-btn">Renvoyer le mail</button>
                                 </template>
