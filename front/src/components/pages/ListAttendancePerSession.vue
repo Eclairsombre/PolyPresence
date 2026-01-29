@@ -21,14 +21,12 @@
         <div class="prof-info" v-if="session">
           <p v-if="session.name" class="session-name"><strong>Nom de la session :</strong> {{ session.name }}</p>
           <p v-if="session.room" class="session-room"><strong>Salle :</strong> {{ session.room }}</p>
-          
           <div class="professors-section">
             <h3>Encadrement pédagogique</h3>
-            
-            <div class="professor-card" v-if="(session.profFirstname && session.profFirstname.trim() !== '') || (session.profName && session.profName.trim() !== '')">
+            <div class="professor-card" v-if="professor1 && (professor1.firstname || professor1.name)">
               <div class="professor-details">
-                <span class="professor-name">{{ session.profFirstname }} {{ session.profName }}</span>
-                <span v-if="session.profEmail" class="professor-email">({{ session.profEmail }})</span>
+                <span class="professor-name">{{ professor1.firstname }} {{ professor1.name }}</span>
+                <span v-if="professor1.email" class="professor-email">({{ professor1.email }})</span>
               </div>
               <div class="professor-signature" v-if="session.profSignature">
                 <span class="signature-label">Signature :</span>
@@ -38,11 +36,10 @@
                 <span class="signature-label">Signature : <em>Non signée</em></span>
               </div>
             </div>
-            
-            <div class="professor-card" v-if="(session.profFirstname2 && session.profFirstname2.trim() !== '') || (session.profName2 && session.profName2.trim() !== '')">
+            <div class="professor-card" v-if="professor2 && (professor2.firstname || professor2.name)">
               <div class="professor-details">
-                <span class="professor-name">{{ session.profFirstname2 }} {{ session.profName2 }}</span>
-                <span v-if="session.profEmail2" class="professor-email">({{ session.profEmail2 }})</span>
+                <span class="professor-name">{{ professor2.firstname }} {{ professor2.name }}</span>
+                <span v-if="professor2.email" class="professor-email">({{ professor2.email }})</span>
               </div>
               <div class="professor-signature" v-if="session.profSignature2">
                 <span class="signature-label">Signature :</span>
@@ -107,12 +104,13 @@
 </template>
 
 <script>
-import {defineComponent, onMounted, ref} from 'vue';
+import {defineComponent, onMounted, ref, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useSessionStore} from '../../stores/sessionStore';
 import {useStudentsStore} from '../../stores/studentsStore';
 import SignatureDisplay from '../signature/SignatureDisplay.vue';
 import {useMailPreferencesStore} from "../../stores/mailPreferencesStore.js";
+import { useProfessorStore } from '../../stores/professorStore';
 
 
 export default defineComponent({
@@ -133,6 +131,21 @@ export default defineComponent({
     const loading = ref(true);
     const error = ref(null);
     const exporting = ref(false);
+    const professorStore = useProfessorStore();
+    const professor1 = ref(null);
+    const professor2 = ref(null);
+        const loadProfessors = async () => {
+          if (session.value?.profId) {
+            professor1.value = await professorStore.fetchProfessorById(session.value.profId);
+          } else {
+            professor1.value = null;
+          }
+          if (session.value?.profId2) {
+            professor2.value = await professorStore.fetchProfessorById(session.value.profId2);
+          } else {
+            professor2.value = null;
+          }
+        };
     
     const loadSessionData = async () => {
       loading.value = true;
@@ -211,8 +224,13 @@ export default defineComponent({
       }
     };
 
-    onMounted(() => {
-      loadSessionData();
+    onMounted(async () => {
+      await loadSessionData();
+      await loadProfessors();
+    });
+    // Recharge les professeurs si la session change (ex: navigation)
+    watch(session, async (newVal) => {
+      await loadProfessors();
     });
 
     return {
@@ -227,7 +245,9 @@ export default defineComponent({
       formatTime,
       handleSignatureSaved,
       exportToPDF,
-      route
+      route,
+      professor1,
+      professor2
     };
   }
 });

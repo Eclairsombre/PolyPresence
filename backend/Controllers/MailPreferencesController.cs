@@ -72,6 +72,8 @@ namespace backend.Controllers
         */
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
         {
+            var professor1 = _context.Professors.FirstOrDefault(p => p.Id.ToString() == session.ProfId);
+            var professor2 = _context.Professors.FirstOrDefault(p => p.Id.ToString() == session.ProfId2);
             try
             {
                 // Activer le débogage QuestPDF pour avoir plus d'informations en cas d'erreur
@@ -143,11 +145,11 @@ namespace backend.Controllers
                                 infoCol.Item().Padding(5).Text($"Horaires : {horaires}").FontSize(12);
                                 infoCol.Item().Padding(5).Text($"Salle : {session.Room}").FontSize(12);
                                 infoCol.Item().Padding(5).Text("");
-                                infoCol.Item().Padding(5).Text($"Professeur {(!string.IsNullOrEmpty(session.ProfName2) ? "1" : "")} : {session.ProfFirstname} {session.ProfName} ({session.ProfEmail})").FontSize(12).FontColor("#34495e");
+                                infoCol.Item().Padding(5).Text($"Professeur {(!string.IsNullOrEmpty(session.ProfId2) ? "1" : "")} : {professor1?.Firstname} {professor1?.Name} ({professor1?.Email})").FontSize(12).FontColor("#34495e");
 
-                                if (!string.IsNullOrEmpty(session.ProfName2))
+                                if (!string.IsNullOrEmpty(session.ProfId2))
                                 {
-                                    infoCol.Item().Padding(5).Text($"Professeur 2 : {session.ProfFirstname2} {session.ProfName2} ({session.ProfEmail2})").FontSize(12).FontColor("#34495e");
+                                    infoCol.Item().Padding(5).Text($"Professeur 2 : {professor2?.Firstname} {professor2?.Name} ({professor2?.Email})").FontSize(12).FontColor("#34495e");
                                 }
 
                                 if (!string.IsNullOrWhiteSpace(session.ProfSignature))
@@ -161,7 +163,7 @@ namespace backend.Controllers
                                             byte[] imageBytes = Convert.FromBase64String(base64Data);
                                             infoCol.Item().Padding(5).Row(row =>
                                             {
-                                                row.ConstantItem(100).AlignMiddle().Text($"Signature du professeur {(!string.IsNullOrEmpty(session.ProfName2) ? "1" : "")} :").FontSize(12);
+                                                row.ConstantItem(100).AlignMiddle().Text($"Signature du professeur {(!string.IsNullOrEmpty(session.ProfId2) ? "1" : "")} :").FontSize(12);
                                                 row.ConstantItem(90).Height(40).AlignMiddle().AlignCenter().Image(imageBytes).FitArea();
                                             });
                                         }
@@ -184,7 +186,7 @@ namespace backend.Controllers
                                     });
                                 }
 
-                                if (!string.IsNullOrEmpty(session.ProfName2))
+                                if (!string.IsNullOrEmpty(session.ProfId2))
                                 {
                                     if (!string.IsNullOrWhiteSpace(session.ProfSignature2))
                                     {

@@ -76,57 +76,30 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="prof-name">Nom du professeur 1 :</label>
-            <input
-              type="text"
-              id="prof-name"
-              v-model="form.profName"
-              class="form-control"
-              required
-            >
+            <label>Professeur 1 :</label>
+            <select v-model="form.profId" class="form-control" required>
+              <option value="">Sélectionner un professeur existant</option>
+              <option v-for="prof in professors" :key="prof.id" :value="String(prof.id)">
+                {{ prof.firstname }} {{ prof.name }} ({{ prof.email }})
+              </option>
+              <option value="new">Ajouter un nouveau professeur...</option>
+            </select>
           </div>
-          <div class="form-group">
-            <label for="prof-firstname">Prénom du professeur 1 :</label>
-            <input
-              type="text"
-              id="prof-firstname"
-              v-model="form.profFirstname"
-              class="form-control"
-              required
-            >
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group" style="flex:1;">
-            <label for="prof-email">Email du professeur 1 :</label>
-            <input
-              type="email"
-              id="prof-email"
-              v-model="form.profEmail"
-              class="form-control"
-              required
-            >
+          <div v-if="form.profId === 'new'" class="form-group">
+            <label>Nom :</label>
+            <input type="text" v-model="newProf1.name" class="form-control" required>
+            <label>Prénom :</label>
+            <input type="text" v-model="newProf1.firstname" class="form-control" required>
+            <label>Email :</label>
+            <input type="email" v-model="newProf1.email" class="form-control" required>
+            <button type="button" @click="addNewProfessor(1)">Créer et sélectionner</button>
           </div>
           <div style="flex:1;display:flex;align-items:center;">
-            <div
-              v-if="studentLoading"
-              class="loading-info"
-              style="width:100%;"
-            >
-              Chargement des étudiants...
-            </div>
-            <div
-              v-else-if="students && students.length > 0"
-              class="student-count-info"
-              style="width:100%;"
-            >
+            <div v-if="studentLoading" class="loading-info" style="width:100%;">Chargement des étudiants...</div>
+            <div v-else-if="students && students.length > 0" class="student-count-info" style="width:100%;">
               {{ students.length }} étudiants seront ajoutés à cette session.
             </div>
-            <div
-              v-else-if="form.year && !studentLoading"
-              class="student-count-info warning"
-              style="width:100%;"
-            >
+            <div v-else-if="form.year && !studentLoading" class="student-count-info warning" style="width:100%;">
               Aucun étudiant trouvé pour l'année {{ form.year }}.
             </div>
           </div>
@@ -136,35 +109,24 @@
           <h4>Professeur 2 (optionnel)</h4>
           <div class="form-row">
             <div class="form-group">
-              <label for="prof-name2">Nom du professeur 2 :</label>
-              <input
-                type="text"
-                id="prof-name2"
-                v-model="form.profName2"
-                class="form-control"
-              >
+              <label>Professeur 2 :</label>
+              <select v-model="form.profId2" class="form-control">
+                <option value="">Sélectionner un professeur existant</option>
+                <option v-for="prof in professors" :key="prof.id" :value="String(prof.id)">
+                  {{ prof.firstname }} {{ prof.name }} ({{ prof.email }})
+                </option>
+                <option value="new">Ajouter un nouveau professeur...</option>
+              </select>
             </div>
-            <div class="form-group">
-              <label for="prof-firstname2">Prénom du professeur 2 :</label>
-              <input
-                type="text"
-                id="prof-firstname2"
-                v-model="form.profFirstname2"
-                class="form-control"
-              >
+            <div v-if="form.profId2 === 'new'" class="form-group">
+              <label>Nom :</label>
+              <input type="text" v-model="newProf2.name" class="form-control" required>
+              <label>Prénom :</label>
+              <input type="text" v-model="newProf2.firstname" class="form-control" required>
+              <label>Email :</label>
+              <input type="email" v-model="newProf2.email" class="form-control" required>
+              <button type="button" @click="addNewProfessor(2)">Créer et sélectionner</button>
             </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group" style="flex:1;">
-              <label for="prof-email2">Email du professeur 2 :</label>
-              <input
-                type="email"
-                id="prof-email2"
-                v-model="form.profEmail2"
-                class="form-control"
-              >
-            </div>
-            <div style="flex:1;"></div>
           </div>
         </div>
         
@@ -190,9 +152,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, onMounted } from 'vue';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useStudentsStore } from '../../stores/studentsStore';
+import { useProfessorStore } from '../../stores/professorStore';
 
 const emit = defineEmits(['close', 'sessionCreated']);
 const props = defineProps({
@@ -201,9 +164,14 @@ const props = defineProps({
 
 const sessionStore = useSessionStore();
 const studentsStore = useStudentsStore();
+const professorStore = useProfessorStore();
 const loading = ref(false);
 const studentLoading = ref(false);
 const students = ref([]);
+
+const professors = ref([]);
+const newProf1 = reactive({ name: '', firstname: '', email: '' });
+const newProf2 = reactive({ name: '', firstname: '', email: '' });
 
 const form = reactive({
   name: '',
@@ -212,13 +180,29 @@ const form = reactive({
   startTime: '',
   endTime: '',
   year: '',
-  profName: '',
-  profFirstname: '',
-  profEmail: '',
-  profName2: '',
-  profFirstname2: '',
-  profEmail2: ''
+  profId: '',
+  profId2: ''
 });
+
+onMounted(async () => {
+  await professorStore.fetchProfessors();
+  professors.value = professorStore.professors;
+});
+
+async function addNewProfessor(num) {
+  const data = num === 1 ? newProf1 : newProf2;
+  if (!data.name || !data.firstname || !data.email) return;
+  const created = await professorStore.createProfessor({ name: data.name, firstname: data.firstname, email: data.email });
+  if (created) {
+    if (num === 1) {
+      form.profId = created.id;
+      Object.assign(newProf1, { name: '', firstname: '', email: '' });
+    } else {
+      form.profId2 = created.id;
+      Object.assign(newProf2, { name: '', firstname: '', email: '' });
+    }
+  }
+}
 
 function close() {
   emit('close');
@@ -243,7 +227,7 @@ const loadStudentsByYear = async () => {
 };
 
 async function handleSubmit() {
-  if (!form.date || !form.startTime || !form.endTime || !form.year || !form.profName || !form.profFirstname || !form.profEmail || !form.name || !form.room) {
+  if (!form.date || !form.startTime || !form.endTime || !form.year || !form.name || !form.room || !form.profId) {
     return;
   }
   loading.value = true;
@@ -259,12 +243,8 @@ async function handleSubmit() {
     endTime: form.endTime,
     year: form.year,
     validationCode,
-    profName: form.profName,
-    profFirstname: form.profFirstname,
-    profEmail: form.profEmail,
-    profName2: form.profName2 || null,
-    profFirstname2: form.profFirstname2 || null,
-    profEmail2: form.profEmail2 || null
+    profId: String(form.profId),
+    profId2: form.profId2 ? String(form.profId2) : null
   };
   try {
     const createdSession = await sessionStore.createSession(sessionData);

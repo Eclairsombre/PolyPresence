@@ -44,10 +44,10 @@
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Email du professeur 1 :</span>
-                            <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ currentSession.profEmail }}</span>
+                            <span class="detail-value" v-if="!isDelegate || profEmailEditMode">{{ professor1.email }}</span>
                             <template v-if="isDelegate">
                                 <template v-if="!profEmailEditMode">
-                                    <span class="detail-value">{{ currentSession.profEmail }}</span>
+                                    <span class="detail-value">{{ professor1.email }}</span>
                                     <button @click="showEditProfMailPopup = true" class="edit-btn">Modifier</button>
                                     <button @click="showResendProf1MailPopup = true" class="resend-btn">Renvoyer le mail</button>
                                 </template>
@@ -58,14 +58,14 @@
                                 </template>
                             </template>
                         </div>
-                        <div v-if="currentSession.profEmail2 || (isDelegate && currentSession.profFirstname2)" class="detail-item">
+                        <div v-if="professor2?.email || (isDelegate && currentSession.profFirstname2)" class="detail-item">
                             <span class="detail-label">Email du professeur 2 :</span>
-                            <span class="detail-value" v-if="!isDelegate || prof2EmailEditMode">{{ currentSession.profEmail2 }}</span>
+                            <span class="detail-value" v-if="!isDelegate || prof2EmailEditMode">{{ professor2.email }}</span>
                             <template v-if="isDelegate">
                                 <template v-if="!prof2EmailEditMode">
-                                    <span class="detail-value">{{ currentSession.profEmail2 || 'Non défini' }}</span>
+                                    <span class="detail-value">{{ professor2.email || 'Non défini' }}</span>
                                     <button @click="showEditProf2MailPopup = true" class="edit-btn">Modifier</button>
-                                    <button v-if="currentSession.profEmail2" @click="showResendProf2MailPopup = true" class="resend-btn">Renvoyer le mail</button>
+                                    <button v-if="professor2.email" @click="showResendProf2MailPopup = true" class="resend-btn">Renvoyer le mail</button>
                                 </template>
                                 <template v-else>
                                     <input v-model="prof2EmailInput" type="email" class="edit-input" />
@@ -99,6 +99,7 @@ import { ref, onMounted,watch } from 'vue';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useStudentsStore } from '../../stores/studentsStore';
+import { useProfessorStore } from '../../stores/professorStore';
 
 import ValidatePresence from '../buttons/ValidatePresence.vue';
 import PopUpEditProfMail from '../popups/PopUpEditProfMail.vue';
@@ -124,11 +125,13 @@ const showResendProf1MailPopup = ref(false);
 const showResendProf2MailPopup = ref(false);
 const showCode = ref(false);
 const showCodePopup = ref(false);
+const professor1 = ref(null);
+const professor2 = ref(null);
 
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
-
+const professorStore = useProfessorStore();
 
 const formatDate = (dateString) => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -162,9 +165,13 @@ const loadData = async () => {
                 return;
             }
             currentSession.value = session;
-            profEmailInput.value = session.profEmail || "";
-            prof2EmailInput.value = session.profEmail2 || "";
-            
+          
+            professor1.value = await professorStore.fetchProfessorById(session.profId);
+            if (session.profId2)
+                professor2.value = await professorStore.fetchProfessorById(session.profId2);
+
+            profEmailInput.value = professor1.value?.email || "";
+            prof2EmailInput.value = professor2.value?.email || "";
             const at = await sessionStore.getAttendance(authStore.user.studentId, currentSession.value.id);
             attendance.value = at;
             if (!currentSession.value) {
@@ -284,6 +291,14 @@ function confirmShowCode() {
 watch(currentSession, (val) => {
     profEmailInput.value = val?.profEmail || "";
     prof2EmailInput.value = val?.profEmail2 || "";
+});
+
+watch(professor1, (newProf) => {
+    profEmailInput.value = newProf?.email || "";
+});
+
+watch(professor2, (newProf) => {
+    prof2EmailInput.value = newProf?.email || "";
 });
 
 watch(

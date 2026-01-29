@@ -9,6 +9,7 @@
           <router-link to="/students" class="btn-primary">Gérer les étudiants</router-link>
           <router-link to="/sessions" class="btn-primary">Gérer les sessions</router-link>
           <router-link to="/mail-preferences" class="btn-primary">Préférences de mail</router-link>
+          <router-link to="/professors" class="btn-primary">Liste des professeurs</router-link>
           <router-link to="/admin/import-edt" class="btn-primary">Importer l’EDT</router-link>
         </div>
       </div>
