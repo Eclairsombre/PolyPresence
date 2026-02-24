@@ -20,10 +20,6 @@ namespace backend.Data
         public DbSet<SessionSentToUser> SessionSentToUsers { get; set; }
         public DbSet<IcsLink> IcsLinks { get; set; }
 
-        public override int SaveChanges()
-        {
-            return base.SaveChanges();
-        }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

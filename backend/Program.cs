@@ -66,20 +66,6 @@ if (string.IsNullOrWhiteSpace(frontendUrl))
     throw new Exception("La variable d'environnement FRONTEND_URL n'est pas définie !");
 }
 
-var databasePath = Environment.GetEnvironmentVariable("STORAGE_PATH");
-if (string.IsNullOrWhiteSpace(databasePath))
-{
-    throw new Exception("La variable d'environnement STORAGE_PATH n'est pas définie !");
-}
-if (!Directory.Exists(databasePath))
-{
-    Directory.CreateDirectory(databasePath);
-}
-databasePath = System.IO.Path.Combine(databasePath, "polytechpresence.db");
-
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite($"Data Source={databasePath}"));
-
 // Configuration CORS stricte
 builder.Services.AddCors(options =>
 {
@@ -99,11 +85,14 @@ builder.Services.AddSingleton<AdminTokenService>();
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ICookieEncryptionService, CookieEncryptionService>();
 
+// Enregistrement du DbContext avec PostgreSQL
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 // Services d'arrière-plan
 builder.Services.AddHostedService<RateLimitCleanupService>();
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton(new HttpClient(new HttpClientHandler
 {
@@ -147,10 +136,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+
 
 app.UseRequestLogging();
 

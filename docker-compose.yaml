@@ -38,8 +38,29 @@ services:
         logging:
           driver: journald
 
+    postgres:
+        image: postgres:16
+        restart: always
+        environment:
+            - POSTGRES_DB=polypresence
+            - POSTGRES_USER=polypresence
+            - POSTGRES_PASSWORD=polypresence
+            - TZ=Europe/Paris
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+            - ./pg_conf/postgresql.conf:/etc/postgresql/postgresql.conf
+        networks:
+            - app_network
+        ports:
+            - "5432:5432"
+        command: -c config_file=/etc/postgresql/postgresql.conf
+        logging:
+            driver: journald
 networks:
     app_network:
         driver: bridge
     app_network_web:
         driver: bridge
+
+volumes:
+  pgdata:
