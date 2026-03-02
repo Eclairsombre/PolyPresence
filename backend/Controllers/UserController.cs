@@ -313,7 +313,8 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            var today = DateTime.Today;
+            // Utiliser DateTimeKind.Unspecified pour correspondre au type PostgreSQL timestamp without time zone
+            var today = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Unspecified);
             var futureAttendances = await _context.Attendances
                 .Include(a => a.Session)
                 .Where(a => a.StudentId == user.Id && a.Session.Year == user.Year && a.Session.Date >= today)
@@ -1073,7 +1074,8 @@ namespace backend.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            var today = DateTime.Today;
+            // Utiliser DateTimeKind.Unspecified pour correspondre au type PostgreSQL timestamp without time zone
+            var today = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Unspecified);
             var futureSessions = await _context.Sessions
                 .Where(s => s.Year == user.Year && s.Date >= today)
                 .ToListAsync();
