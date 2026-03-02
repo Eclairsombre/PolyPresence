@@ -1,65 +1,106 @@
 <template>
   <div class="attendance-page">
     <div v-if="loading" class="loading-state">Chargement des données...</div>
-    
+
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
       <button @click="loadSessionData" class="retry-button">Réessayer</button>
     </div>
-    
+
     <div v-else class="attendance-container">
       <div class="header-section">
         <h1>Liste de présence</h1>
         <div class="school-info">
           <p>Etablissement de formation : UCBL1 - EPUL</p>
-          <p>Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage</p>
+          <p>
+            Diplôme : Ingénieur de l'EPUL - spécialité Informatique -
+            apprentissage
+          </p>
         </div>
         <div class="session-info">
           <h2>{{ formatDate(session?.date) }} - {{ session?.year }}</h2>
-          <p>{{ formatTime(session?.startTime) }} - {{ formatTime(session?.endTime) }}</p>
+          <p>
+            {{ formatTime(session?.startTime) }} -
+            {{ formatTime(session?.endTime) }}
+          </p>
         </div>
         <div class="prof-info" v-if="session">
-          <p v-if="session.name" class="session-name"><strong>Nom de la session :</strong> {{ session.name }}</p>
-          <p v-if="session.room" class="session-room"><strong>Salle :</strong> {{ session.room }}</p>
+          <p v-if="session.name" class="session-name">
+            <strong>Nom de la session :</strong> {{ session.name }}
+          </p>
+          <p v-if="session.room" class="session-room">
+            <strong>Salle :</strong> {{ session.room }}
+          </p>
           <div class="professors-section">
             <h3>Encadrement pédagogique</h3>
-            <div class="professor-card" v-if="professor1 && (professor1.firstname || professor1.name)">
+            <div
+              class="professor-card"
+              v-if="professor1 && (professor1.firstname || professor1.name)"
+            >
               <div class="professor-details">
-                <span class="professor-name">{{ professor1.firstname }} {{ professor1.name }}</span>
-                <span v-if="professor1.email" class="professor-email">({{ professor1.email }})</span>
+                <span class="professor-name"
+                  >{{ professor1.firstname }} {{ professor1.name }}</span
+                >
+                <span v-if="professor1.email" class="professor-email"
+                  >({{ professor1.email }})</span
+                >
               </div>
               <div class="professor-signature" v-if="session.profSignature">
                 <span class="signature-label">Signature :</span>
-                <img :src="session.profSignature" alt="Signature du professeur 1" class="signature-image" />
+                <img
+                  :src="session.profSignature"
+                  alt="Signature du professeur 1"
+                  class="signature-image"
+                />
               </div>
               <div class="professor-signature" v-else>
-                <span class="signature-label">Signature : <em>Non signée</em></span>
+                <span class="signature-label"
+                  >Signature : <em>Non signée</em></span
+                >
               </div>
             </div>
-            <div class="professor-card" v-if="professor2 && (professor2.firstname || professor2.name)">
+            <div
+              class="professor-card"
+              v-if="professor2 && (professor2.firstname || professor2.name)"
+            >
               <div class="professor-details">
-                <span class="professor-name">{{ professor2.firstname }} {{ professor2.name }}</span>
-                <span v-if="professor2.email" class="professor-email">({{ professor2.email }})</span>
+                <span class="professor-name"
+                  >{{ professor2.firstname }} {{ professor2.name }}</span
+                >
+                <span v-if="professor2.email" class="professor-email"
+                  >({{ professor2.email }})</span
+                >
               </div>
               <div class="professor-signature" v-if="session.profSignature2">
                 <span class="signature-label">Signature :</span>
-                <img :src="session.profSignature2" alt="Signature du professeur 2" class="signature-image" />
+                <img
+                  :src="session.profSignature2"
+                  alt="Signature du professeur 2"
+                  class="signature-image"
+                />
               </div>
               <div class="professor-signature" v-else>
-                <span class="signature-label">Signature : <em>Non signée</em></span>
+                <span class="signature-label"
+                  >Signature : <em>Non signée</em></span
+                >
               </div>
             </div>
           </div>
         </div>
         <div class="actions">
-          <button class="back-button" @click="goBack">Retour aux sessions</button>
-          <button class="export-button" @click="exportToPDF" :disabled="exporting">
-            {{ exporting ? 'Génération PDF...' : 'Exporter en PDF' }}
+          <button class="back-button" @click="goBack">
+            Retour aux sessions
+          </button>
+          <button
+            class="export-button"
+            @click="exportToPDF"
+            :disabled="exporting"
+          >
+            {{ exporting ? "Génération PDF..." : "Exporter en PDF" }}
           </button>
         </div>
-        
       </div>
-      
+
       <div class="attendance-table-wrapper">
         <table class="attendance-table">
           <thead>
@@ -78,21 +119,26 @@
               <td>{{ student.name }}</td>
               <td>{{ student.firstname }}</td>
               <td class="status-cell">
-                <span :class="{'status-present': student.status === 'Present', 'status-absent': student.status === 'Absent'}">
-                  {{ student.status === 'Present' ? 'P' : 'A' }}
+                <span
+                  :class="{
+                    'status-present': student.status === 'Present',
+                    'status-absent': student.status === 'Absent',
+                  }"
+                >
+                  {{ student.status === "Present" ? "P" : "A" }}
                 </span>
               </td>
               <td class="signature-cell">
                 <div v-if="student.status === 'Present'">
-                  <SignatureDisplay 
-                    :signatureData="student.signature" 
+                  <SignatureDisplay
+                    :signatureData="student.signature"
                     :inAttendanceList="true"
                   />
                 </div>
               </td>
               <td class="comment-cell">
                 <div class="comment-content" :title="student.comment">
-                  {{student.comment}}
+                  {{ student.comment }}
                 </div>
               </td>
             </tr>
@@ -104,28 +150,27 @@
 </template>
 
 <script>
-import {defineComponent, onMounted, ref, watch} from 'vue';
-import {useRoute, useRouter} from 'vue-router';
-import {useSessionStore} from '../../stores/sessionStore';
-import {useStudentsStore} from '../../stores/studentsStore';
-import SignatureDisplay from '../signature/SignatureDisplay.vue';
-import {useMailPreferencesStore} from "../../stores/mailPreferencesStore.js";
-import { useProfessorStore } from '../../stores/professorStore';
-
+import { defineComponent, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useSessionStore } from "../../stores/sessionStore";
+import { useStudentsStore } from "../../stores/studentsStore";
+import SignatureDisplay from "../signature/SignatureDisplay.vue";
+import { useMailPreferencesStore } from "../../stores/mailPreferencesStore.js";
+import { useProfessorStore } from "../../stores/professorStore";
 
 export default defineComponent({
-  name: 'ListAttendancePerSession',
+  name: "ListAttendancePerSession",
   components: {
-    SignatureDisplay
+    SignatureDisplay,
   },
-  
+
   setup() {
     const route = useRoute();
     const router = useRouter();
     const sessionStore = useSessionStore();
     const studentsStore = useStudentsStore();
-    const mailStore = useMailPreferencesStore()
-    
+    const mailStore = useMailPreferencesStore();
+
     const session = ref(null);
     const students = ref([]);
     const loading = ref(true);
@@ -134,19 +179,23 @@ export default defineComponent({
     const professorStore = useProfessorStore();
     const professor1 = ref(null);
     const professor2 = ref(null);
-        const loadProfessors = async () => {
-          if (session.value?.profId) {
-            professor1.value = await professorStore.fetchProfessorById(session.value.profId);
-          } else {
-            professor1.value = null;
-          }
-          if (session.value?.profId2) {
-            professor2.value = await professorStore.fetchProfessorById(session.value.profId2);
-          } else {
-            professor2.value = null;
-          }
-        };
-    
+    const loadProfessors = async () => {
+      if (session.value?.profId) {
+        professor1.value = await professorStore.fetchProfessorById(
+          session.value.profId,
+        );
+      } else {
+        professor1.value = null;
+      }
+      if (session.value?.profId2) {
+        professor2.value = await professorStore.fetchProfessorById(
+          session.value.profId2,
+        );
+      } else {
+        professor2.value = null;
+      }
+    };
+
     const loadSessionData = async () => {
       loading.value = true;
       error.value = null;
@@ -154,16 +203,16 @@ export default defineComponent({
         const sessionId = route.params.id;
         session.value = await sessionStore.fetchSessionById(sessionId);
         const attendances = await sessionStore.getSessionAttendances(sessionId);
-        students.value = attendances.map((student) => ({
-          id: student.item1.id,
-          name: student.item1.name,
-          firstname: student.item1.firstname,
-          status: student.item2 === 0 ? 'Present' : 'Absent',
-          signature: student.item1.signature || '',
-          comment: student.item1.comment || ''
-        })).sort((a,b) => a.name.localeCompare(b.name));
-
-
+        students.value = attendances
+          .map((student) => ({
+            id: student.item1.id,
+            name: student.item1.name,
+            firstname: student.item1.firstname,
+            status: student.item2 === 0 ? "Present" : "Absent",
+            signature: student.item1.signature || "",
+            comment: student.item1.comment || "",
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error("Erreur lors du chargement des données:", err);
         error.value = "Impossible de charger les données de présence.";
@@ -171,8 +220,12 @@ export default defineComponent({
         loading.value = false;
       }
     };
-    
-    const handleSignatureSaved = async ({ studentId, sessionId, signatureData }) => {
+
+    const handleSignatureSaved = async ({
+      studentId,
+      sessionId,
+      signatureData,
+    }) => {
       try {
         const studentData = await studentsStore.getStudentById(studentId);
         if (!studentData) {
@@ -180,9 +233,15 @@ export default defineComponent({
           return;
         }
 
-        await sessionStore.saveSignature(studentData.studentNumber, sessionId, signatureData);
-        
-        const studentIndex = students.value.findIndex(s => s.id === studentId);
+        await sessionStore.saveSignature(
+          studentData.studentNumber,
+          sessionId,
+          signatureData,
+        );
+
+        const studentIndex = students.value.findIndex(
+          (s) => s.id === studentId,
+        );
         if (studentIndex !== -1) {
           students.value[studentIndex].signature = signatureData;
         }
@@ -193,24 +252,30 @@ export default defineComponent({
     const goBack = () => {
       const { year, startDate, endDate } = route.query;
       router.push({
-        path: '/sessions',
+        path: "/sessions",
         query: {
           year,
           startDate,
-          endDate
-        }
+          endDate,
+        },
       });
     };
-    
+
     const formatDate = (dateString) => {
-      if (!dateString) return '';
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      return new Date(dateString).toLocaleDateString('fr-FR', options);
+      if (!dateString) return "";
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
     };
-    
+
     const formatTime = (timeString) => {
-      if (!timeString) return '';
-      return timeString.substring(0, 5);
+      if (!timeString) return "";
+      const t = timeString.includes("T")
+        ? timeString.split("T")[1]
+        : timeString;
+      return t.substring(0, 5);
     };
 
     const exportToPDF = async () => {
@@ -218,7 +283,7 @@ export default defineComponent({
       exporting.value = true;
 
       try {
-          await mailStore.getSessionPdf(session)
+        await mailStore.getSessionPdf(session);
       } finally {
         exporting.value = false;
       }
@@ -247,9 +312,9 @@ export default defineComponent({
       exportToPDF,
       route,
       professor1,
-      professor2
+      professor2,
     };
-  }
+  },
 });
 </script>
 
@@ -266,7 +331,8 @@ export default defineComponent({
   padding: 10px;
 }
 
-.loading-state, .error-state {
+.loading-state,
+.error-state {
   padding: 40px;
   text-align: center;
   background-color: #f9f9f9;
@@ -327,7 +393,8 @@ export default defineComponent({
   margin-top: 20px;
 }
 
-.session-name, .session-room {
+.session-name,
+.session-room {
   margin: 10px 0;
   font-size: 1.1em;
   color: #2c3e50;
@@ -476,7 +543,8 @@ export default defineComponent({
   width: 50px;
 }
 
-.name-column, .firstname-column {
+.name-column,
+.firstname-column {
   width: 25%;
 }
 
@@ -541,12 +609,11 @@ export default defineComponent({
   font-weight: bold;
 }
 
-
 @media (max-width: 768px) {
   .attendance-table {
     min-width: 600px;
   }
-  
+
   .comment-content {
     font-size: 0.9em;
     max-height: 60px;
@@ -568,10 +635,12 @@ export default defineComponent({
     min-width: 400px;
     font-size: 0.95em;
   }
-  .attendance-table th, .attendance-table td {
+  .attendance-table th,
+  .attendance-table td {
     padding: 6px 4px;
   }
-  .back-button, .export-button {
+  .back-button,
+  .export-button {
     padding: 8px 8px;
     font-size: 0.95em;
     width: 100%;
@@ -580,11 +649,12 @@ export default defineComponent({
     flex-direction: column;
     gap: 6px;
   }
-  
-  .comment-column, .comment-cell {
+
+  .comment-column,
+  .comment-cell {
     min-width: 100px;
   }
-  
+
   .comment-content {
     padding: 4px;
     font-size: 0.85em;
@@ -592,4 +662,3 @@ export default defineComponent({
   }
 }
 </style>
-
