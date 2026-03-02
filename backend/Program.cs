@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 DotNetEnv.Env.Load();
 
 builder.Configuration.AddEnvironmentVariables();

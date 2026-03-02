@@ -44,7 +44,7 @@ namespace backend.Controllers
             {
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
-                var now = DateTime.UtcNow;
+                var now = DateTime.Now;
                 _logger.LogInformation($"Vérification des sessions à {now} pour l'envoi de mails aux professeurs.");
 
                 var sessions = await scopedContext.Sessions
@@ -286,10 +286,10 @@ namespace backend.Controllers
                 session.ProfSignatureToken2 = Guid.NewGuid().ToString();
             }
 
-            // Forcer UTC pour les colonnes PostgreSQL timestamp with time zone
-            session.Date = DateTime.SpecifyKind(session.Date, DateTimeKind.Utc);
-            session.StartTime = DateTime.SpecifyKind(session.StartTime, DateTimeKind.Utc);
-            session.EndTime = DateTime.SpecifyKind(session.EndTime, DateTimeKind.Utc);
+            // Forcer Kind=Unspecified pour les colonnes PostgreSQL 'timestamp without time zone'
+            session.Date = DateTime.SpecifyKind(session.Date, DateTimeKind.Unspecified);
+            session.StartTime = DateTime.SpecifyKind(session.StartTime, DateTimeKind.Unspecified);
+            session.EndTime = DateTime.SpecifyKind(session.EndTime, DateTimeKind.Unspecified);
 
             _context.Sessions.Add(session);
             await _context.SaveChangesAsync();
@@ -446,7 +446,7 @@ namespace backend.Controllers
         [HttpGet("current/{year}")]
         public async Task<ActionResult<object>> GetCurrentSession(string year)
         {
-            var now = DateTime.UtcNow;
+            var now = DateTime.Now;
             var today = now.Date;
 
             var sessionsToday = await _context.Sessions
@@ -580,8 +580,8 @@ namespace backend.Controllers
                 return BadRequest(new { error = true, message = "Le code de validation est incorrect." });
             }
 
-            // Comparer avec UtcNow pour les colonnes PostgreSQL timestamp with time zone
-            if (session.Date.Date != DateTime.UtcNow.Date)
+            // Comparer avec l'heure locale (CET) car les dates sont stockées en heure locale
+            if (session.Date.Date != DateTime.Now.Date)
             {
                 return BadRequest(new { error = true, message = "La validation de présence n'est autorisée que le jour de la session." });
             }

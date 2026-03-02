@@ -313,8 +313,7 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            // Utiliser UtcNow pour les colonnes PostgreSQL timestamp with time zone
-            var today = DateTime.UtcNow.Date;
+            var today = DateTime.Now.Date;
             var futureAttendances = await _context.Attendances
                 .Include(a => a.Session)
                 .Where(a => a.StudentId == user.Id && a.Session.Year == user.Year && a.Session.Date >= today)
@@ -1074,8 +1073,8 @@ namespace backend.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Utiliser UtcNow pour les colonnes PostgreSQL timestamp with time zone
-            var today = DateTime.UtcNow.Date;
+            // Utiliser DateTime.Now (heure locale CET) car les dates sont stockées en heure locale
+            var today = DateTime.Now.Date;
             var futureSessions = await _context.Sessions
                 .Where(s => s.Year == user.Year && s.Date >= today)
                 .ToListAsync();
