@@ -134,12 +134,18 @@ const studentsStore = useStudentsStore();
 const professorStore = useProfessorStore();
 
 const formatDate = (dateString) => {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('fr-FR', options);
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
 };
 
 const formatTime = (timeString) => {
-    return timeString.substring(0, 5);
+    if (!timeString) return '';
+    const t = timeString.includes('T') ? timeString.split('T')[1] : timeString;
+    return t.substring(0, 5);
 };
 
 const loadData = async () => {

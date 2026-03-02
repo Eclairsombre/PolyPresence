@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 /**
  * Store for managing email preferences and related functionality
@@ -26,7 +26,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
       this.error = null;
       try {
         const response = await axios.get(
-          `${API_URL}/MailPreferences/${studentId}`
+          `${API_URL}/MailPreferences/${studentId}`,
         );
         this.preferences = response.data;
         return response.data;
@@ -120,12 +120,21 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
           `${API_URL}/MailPreferences/pdf/${sessionId}`,
           {
             responseType: "blob",
-          }
+          },
         );
 
-        const filename = `session_${session.value.year}_${
-          session.value.date.split("T")[0]
-        }_${session.value.startTime.replace(/:/g, "-")}.pdf`;
+        const dateObj = new Date(session.value.date);
+        const day = String(dateObj.getDate()).padStart(2, "0");
+        const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+        const year = dateObj.getFullYear();
+        const dateStr = `${day}-${month}-${year}`;
+        const timeStr = session.value.startTime.includes("T")
+          ? session.value.startTime
+              .split("T")[1]
+              .substring(0, 5)
+              .replace(":", "-")
+          : session.value.startTime.replace(/:/g, "-");
+        const filename = `session_${session.value.year}_${dateStr}_${timeStr}.pdf`;
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement("a");
         link.href = url;
@@ -171,7 +180,7 @@ export const useMailPreferencesStore = defineStore("mailPreferences", {
           `${API_URL}/MailPreferences/pdf/${sessionId}`,
           {
             responseType: "blob",
-          }
+          },
         );
         return new Blob([response.data], { type: "application/pdf" });
       } catch (error) {

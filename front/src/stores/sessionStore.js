@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import apiClient from "../api/axios";
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 /**
  * Store for managing sessions (classes/courses) and student attendance
@@ -33,8 +33,9 @@ export const useSessionStore = defineStore("session", {
     getUpcomingSessions: (state) => {
       const now = new Date();
       return state.sessions.filter((session) => {
-        const sessionDate = new Date(session.date);
-        return sessionDate >= now;
+        const sessionDate = session.date?.substring(0, 10);
+        const today = now.toISOString().substring(0, 10);
+        return sessionDate >= today;
       });
     },
 
@@ -45,8 +46,9 @@ export const useSessionStore = defineStore("session", {
     getPastSessions: (state) => {
       const now = new Date();
       return state.sessions.filter((session) => {
-        const sessionDate = new Date(session.date);
-        return sessionDate < now;
+        const sessionDate = session.date?.substring(0, 10);
+        const today = now.toISOString().substring(0, 10);
+        return sessionDate < today;
       });
     },
 
@@ -125,7 +127,7 @@ export const useSessionStore = defineStore("session", {
           `Erreur lors de la récupération des sessions pour l'année ${year}`;
         console.error(
           `Erreur lors du chargement des sessions pour l'année ${year}:`,
-          error
+          error,
         );
         return null;
       } finally {
@@ -145,7 +147,7 @@ export const useSessionStore = defineStore("session", {
       try {
         const response = await apiClient.post(
           `${API_URL}/Session`,
-          sessionData
+          sessionData,
         );
 
         if (
@@ -201,7 +203,7 @@ export const useSessionStore = defineStore("session", {
       try {
         await apiClient.put(
           `${API_URL}/Session/${sessionData.id}`,
-          sessionData
+          sessionData,
         );
 
         const index = this.sessions.findIndex((s) => s.id === sessionData.id);
@@ -216,7 +218,7 @@ export const useSessionStore = defineStore("session", {
           `Erreur lors de la mise à jour de la session ${sessionData.id}`;
         console.error(
           `Erreur lors de la mise à jour de la session ${sessionData.id}:`,
-          error
+          error,
         );
         return false;
       } finally {
@@ -244,7 +246,7 @@ export const useSessionStore = defineStore("session", {
           error.message || `Erreur lors de la suppression de la session ${id}`;
         console.error(
           `Erreur lors de la suppression de la session ${id}:`,
-          error
+          error,
         );
         return false;
       } finally {
@@ -262,7 +264,7 @@ export const useSessionStore = defineStore("session", {
       try {
         if (!Array.isArray(students) || students.length === 0) {
           console.error(
-            "Aucun étudiant à ajouter ou format de données invalide"
+            "Aucun étudiant à ajouter ou format de données invalide",
           );
           return;
         }
@@ -287,7 +289,7 @@ export const useSessionStore = defineStore("session", {
           try {
             try {
               const studentExists = await apiClient.get(
-                `${API_URL}/User/search/${studentNumber}`
+                `${API_URL}/User/search/${studentNumber}`,
               );
               if (!studentExists.data || !studentExists.data.exists) {
                 console.error(`L'étudiant ${studentNumber} n'existe pas`);
@@ -308,7 +310,7 @@ export const useSessionStore = defineStore("session", {
               } else {
                 console.error(
                   `Erreur lors de la vérification de l'étudiant ${studentNumber}:`,
-                  error
+                  error,
                 );
                 results.failed.push({
                   studentNumber,
@@ -319,7 +321,7 @@ export const useSessionStore = defineStore("session", {
             }
 
             const response = await apiClient.post(
-              `${API_URL}/Session/${sessionId}/student/${studentNumber}`
+              `${API_URL}/Session/${sessionId}/student/${studentNumber}`,
             );
             results.success.push(studentNumber);
           } catch (err) {
@@ -329,7 +331,7 @@ export const useSessionStore = defineStore("session", {
             });
             console.error(
               `Erreur lors de l'ajout de l'étudiant ${studentNumber}:`,
-              err
+              err,
             );
           }
         }
@@ -351,7 +353,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await apiClient.get(
-          `${API_URL}/Session/current/${year}`
+          `${API_URL}/Session/current/${year}`,
         );
         this.currentSession = response.data;
         return this.currentSession;
@@ -366,7 +368,7 @@ export const useSessionStore = defineStore("session", {
           "Erreur lors de la récupération de la session actuelle";
         console.error(
           "Erreur lors du chargement de la session actuelle:",
-          error
+          error,
         );
         return null;
       } finally {
@@ -387,7 +389,7 @@ export const useSessionStore = defineStore("session", {
       try {
         const response = await apiClient.post(
           `${API_URL}/Session/${sessionId}/validate/${studentNumber}`,
-          { validationCode: validationCode }
+          { validationCode: validationCode },
         );
         return response.data;
       } catch (error) {
@@ -414,7 +416,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await apiClient.get(
-          `${API_URL}/Session/${sessionId}/attendance/${studentNumber}`
+          `${API_URL}/Session/${sessionId}/attendance/${studentNumber}`,
         );
         return response.data;
       } catch (error) {
@@ -440,14 +442,14 @@ export const useSessionStore = defineStore("session", {
       try {
         return await apiClient.post(
           `${API_URL}/Session/signature/${studentNumber}`,
-          { signature: signatureData }
+          { signature: signatureData },
         );
       } catch (error) {
         this.error =
           error.message || "Erreur lors de l'enregistrement de la signature";
         console.error(
           "Erreur lors de l'enregistrement de la signature:",
-          error
+          error,
         );
         return null;
       } finally {
@@ -466,7 +468,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const response = await apiClient.get(
-          `${API_URL}/Session/signature/${studentNumber}`
+          `${API_URL}/Session/signature/${studentNumber}`,
         );
         return response.data;
       } catch (error) {
@@ -490,12 +492,12 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const sessionResponse = await apiClient.get(
-          `${API_URL}/Session/${sessionId}`
+          `${API_URL}/Session/${sessionId}`,
         );
         const sessionData = sessionResponse.data;
 
         const attendanceResponse = await apiClient.get(
-          `${API_URL}/Session/${sessionId}/attendances`
+          `${API_URL}/Session/${sessionId}/attendances`,
         );
 
         return {
@@ -508,7 +510,7 @@ export const useSessionStore = defineStore("session", {
           `Erreur lors de la récupération des données d'export`;
         console.error(
           `Erreur lors de la récupération des données d'export:`,
-          error
+          error,
         );
         return null;
       } finally {
@@ -570,7 +572,7 @@ export const useSessionStore = defineStore("session", {
     async resendProfMail(sessionId) {
       try {
         await apiClient.post(
-          `${API_URL}/Session/${sessionId}/resend-prof-mail`
+          `${API_URL}/Session/${sessionId}/resend-prof-mail`,
         );
         return true;
       } catch (e) {
@@ -590,7 +592,7 @@ export const useSessionStore = defineStore("session", {
           `${API_URL}/Session/${sessionId}/set-prof2-email`,
           {
             profEmail: profEmail2,
-          }
+          },
         );
         return true;
       } catch (e) {
@@ -606,7 +608,7 @@ export const useSessionStore = defineStore("session", {
     async resendProf2Mail(sessionId) {
       try {
         await apiClient.post(
-          `${API_URL}/Session/${sessionId}/resend-prof2-mail`
+          `${API_URL}/Session/${sessionId}/resend-prof2-mail`,
         );
         return true;
       } catch (e) {
@@ -624,7 +626,7 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
       try {
         const response = await apiClient.get(
-          `${API_URL}/Session/${sessionId}/attendances`
+          `${API_URL}/Session/${sessionId}/attendances`,
         );
         return response.data.$values || [];
       } catch (error) {
@@ -649,7 +651,7 @@ export const useSessionStore = defineStore("session", {
         // depuis l'URL s'il est présent, donc nous n'avons pas besoin de le passer explicitement
         await apiClient.post(
           `${API_URL}/Session/${sessionId}/attendance-status/${studentNumber}`,
-          { status }
+          { status },
         );
         return true;
       } catch (error) {
@@ -657,7 +659,7 @@ export const useSessionStore = defineStore("session", {
           error.message || "Erreur lors du changement de statut de présence.";
         console.error(
           "Erreur lors du changement de statut de présence:",
-          error
+          error,
         );
         return false;
       }
@@ -686,7 +688,7 @@ export const useSessionStore = defineStore("session", {
         // depuis l'URL s'il est présent, donc nous n'avons pas besoin de le passer explicitement
         await apiClient.post(
           `${API_URL}/Session/${sessionId}/attendance-comment/${studentNumber}`,
-          { comment }
+          { comment },
         );
         return true;
       } catch (error) {
