@@ -286,6 +286,11 @@ namespace backend.Controllers
                 session.ProfSignatureToken2 = Guid.NewGuid().ToString();
             }
 
+            // Forcer UTC pour toutes les dates
+            session.Date = DateTime.SpecifyKind(session.Date, DateTimeKind.Utc);
+            session.StartTime = DateTime.SpecifyKind(session.StartTime, DateTimeKind.Utc);
+            session.EndTime = DateTime.SpecifyKind(session.EndTime, DateTimeKind.Utc);
+
             _context.Sessions.Add(session);
             await _context.SaveChangesAsync();
 
@@ -441,8 +446,8 @@ namespace backend.Controllers
         [HttpGet("current/{year}")]
         public async Task<ActionResult<object>> GetCurrentSession(string year)
         {
-            var today = DateTime.Today;
-            var now = DateTime.Now;
+            var today = DateTime.UtcNow.Date;
+            var now = DateTime.UtcNow;
 
             var sessionsToday = await _context.Sessions
                 .Where(s => s.Year == year && s.Date == today)

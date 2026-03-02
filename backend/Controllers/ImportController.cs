@@ -104,8 +104,8 @@ namespace backend.Controllers
                 if (component.Start == null || component.End == null) continue;
 
                 // Conversion explicite en DateTime local (France)
-                var start = component.Start.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.Start.AsDateTimeOffset.DateTime)).DateTime;
-                var end = component.End.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.End.AsDateTimeOffset.DateTime)).DateTime;
+                var start = component.Start.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.Start.AsDateTimeOffset.DateTime)).UtcDateTime;
+                var end = component.End.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.End.AsDateTimeOffset.DateTime)).UtcDateTime;
 
                 // Extraction des professeurs depuis la description
                 var (p1, f1, p2, f2) = ExtractProfessors(component.Description);
