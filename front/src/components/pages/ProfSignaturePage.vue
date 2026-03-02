@@ -1,6 +1,10 @@
 <template>
   <div class="prof-signature-page">
-    <PopUpProfSignatureWarning v-if="showSignatureWarning" @close="showSignatureWarning = false" @confirm="handleSignatureConfirm" />
+    <PopUpProfSignatureWarning
+      v-if="showSignatureWarning"
+      @close="showSignatureWarning = false"
+      @confirm="handleSignatureConfirm"
+    />
     <div v-if="session" class="session-infos">
       <div class="session-header">
         <h2>Informations de la session</h2>
@@ -11,7 +15,7 @@
           </span>
         </div>
       </div>
-      
+
       <div class="session-details">
         <div class="session-column">
           <div class="detail-item">
@@ -20,34 +24,48 @@
           </div>
           <div class="detail-item">
             <div class="detail-label">Date :</div>
-            <div class="detail-value">{{ session.date ? new Date(session.date).toLocaleDateString() : (session.Date ? new Date(session.Date).toLocaleDateString() : '') }}</div>
+            <div class="detail-value">
+              {{ formatDate(session.date || session.Date) }}
+            </div>
           </div>
         </div>
-        
+
         <div class="session-column">
           <div class="detail-item">
             <div class="detail-label">Heure de début :</div>
-            <div class="detail-value">{{ session.startTime || session.StartTime }}</div>
+            <div class="detail-value">
+              {{ formatTime(session.startTime || session.StartTime) }}
+            </div>
           </div>
           <div class="detail-item">
             <div class="detail-label">Heure de fin :</div>
-            <div class="detail-value">{{ session.endTime || session.EndTime }}</div>
+            <div class="detail-value">
+              {{ formatTime(session.endTime || session.EndTime) }}
+            </div>
           </div>
         </div>
       </div>
-      
+
       <div class="professors-container">
         <div v-if="professor1?.firstname" class="professor-info">
           <div class="professor-title">Professeur 1 :</div>
-          <div class="professor-name">{{ professor1.firstname }} {{ professor1.name }}</div>
+          <div class="professor-name">
+            {{ professor1.firstname }} {{ professor1.name }}
+          </div>
           <div class="professor-email">{{ professor1.email }}</div>
-          <span v-if="isMainProfessor" class="current-professor-badge">👤 Vous</span>
+          <span v-if="isMainProfessor" class="current-professor-badge"
+            >👤 Vous</span
+          >
         </div>
         <div v-if="professor2?.firstname" class="co-professor-info">
           <div class="professor-title">Professeur 2 :</div>
-          <div class="professor-name">{{ professor2.firstname }} {{ professor2.name }}</div>
+          <div class="professor-name">
+            {{ professor2.firstname }} {{ professor2.name }}
+          </div>
           <div class="professor-email">{{ professor2.email }}</div>
-          <span v-if="!isMainProfessor" class="current-professor-badge">👤 Vous</span>
+          <span v-if="!isMainProfessor" class="current-professor-badge"
+            >👤 Vous</span
+          >
         </div>
       </div>
     </div>
@@ -62,23 +80,38 @@
     <div v-else class="prof-content-row">
       <div class="prof-signature-form">
         <h3 class="section-title">Signature du Professeur</h3>
-        
+
         <form @submit.prevent="openSignatureWarning" class="prof-form">
           <div class="form-row">
             <div class="form-group">
               <label>Prénom :</label>
-              <input v-model="profFirstname" type="text" required placeholder="Entrez votre prénom" />
+              <input
+                v-model="profFirstname"
+                type="text"
+                required
+                placeholder="Entrez votre prénom"
+              />
             </div>
             <div class="form-group">
               <label>Nom :</label>
-              <input v-model="profName" type="text" required placeholder="Entrez votre nom" />
+              <input
+                v-model="profName"
+                type="text"
+                required
+                placeholder="Entrez votre nom"
+              />
             </div>
           </div>
           <div class="form-group signature-zone">
             <label>Signature :</label>
             <div class="signature-container">
-              <SignatureCreator v-bind:hideSaveButton="true" ref="signaturePad" />
-              <div class="signature-instruction">Veuillez signer dans la zone ci-dessus</div>
+              <SignatureCreator
+                v-bind:hideSaveButton="true"
+                ref="signaturePad"
+              />
+              <div class="signature-instruction">
+                Veuillez signer dans la zone ci-dessus
+              </div>
             </div>
           </div>
           <button type="submit" class="submit-btn">
@@ -95,32 +128,41 @@
         <div class="attendances-header">
           <h3 class="section-title">Liste des présences</h3>
           <div class="attendances-actions">
-            <button @click="loadAttendances" class="reload-btn" :disabled="attendancesLoading">
+            <button
+              @click="loadAttendances"
+              class="reload-btn"
+              :disabled="attendancesLoading"
+            >
               <span class="reload-icon">↻</span>
               <span class="reload-text">Rafraîchir</span>
             </button>
           </div>
         </div>
-        
-        <div v-if="attendancesLoading" class="loading-container attendance-loading">
+
+        <div
+          v-if="attendancesLoading"
+          class="loading-container attendance-loading"
+        >
           <div class="loading-spinner"></div>
           <div class="loading-text">Chargement des présences...</div>
         </div>
-        
+
         <div v-else-if="attendances.length === 0" class="no-attendances">
           <div class="no-data-icon">📋</div>
-          <div class="no-data-text">Aucune présence enregistrée pour cette session</div>
+          <div class="no-data-text">
+            Aucune présence enregistrée pour cette session
+          </div>
         </div>
-        
+
         <div v-else class="attendances-table-container">
           <table class="attendances-table">
             <colgroup>
-              <col style="width: 5%;">
-              <col style="width: 18%;">
-              <col style="width: 18%;">
-              <col style="width: 15%;">
-              <col style="width: 18%;">
-              <col style="width: 26%;">
+              <col style="width: 5%" />
+              <col style="width: 18%" />
+              <col style="width: 18%" />
+              <col style="width: 15%" />
+              <col style="width: 18%" />
+              <col style="width: 26%" />
             </colgroup>
             <thead>
               <tr>
@@ -133,50 +175,100 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(attendance, idx) in attendances" :key="attendance.item1.id" 
-                  :class="[attendance.item2 === 0 ? 'status-present' : 
-                          attendance.item2 === 1 ? 'status-absent' : 'status-canceled']">
+              <tr
+                v-for="(attendance, idx) in attendances"
+                :key="attendance.item1.id"
+                :class="[
+                  attendance.item2 === 0
+                    ? 'status-present'
+                    : attendance.item2 === 1
+                      ? 'status-absent'
+                      : 'status-canceled',
+                ]"
+              >
                 <td class="cell-id">{{ idx + 1 }}</td>
                 <td class="cell-name">{{ attendance.item1.name }}</td>
                 <td class="cell-firstname">{{ attendance.item1.firstname }}</td>
                 <td class="cell-status">
-                  <div class="status-badge" :class="getStatusClass(attendance.item2)">
-                    <span class="status-icon">{{ getStatusIcon(attendance.item2) }}</span>
+                  <div
+                    class="status-badge"
+                    :class="getStatusClass(attendance.item2)"
+                  >
+                    <span class="status-icon">{{
+                      getStatusIcon(attendance.item2)
+                    }}</span>
                     <span class="status-text">
-                      {{ attendance.item2 === 2 ? 'Présence annulée' : (attendance.item2 === 1 ? 'Absent' : 'Présent') }}
+                      {{
+                        attendance.item2 === 2
+                          ? "Présence annulée"
+                          : attendance.item2 === 1
+                            ? "Absent"
+                            : "Présent"
+                      }}
                     </span>
                   </div>
                 </td>
                 <td class="cell-action">
-                  <button @click="makeAction(attendance.item2,attendance.item1.studentNumber)" 
-                          class="action-btn"
-                          :class="getActionClass(attendance.item2)">
-                    {{ attendance.item2 === 2 || attendance.item2 === 1 ? 'Marquer présent' : 'Annuler présence' }}
+                  <button
+                    @click="
+                      makeAction(
+                        attendance.item2,
+                        attendance.item1.studentNumber,
+                      )
+                    "
+                    class="action-btn"
+                    :class="getActionClass(attendance.item2)"
+                  >
+                    {{
+                      attendance.item2 === 2 || attendance.item2 === 1
+                        ? "Marquer présent"
+                        : "Annuler présence"
+                    }}
                   </button>
                 </td>
                 <td class="comment-cell">
-                  <div v-if="editingCommentFor === attendance.item1.studentNumber" class="comment-edit">
+                  <div
+                    v-if="editingCommentFor === attendance.item1.studentNumber"
+                    class="comment-edit"
+                  >
                     <textarea
-                        v-model="editingComment"
-                        class="comment-input"
-                        placeholder="Ajouter un commentaire..."
-                        @keyup.esc="cancelCommentEdit"
-                        ref="commentTextarea"
+                      v-model="editingComment"
+                      class="comment-input"
+                      placeholder="Ajouter un commentaire..."
+                      @keyup.esc="cancelCommentEdit"
+                      ref="commentTextarea"
                     ></textarea>
                     <div class="comment-actions">
-                      <button class="save-comment-btn" @click="saveComment(attendance.item1.studentNumber)">
+                      <button
+                        class="save-comment-btn"
+                        @click="saveComment(attendance.item1.studentNumber)"
+                      >
                         <span class="icon">✓</span> Enregistrer
                       </button>
-                      <button class="cancel-comment-btn" @click="cancelCommentEdit">
+                      <button
+                        class="cancel-comment-btn"
+                        @click="cancelCommentEdit"
+                      >
                         <span class="icon">✕</span> Annuler
                       </button>
                     </div>
                   </div>
                   <div v-else class="comment-display">
-                    <span class="comment-text" :class="{ 'no-comment': !attendance.item1.comment }">
-                      {{ attendance.item1.comment || 'Aucun commentaire' }}
+                    <span
+                      class="comment-text"
+                      :class="{ 'no-comment': !attendance.item1.comment }"
+                    >
+                      {{ attendance.item1.comment || "Aucun commentaire" }}
                     </span>
-                    <button class="edit-comment-btn" @click="startCommentEdit(attendance.item1.studentNumber, attendance.item1.comment || '')">
+                    <button
+                      class="edit-comment-btn"
+                      @click="
+                        startCommentEdit(
+                          attendance.item1.studentNumber,
+                          attendance.item1.comment || '',
+                        )
+                      "
+                    >
                       <span class="icon">✎</span>
                     </button>
                   </div>
@@ -191,30 +283,30 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import SignatureCreator from '../signature/SignatureCreator.vue';
-import PopUpProfSignatureWarning from '../popups/PopUpProfSignatureWarning.vue';
-import { useProfSignatureStore } from '../../stores/profSignatureStore';
-import { useSessionStore } from '../../stores/sessionStore';
-import { useProfessorStore } from '../../stores/professorStore';
+import { ref, onMounted, nextTick, computed, watch } from "vue";
+import { useRoute } from "vue-router";
+import SignatureCreator from "../signature/SignatureCreator.vue";
+import PopUpProfSignatureWarning from "../popups/PopUpProfSignatureWarning.vue";
+import { useProfSignatureStore } from "../../stores/profSignatureStore";
+import { useSessionStore } from "../../stores/sessionStore";
+import { useProfessorStore } from "../../stores/professorStore";
 
 const route = useRoute();
 const token = route.params.token;
-const profName = ref('');
-const profFirstname = ref('');
+const profName = ref("");
+const profFirstname = ref("");
 const loading = ref(true);
-const error = ref('');
+const error = ref("");
 const success = ref(false);
 const signaturePad = ref(null);
-const validationCode = ref('');
+const validationCode = ref("");
 const session = ref(null);
 const profSignatureStore = useProfSignatureStore();
 const sessionStore = useSessionStore();
 const attendances = ref([]);
 const attendancesLoading = ref(false);
 const editingCommentFor = ref(null);
-const editingComment = ref('');
+const editingComment = ref("");
 const commentTextarea = ref(null);
 const professor1 = ref(null);
 const professor2 = ref(null);
@@ -236,54 +328,74 @@ const isMainProfessor = computed(() => {
 });
 
 const getStatusClass = (status) => {
-  switch(status) {
-    case 0: return 'status-present';
-    case 1: return 'status-absent';
-    case 2: return 'status-canceled';
-    default: return '';
+  switch (status) {
+    case 0:
+      return "status-present";
+    case 1:
+      return "status-absent";
+    case 2:
+      return "status-canceled";
+    default:
+      return "";
   }
 };
 
 const getStatusIcon = (status) => {
-  switch(status) {
-    case 0: return '✓';
-    case 1: return '✗';
-    case 2: return '○';
-    default: return '';
+  switch (status) {
+    case 0:
+      return "✓";
+    case 1:
+      return "✗";
+    case 2:
+      return "○";
+    default:
+      return "";
   }
 };
 
 const getActionClass = (status) => {
-  switch(status) {
-    case 0: return 'action-cancel';
+  switch (status) {
+    case 0:
+      return "action-cancel";
     case 1:
-    case 2: return 'action-mark-present';
-    default: return '';
+    case 2:
+      return "action-mark-present";
+    default:
+      return "";
   }
 };
-
 
 async function loadAttendances() {
   if (!session.value?.id) return;
   attendancesLoading.value = true;
-  attendances.value = (await sessionStore.getSessionAttendances(session.value.id)).sort((a, b) => a.item1.name.localeCompare(b.item1.name));
+  attendances.value = (
+    await sessionStore.getSessionAttendances(session.value.id)
+  ).sort((a, b) => a.item1.name.localeCompare(b.item1.name));
   attendancesLoading.value = false;
 }
 
 onMounted(async () => {
-  
   const pathParts = window.location.pathname.split("/");
   const profSignatureTokenIndex = pathParts.indexOf("prof-signature") + 1;
-  if (profSignatureTokenIndex > 0 && profSignatureTokenIndex < pathParts.length) {
-    console.log("Token extrait par l'intercepteur:", pathParts[profSignatureTokenIndex]);
+  if (
+    profSignatureTokenIndex > 0 &&
+    profSignatureTokenIndex < pathParts.length
+  ) {
+    console.log(
+      "Token extrait par l'intercepteur:",
+      pathParts[profSignatureTokenIndex],
+    );
   } else {
-    console.log("Impossible d'extraire le token comme le fait l'intercepteur:", pathParts);
+    console.log(
+      "Impossible d'extraire le token comme le fait l'intercepteur:",
+      pathParts,
+    );
   }
-  
+
   const data = await profSignatureStore.fetchSessionByProfSignatureToken(token);
   if (data) {
     session.value = data;
-    validationCode.value = data.validationCode || '';
+    validationCode.value = data.validationCode || "";
     if (data.profId) {
       professor1.value = await professorStore.fetchProfessorById(data.profId);
     }
@@ -308,7 +420,7 @@ onMounted(async () => {
 const startCommentEdit = (studentNumber, currentComment) => {
   editingCommentFor.value = studentNumber;
   editingComment.value = currentComment;
-  
+
   nextTick(() => {
     if (commentTextarea.value) {
       commentTextarea.value.focus();
@@ -318,7 +430,7 @@ const startCommentEdit = (studentNumber, currentComment) => {
 
 const cancelCommentEdit = () => {
   editingCommentFor.value = null;
-  editingComment.value = '';
+  editingComment.value = "";
 };
 
 watch(editingCommentFor, (newValue) => {
@@ -331,39 +443,68 @@ watch(editingCommentFor, (newValue) => {
   }
 });
 
+function formatDate(dateString) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function formatTime(timeString) {
+  if (!timeString) return "";
+  const t = timeString.includes("T") ? timeString.split("T")[1] : timeString;
+  return t.substring(0, 5);
+}
+
 const saveComment = async (studentNumber) => {
   if (!session.value?.id) return;
-  
+
   const pathParts = window.location.pathname.split("/");
   const profSignatureTokenIndex = pathParts.indexOf("prof-signature") + 1;
-  if (profSignatureTokenIndex > 0 && profSignatureTokenIndex < pathParts.length) {
-    console.log("Token trouvé dans l'URL pour commentaire:", pathParts[profSignatureTokenIndex]);
+  if (
+    profSignatureTokenIndex > 0 &&
+    profSignatureTokenIndex < pathParts.length
+  ) {
+    console.log(
+      "Token trouvé dans l'URL pour commentaire:",
+      pathParts[profSignatureTokenIndex],
+    );
   } else {
-    console.log("Token non trouvé dans l'URL pour commentaire, parties du chemin:", pathParts);
+    console.log(
+      "Token non trouvé dans l'URL pour commentaire, parties du chemin:",
+      pathParts,
+    );
   }
-  
+
   try {
     const result = await sessionStore.updateAttendanceComment(
       session.value.id,
       studentNumber,
-      editingComment.value
+      editingComment.value,
     );
-    
+
     if (result) {
       const attendanceIndex = attendances.value.findIndex(
-        a => a.item1.studentNumber === studentNumber
+        (a) => a.item1.studentNumber === studentNumber,
       );
-      
+
       if (attendanceIndex !== -1) {
         attendances.value[attendanceIndex].item1.comment = editingComment.value;
       }
-      
+
       editingCommentFor.value = null;
-      editingComment.value = '';
+      editingComment.value = "";
     }
   } catch (e) {
-    console.error("Erreur détaillée lors de l'enregistrement du commentaire:", e);
-    error.value = "Erreur lors de l'enregistrement du commentaire: " + (e.response?.status === 403 ? "Autorisation refusée" : e.message);
+    console.error(
+      "Erreur détaillée lors de l'enregistrement du commentaire:",
+      e,
+    );
+    error.value =
+      "Erreur lors de l'enregistrement du commentaire: " +
+      (e.response?.status === 403 ? "Autorisation refusée" : e.message);
   }
 };
 
@@ -376,12 +517,12 @@ const submitSignature = async () => {
   const payload = {
     Signature: signatureData,
     Name: profName.value,
-    Firstname: profFirstname.value
+    Firstname: profFirstname.value,
   };
   const result = await profSignatureStore.saveProfSignature(token, payload);
   if (result) {
     success.value = true;
-    error.value = '';
+    error.value = "";
   } else {
     error.value = profSignatureStore.error;
   }
@@ -389,15 +530,18 @@ const submitSignature = async () => {
 
 const makeAction = async (action, studentNumber) => {
   if (!session.value?.id) return;
-  
+
   const pathParts = window.location.pathname.split("/");
   const profSignatureTokenIndex = pathParts.indexOf("prof-signature") + 1;
-  if (profSignatureTokenIndex > 0 && profSignatureTokenIndex < pathParts.length) {
+  if (
+    profSignatureTokenIndex > 0 &&
+    profSignatureTokenIndex < pathParts.length
+  ) {
     console.log("Token trouvé dans l'URL:", pathParts[profSignatureTokenIndex]);
   } else {
     console.log("Token non trouvé dans l'URL, parties du chemin:", pathParts);
   }
-  
+
   let newStatus;
   switch (action) {
     case 1:
@@ -410,21 +554,27 @@ const makeAction = async (action, studentNumber) => {
     default:
       return;
   }
-  
+
   try {
-    
     const headers = { "Prof-Signature-Token": token };
-    await sessionStore.changeAttendanceStatus(session.value.id, studentNumber, newStatus, headers);
-    
-    const attendanceIndex = attendances.value.findIndex(
-      a => a.item1.studentNumber === studentNumber
+    await sessionStore.changeAttendanceStatus(
+      session.value.id,
+      studentNumber,
+      newStatus,
+      headers,
     );
-    
+
+    const attendanceIndex = attendances.value.findIndex(
+      (a) => a.item1.studentNumber === studentNumber,
+    );
+
     if (attendanceIndex !== -1) {
       attendances.value[attendanceIndex].item2 = newStatus;
     }
   } catch (e) {
-    error.value = "Erreur lors du changement de statut: " + (e.response?.status === 403 ? "Autorisation refusée" : e.message);
+    error.value =
+      "Erreur lors du changement de statut: " +
+      (e.response?.status === 403 ? "Autorisation refusée" : e.message);
   }
 };
 </script>
@@ -435,7 +585,7 @@ const makeAction = async (action, studentNumber) => {
   margin: 40px auto;
   background: #fff;
   border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(52,152,219,0.15);
+  box-shadow: 0 4px 24px rgba(52, 152, 219, 0.15);
   padding: 36px 32px 32px 32px;
 }
 
@@ -446,7 +596,7 @@ const makeAction = async (action, studentNumber) => {
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 30px;
-  box-shadow: 0 2px 10px rgba(52,152,219,0.08);
+  box-shadow: 0 2px 10px rgba(52, 152, 219, 0.08);
 }
 
 .session-header {
@@ -514,7 +664,8 @@ const makeAction = async (action, studentNumber) => {
   flex-wrap: wrap;
 }
 
-.professor-info, .co-professor-info {
+.professor-info,
+.co-professor-info {
   flex: 1;
   min-width: 250px;
   padding: 12px 15px;
@@ -545,7 +696,7 @@ const makeAction = async (action, studentNumber) => {
 }
 
 .validation-code {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
   font-size: 1.6em;
   color: #fff;
   background: #217dbb;
@@ -553,7 +704,7 @@ const makeAction = async (action, studentNumber) => {
   border-radius: 10px;
   letter-spacing: 6px;
   font-weight: bold;
-  box-shadow: 0 2px 8px rgba(41,128,185,0.10);
+  box-shadow: 0 2px 8px rgba(41, 128, 185, 0.1);
   border: 2px solid #217dbb;
 }
 .fancy-validation-code {
@@ -562,7 +713,7 @@ const makeAction = async (action, studentNumber) => {
   background: #fffceb;
   border: 2px solid #f7c948;
   border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(247,201,72,0.15);
+  box-shadow: 0 4px 12px rgba(247, 201, 72, 0.15);
   padding: 8px 20px;
   position: relative;
   font-size: 1em;
@@ -570,12 +721,12 @@ const makeAction = async (action, studentNumber) => {
 }
 
 .fancy-validation-code:hover {
-  box-shadow: 0 6px 16px rgba(247,201,72,0.2);
+  box-shadow: 0 6px 16px rgba(247, 201, 72, 0.2);
   transform: translateY(-1px);
 }
 
 .fancy-validation-code::before {
-  content: '\1F511';
+  content: "\1F511";
   font-size: 1.3em;
   margin-right: 12px;
   color: #e8b215;
@@ -583,7 +734,7 @@ const makeAction = async (action, studentNumber) => {
 }
 
 .validation-code-inner {
-  font-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', monospace;
+  font-family: "JetBrains Mono", "Fira Mono", "Consolas", monospace;
   font-size: 1.2em;
   color: #b8860b;
   letter-spacing: 8px;
@@ -615,7 +766,7 @@ const makeAction = async (action, studentNumber) => {
   width: 100%;
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(52,152,219,0.12);
+  box-shadow: 0 4px 20px rgba(52, 152, 219, 0.12);
   padding: 25px 22px;
   display: flex;
   flex-direction: column;
@@ -658,7 +809,7 @@ const makeAction = async (action, studentNumber) => {
   width: 100%;
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(52,152,219,0.12);
+  box-shadow: 0 4px 20px rgba(52, 152, 219, 0.12);
   padding: 25px 22px;
   overflow: hidden;
   display: flex;
@@ -679,7 +830,6 @@ const makeAction = async (action, studentNumber) => {
   gap: 15px;
 }
 
-
 .attendances-table-container {
   border-radius: 8px;
   width: 100%;
@@ -693,11 +843,12 @@ const makeAction = async (action, studentNumber) => {
   background: #fff;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 8px rgba(52,152,219,0.12);
+  box-shadow: 0 1px 8px rgba(52, 152, 219, 0.12);
   font-size: 0.95em;
 }
 
-.attendances-table th, .attendances-table td {
+.attendances-table th,
+.attendances-table td {
   padding: 14px 10px;
   text-align: left;
   word-wrap: break-word;
@@ -711,7 +862,7 @@ const makeAction = async (action, studentNumber) => {
   font-size: 0.8em;
   position: sticky;
   top: 0;
-  box-shadow: 0 1px 0 rgba(52,152,219,0.15);
+  box-shadow: 0 1px 0 rgba(52, 152, 219, 0.15);
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -735,7 +886,8 @@ const makeAction = async (action, studentNumber) => {
   color: #7f8c8d;
 }
 
-.cell-name, .cell-firstname {
+.cell-name,
+.cell-firstname {
   font-weight: 600;
   letter-spacing: 0.2px;
   max-width: 100%;
@@ -785,7 +937,7 @@ const makeAction = async (action, studentNumber) => {
   cursor: pointer;
   transition: all 0.2s;
   font-weight: 500;
-  box-shadow: 0 2px 6px rgba(52,152,219,0.15);
+  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.15);
 }
 
 .reload-icon {
@@ -801,7 +953,7 @@ const makeAction = async (action, studentNumber) => {
 .reload-btn:hover:not(:disabled) {
   background: #217dbb;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(52,152,219,0.2);
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
 }
 
 /* Form elements */
@@ -826,12 +978,16 @@ input[type="text"] {
   font-size: 1em;
   background: #fff;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 input[type="text"]:focus {
   border-color: #3498db;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(52,152,219,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+  box-shadow:
+    0 0 0 3px rgba(52, 152, 219, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .submit-btn {
@@ -845,7 +1001,7 @@ input[type="text"]:focus {
   cursor: pointer;
   margin-top: 15px;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(52,152,219,0.15);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
@@ -861,12 +1017,12 @@ input[type="text"]:focus {
 .submit-btn:hover {
   background: #2980b9;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(52,152,219,0.2);
+  box-shadow: 0 6px 16px rgba(52, 152, 219, 0.2);
 }
 
 .submit-btn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(52,152,219,0.15);
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
 }
 
 /* États et messages */
@@ -932,7 +1088,7 @@ input[type="text"]:focus {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(52,152,219,0.2);
+  border: 3px solid rgba(52, 152, 219, 0.2);
   border-radius: 50%;
   border-top-color: #3498db;
   animation: spin 1s linear infinite;
@@ -945,7 +1101,9 @@ input[type="text"]:focus {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .action-btn {
   border: none;
@@ -955,7 +1113,7 @@ input[type="text"]:focus {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   margin: 0;
   white-space: nowrap;
   min-width: 115px;
@@ -974,7 +1132,7 @@ input[type="text"]:focus {
 
 .action-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
 .action-mark-present:hover {
@@ -1048,7 +1206,7 @@ input[type="text"]:focus {
   overflow: visible;
   background-color: #f8f9fa;
   padding: 4px 8px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   position: absolute;
   z-index: 10;
   left: 0;
@@ -1106,13 +1264,15 @@ input[type="text"]:focus {
   min-height: 80px;
   margin-bottom: 10px;
   transition: all 0.2s ease;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .comment-input:focus {
   outline: none;
   border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15), inset 0 1px 3px rgba(0,0,0,0.02);
+  box-shadow:
+    0 0 0 3px rgba(52, 152, 219, 0.15),
+    inset 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .comment-actions {
@@ -1121,7 +1281,8 @@ input[type="text"]:focus {
   gap: 10px;
 }
 
-.save-comment-btn, .cancel-comment-btn {
+.save-comment-btn,
+.cancel-comment-btn {
   padding: 7px 12px;
   border-radius: 6px;
   border: none;
@@ -1137,25 +1298,25 @@ input[type="text"]:focus {
 .save-comment-btn {
   background: #3498db;
   color: white;
-  box-shadow: 0 2px 6px rgba(52,152,219,0.2);
+  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.2);
 }
 
 .save-comment-btn:hover {
   background: #2980b9;
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(52,152,219,0.25);
+  box-shadow: 0 3px 8px rgba(52, 152, 219, 0.25);
 }
 
 .cancel-comment-btn {
   background: #f5f6fa;
   color: #576574;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .cancel-comment-btn:hover {
   background: #e9ecf2;
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Responsive Styles */
@@ -1165,19 +1326,19 @@ input[type="text"]:focus {
     margin: 20px auto;
     max-width: 95%;
   }
-  
+
   .prof-content-row {
     gap: 20px;
   }
-  
+
   .validation-code-inner {
     letter-spacing: 6px;
   }
-  
+
   .session-details {
     gap: 20px;
   }
-  
+
   .form-row {
     flex-direction: column;
   }
@@ -1188,27 +1349,27 @@ input[type="text"]:focus {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .validation-code-container {
     width: 100%;
     justify-content: center;
     margin-top: 10px;
   }
-  
+
   .attendances-actions {
     display: flex;
     justify-content: flex-end;
   }
-  
+
   .reload-btn {
     width: auto;
     justify-content: center;
   }
-  
+
   .column-action {
     width: 22%;
   }
-  
+
   .column-comment {
     width: 22%;
   }
@@ -1220,27 +1381,28 @@ input[type="text"]:focus {
     margin: 15px auto;
     border-radius: 10px;
   }
-  
+
   .session-details {
     flex-direction: column;
     gap: 5px;
   }
-  
-  .attendances-table th, .attendances-table td {
+
+  .attendances-table th,
+  .attendances-table td {
     padding: 12px 8px;
     font-size: 0.9em;
   }
-  
+
   .action-btn {
     padding: 6px 8px;
     font-size: 0.8em;
     min-width: auto;
   }
-  
+
   table.attendances-table {
     table-layout: fixed;
   }
-  
+
   table.attendances-table colgroup col:nth-child(1) {
     width: 5%;
   }
@@ -1260,39 +1422,39 @@ input[type="text"]:focus {
     width: 26%;
   }
 }
-  
 
 @media (max-width: 600px) {
   .prof-signature-page {
     padding: 15px 12px;
     margin: 10px;
     border-radius: 8px;
-    box-shadow: 0 2px 15px rgba(52,152,219,0.10);
+    box-shadow: 0 2px 15px rgba(52, 152, 219, 0.1);
   }
-  
+
   .prof-content-row {
     gap: 15px;
   }
-  
-  .prof-signature-form, .attendances {
+
+  .prof-signature-form,
+  .attendances {
     padding: 15px;
     border-radius: 8px;
   }
-  
+
   /* Réorganisation de la table pour téléphone */
   .attendances-table {
     display: block;
   }
-  
+
   .attendances-table thead {
     display: none; /* Cacher l'en-tête sur mobile */
   }
-  
+
   .attendances-table tbody {
     display: block;
     width: 100%;
   }
-  
+
   .attendances-table tr {
     display: block;
     margin-bottom: 15px;
@@ -1300,9 +1462,9 @@ input[type="text"]:focus {
     border-radius: 8px;
     background-color: #f8f9fa;
     border: 1px solid #e0e7ff;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   }
-  
+
   .attendances-table td {
     display: block;
     padding: 8px 4px;
@@ -1311,35 +1473,35 @@ input[type="text"]:focus {
     text-align: left;
     width: 100%;
   }
-  
+
   /* Ajouter des labels pour remplacer les en-têtes de colonne */
   .cell-name::before {
     content: "Nom: ";
     font-weight: bold;
     color: #2980b9;
   }
-  
+
   .cell-firstname::before {
     content: "Prénom: ";
     font-weight: bold;
     color: #2980b9;
   }
-  
+
   /* Cacher le numéro pour économiser de l'espace */
   .cell-id {
     display: none;
   }
-  
+
   .cell-status {
     margin: 10px 0;
   }
-  
+
   .status-badge {
     display: inline-flex;
     padding: 6px 10px;
     font-size: 0.95em;
   }
-  
+
   .action-btn {
     padding: 10px 15px;
     font-size: 0.9em;
@@ -1347,13 +1509,13 @@ input[type="text"]:focus {
     width: 100%;
     margin: 8px 0;
   }
-  
+
   .comment-cell {
     border-top: 1px solid #e5e7eb;
     margin-top: 10px;
     padding-top: 10px !important;
   }
-  
+
   .comment-cell::before {
     content: "Commentaire: ";
     font-weight: bold;
@@ -1361,12 +1523,12 @@ input[type="text"]:focus {
     display: block;
     margin-bottom: 5px;
   }
-  
+
   .comment-text {
     white-space: normal;
     padding: 5px 0;
   }
-  
+
   .comment-text:hover {
     white-space: normal;
     overflow: visible;
@@ -1376,25 +1538,25 @@ input[type="text"]:focus {
     width: auto;
     padding: 5px 0;
   }
-  
+
   .validation-code-inner {
     letter-spacing: 3px;
     font-size: 0.9em;
   }
-  
+
   .fancy-validation-code::before {
     font-size: 1.1em;
     margin-right: 8px;
   }
-  
+
   .fancy-validation-code {
     padding: 5px 10px;
   }
-  
+
   .submit-btn {
     padding: 12px;
   }
-  
+
   .section-title {
     font-size: 1.1em;
   }
@@ -1406,40 +1568,40 @@ input[type="text"]:focus {
     padding: 10px 8px;
     margin: 5px;
   }
-  
+
   .attendances-table tr {
     padding: 8px;
     margin-bottom: 12px;
   }
-  
+
   .attendances-table td {
     padding: 5px 3px;
     font-size: 0.8em;
   }
-  
+
   .action-btn {
     padding: 8px 10px;
     font-size: 0.8em;
   }
-  
+
   .status-badge {
     padding: 5px 8px;
     font-size: 0.85em;
   }
-  
+
   .comment-cell {
     padding-top: 8px !important;
   }
-  
+
   .comment-input {
     min-height: 60px;
   }
-  
+
   .comment-actions button {
     padding: 6px 8px;
     font-size: 0.8em;
   }
-  
+
   .validation-code-inner {
     letter-spacing: 2px;
     font-size: 0.8em;
