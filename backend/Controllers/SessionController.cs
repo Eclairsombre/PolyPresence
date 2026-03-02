@@ -54,7 +54,7 @@ namespace backend.Controllers
                     .ToListAsync();
 
                 sessions = sessions
-                    .Where(s => s.StartTime <= now.TimeOfDay)
+                    .Where(s => s.StartTime <= now)
                     .ToList();
 
                 foreach (var session in sessions)
@@ -442,7 +442,7 @@ namespace backend.Controllers
         public async Task<ActionResult<object>> GetCurrentSession(string year)
         {
             var today = DateTime.Today;
-            var now = DateTime.Now.TimeOfDay;
+            var now = DateTime.Now;
 
             var sessionsToday = await _context.Sessions
                 .Where(s => s.Year == year && s.Date == today)

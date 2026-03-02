@@ -6,8 +6,8 @@ namespace backend.Models
     {
         public int Id { get; set; }
         public DateTime Date { get; set; }
-        public TimeSpan StartTime { get; set; }
-        public TimeSpan EndTime { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
         public string Year { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Room { get; set; } = string.Empty;

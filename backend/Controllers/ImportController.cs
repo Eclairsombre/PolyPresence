@@ -318,10 +318,12 @@ namespace backend.Controllers
 
             foreach (var imported in importedSessions)
             {
+                var importedStartDateTime = imported.Date.Date + imported.Start;
+                var importedEndDateTime = imported.Date.Date + imported.End;
                 var match = existingSessions.FirstOrDefault(e =>
-                    e.Date == imported.Date &&
-                    e.StartTime == imported.Start &&
-                    e.EndTime == imported.End &&
+                    e.Date == imported.Date.Date &&
+                    e.StartTime == importedStartDateTime &&
+                    e.EndTime == importedEndDateTime &&
                     e.Year == imported.Year);
 
                 if (match != null)
@@ -344,9 +346,9 @@ namespace backend.Controllers
                     // Create
                     var newSession = new Session
                     {
-                        Date = imported.Date,
-                        StartTime = imported.Start,
-                        EndTime = imported.End,
+                        Date = imported.Date.Date,
+                        StartTime = importedStartDateTime,
+                        EndTime = importedEndDateTime,
                         Year = year,
                         Name = imported.Name,
                         Room = imported.Room,
