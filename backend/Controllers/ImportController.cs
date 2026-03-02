@@ -103,13 +103,13 @@ namespace backend.Controllers
             {
                 if (component.Start == null || component.End == null) continue;
 
-                // Conversion en heure locale France avec DateTimeKind.Unspecified pour PostgreSQL timestamp without time zone
+                // Conversion en UTC pour les colonnes PostgreSQL timestamp with time zone
                 var start = DateTime.SpecifyKind(
-                    component.Start.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.Start.AsDateTimeOffset.DateTime)).DateTime,
-                    DateTimeKind.Unspecified);
+                    component.Start.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.Start.AsDateTimeOffset.DateTime)).UtcDateTime,
+                    DateTimeKind.Utc);
                 var end = DateTime.SpecifyKind(
-                    component.End.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.End.AsDateTimeOffset.DateTime)).DateTime,
-                    DateTimeKind.Unspecified);
+                    component.End.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.End.AsDateTimeOffset.DateTime)).UtcDateTime,
+                    DateTimeKind.Utc);
 
                 // Extraction des professeurs depuis la description
                 var (p1, f1, p2, f2) = ExtractProfessors(component.Description);
@@ -322,9 +322,9 @@ namespace backend.Controllers
 
             foreach (var imported in importedSessions)
             {
-                // Forcer Unspecified pour correspondre au type PostgreSQL timestamp without time zone
-                var importedStartDateTime = DateTime.SpecifyKind(imported.Date.Date + imported.Start, DateTimeKind.Unspecified);
-                var importedEndDateTime = DateTime.SpecifyKind(imported.Date.Date + imported.End, DateTimeKind.Unspecified);
+                // Forcer UTC pour les colonnes PostgreSQL timestamp with time zone
+                var importedStartDateTime = DateTime.SpecifyKind(imported.Date.Date + imported.Start, DateTimeKind.Utc);
+                var importedEndDateTime = DateTime.SpecifyKind(imported.Date.Date + imported.End, DateTimeKind.Utc);
                 var match = existingSessions.FirstOrDefault(e =>
                     e.Date == imported.Date.Date &&
                     e.StartTime == importedStartDateTime &&
@@ -351,7 +351,7 @@ namespace backend.Controllers
                     // Create
                     var newSession = new Session
                     {
-                        Date = DateTime.SpecifyKind(imported.Date.Date, DateTimeKind.Unspecified),
+                        Date = DateTime.SpecifyKind(imported.Date.Date, DateTimeKind.Utc),
                         StartTime = importedStartDateTime,
                         EndTime = importedEndDateTime,
                         Year = year,
