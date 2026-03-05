@@ -60,7 +60,7 @@ namespace backend.Controllers
                 .ToList();
 
             var pdfBytes = GenerateSessionPdf(session, attendanceList);
-            var filename = $"session_{session.Year}_{session.Date:yyyy-MM-dd}_{session.StartTime:hh\\-mm}.pdf";
+            var filename = $"session_{session.Year}_{session.Date:yyyy-MM-dd}_{session.StartTime:HH\\-mm}.pdf";
 
             return File(pdfBytes, "application/pdf", filename);
         }
@@ -127,7 +127,7 @@ namespace backend.Controllers
                         page.Content().Column(column =>
                         {
                             var dateStr = session.Date.ToString("dddd dd MMMM yyyy", new CultureInfo("fr-FR"));
-                            var horaires = $"{session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm}";
+                            var horaires = $"{session.StartTime:HH\\:mm} - {session.EndTime:HH\\:mm}";
 
                             column.Item().Background("#eaf6fb").BorderLeft(4).BorderColor("#3498db").Padding(12).PaddingLeft(18).Column(schoolCol =>
                             {
@@ -396,7 +396,7 @@ namespace backend.Controllers
                         var pdfBytes = GenerateSessionPdf(session, attendanceList);
 
                         var folderPath = $"{session.Date:yyyy}/{session.Date:MM}/{session.Date:dd}";
-                        var entry = archive.CreateEntry($"{folderPath}/session_{session.Year}_{session.Date:yyyy-MM-dd}_{session.StartTime:hh\\-mm}.pdf");
+                        var entry = archive.CreateEntry($"{folderPath}/session_{session.Year}_{session.Date:yyyy-MM-dd}_{session.StartTime:HH\\-mm}.pdf");
                         using var entryStream = entry.Open();
                         entryStream.Write(pdfBytes, 0, pdfBytes.Length);
                     }
