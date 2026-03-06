@@ -50,6 +50,12 @@ namespace backend.Middleware
                 return;
             }
 
+            if (requestPath != null && requestPath.StartsWith("/api/professor") && context.Request.Method == "GET")
+            {
+                await _next(context);
+                return;
+            }
+
             if (requestPath != null && publicPaths.Any(p => requestPath.StartsWith(p.ToLowerInvariant())))
             {
                 await _next(context);

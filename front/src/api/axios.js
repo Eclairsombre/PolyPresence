@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const getAccessToken = () => {
   return localStorage.getItem("access_token");
@@ -30,12 +30,12 @@ apiClient.interceptors.request.use(
           config.headers["Prof-Signature-Token"] = profSignatureToken;
         } else {
           console.warn(
-            "Token de signature professeur trouvé dans l'URL mais vide"
+            "Token de signature professeur trouvé dans l'URL mais vide",
           );
         }
       } else {
         console.warn(
-          "Impossible de trouver l'index du token de signature professeur dans l'URL"
+          "Impossible de trouver l'index du token de signature professeur dans l'URL",
         );
       }
     }
@@ -49,7 +49,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 apiClient.interceptors.response.use(
@@ -69,9 +69,11 @@ apiClient.interceptors.response.use(
         currentPath.includes("/set-password") ||
         currentPath.includes("/forgot-password");
 
-      if (!isLoginAttempt && !isOnAuthPage) {
+      const isOnProfSignaturePage = currentPath.includes("/prof-signature/");
+
+      if (!isLoginAttempt && !isOnAuthPage && !isOnProfSignaturePage) {
         console.log(
-          "Session expirée ou non autorisé. Redirection vers la page de connexion."
+          "Session expirée ou non autorisé. Redirection vers la page de connexion.",
         );
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
@@ -79,7 +81,7 @@ apiClient.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;

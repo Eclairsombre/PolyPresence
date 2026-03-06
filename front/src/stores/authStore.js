@@ -45,7 +45,7 @@ class TokenManager {
     } catch (error) {
       console.error(
         "Erreur lors de la vérification de l'expiration du token:",
-        error
+        error,
       );
       return true;
     }
@@ -65,7 +65,7 @@ class TokenManager {
     } catch (error) {
       console.error(
         "Erreur lors de l'extraction des informations du token:",
-        error
+        error,
       );
       return null;
     }
@@ -95,7 +95,7 @@ export function setAuthStoreReference(store) {
 axios.interceptors.request.use(
   async (config) => {
     const isPublicRoute = PUBLIC_ROUTES.some((route) =>
-      config.url?.toLowerCase().includes(route.toLowerCase())
+      config.url?.toLowerCase().includes(route.toLowerCase()),
     );
 
     if (isPublicRoute) {
@@ -104,7 +104,7 @@ axios.interceptors.request.use(
 
     const currentTime = Date.now();
     const lastRefreshAttempt = parseInt(
-      localStorage.getItem("last_refresh_attempt") || "0"
+      localStorage.getItem("last_refresh_attempt") || "0",
     );
 
     if (
@@ -156,7 +156,7 @@ axios.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 axios.interceptors.response.use(
@@ -184,7 +184,14 @@ axios.interceptors.response.use(
           currentPath.includes("/reset-password") ||
           currentPath.includes("/forgot-password");
 
-        if (!isLoginAttempt && !isResetPasswordAttempt && !isOnAuthPage) {
+        const isOnProfSignaturePage = currentPath.includes("/prof-signature/");
+
+        if (
+          !isLoginAttempt &&
+          !isResetPasswordAttempt &&
+          !isOnAuthPage &&
+          !isOnProfSignaturePage
+        ) {
           TokenManager.clearTokens();
           window.location.href = `/login`;
         }
@@ -201,13 +208,13 @@ axios.interceptors.response.use(
           window.location.href = `/unauthorized`;
         } else {
           console.log(
-            "Erreur 403 sur page d'authentification, pas de redirection"
+            "Erreur 403 sur page d'authentification, pas de redirection",
           );
         }
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 /**
@@ -272,7 +279,7 @@ export const useAuthStore = defineStore("auth", {
                 headers: {
                   Authorization: `Bearer ${TokenManager.getAccessToken()}`,
                 },
-              }
+              },
             )
             .catch((error) => {
               console.error("Erreur lors de la déconnexion:", error);
@@ -325,7 +332,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/User/search/${encodeURIComponent(this.user.studentId)}`
+          `${API_URL}/User/search/${encodeURIComponent(this.user.studentId)}`,
         );
 
         this.user.existsInDb = response.data.exists;
@@ -337,7 +344,7 @@ export const useAuthStore = defineStore("auth", {
         } else {
           console.error(
             "Erreur lors de la vérification de l'utilisateur:",
-            error
+            error,
           );
           this.user.existsInDb = false;
         }
@@ -358,7 +365,7 @@ export const useAuthStore = defineStore("auth", {
 
       try {
         const response = await axios.get(
-          `${API_URL}/User/IsUserAdmin/${this.user.studentId}`
+          `${API_URL}/User/IsUserAdmin/${this.user.studentId}`,
         );
 
         this.user.isAdmin = response.data.isAdmin;
@@ -366,7 +373,7 @@ export const useAuthStore = defineStore("auth", {
       } catch (error) {
         console.error(
           "Erreur lors de la vérification des droits d'administrateur:",
-          error
+          error,
         );
         return false;
       }
@@ -399,7 +406,7 @@ export const useAuthStore = defineStore("auth", {
           throw new Error(
             response.data.message ||
               response.data.Message ||
-              "Format de réponse invalide"
+              "Format de réponse invalide",
           );
         }
 
@@ -475,7 +482,7 @@ export const useAuthStore = defineStore("auth", {
           throw new Error(error.response.data.message);
         }
         throw new Error(
-          "Erreur lors de la demande de réinitialisation du mot de passe."
+          "Erreur lors de la demande de réinitialisation du mot de passe.",
         );
       }
     },
@@ -512,7 +519,7 @@ export const useAuthStore = defineStore("auth", {
             throw new Error("Token de réinitialisation invalide ou expiré");
           } else if (error.response.status === 403) {
             throw new Error(
-              "Vous n'avez pas les permissions nécessaires pour réinitialiser ce mot de passe"
+              "Vous n'avez pas les permissions nécessaires pour réinitialiser ce mot de passe",
             );
           } else if (error.response.data && error.response.data.message) {
             throw new Error(error.response.data.message);
@@ -531,7 +538,7 @@ export const useAuthStore = defineStore("auth", {
     async getAdminToken() {
       if (!this.user || !this.user.isAdmin) {
         throw new Error(
-          "Seuls les administrateurs peuvent effectuer cette action"
+          "Seuls les administrateurs peuvent effectuer cette action",
         );
       }
 
@@ -549,7 +556,7 @@ export const useAuthStore = defineStore("auth", {
             headers: {
               Authorization: `Bearer ${currentToken}`,
             },
-          }
+          },
         );
 
         if (!response.data || !response.data.token) {
@@ -569,13 +576,13 @@ export const useAuthStore = defineStore("auth", {
 
           if (error.response.data && error.response.data.message) {
             throw new Error(
-              `Erreur d'authentification admin: ${error.response.data.message}`
+              `Erreur d'authentification admin: ${error.response.data.message}`,
             );
           }
         }
 
         throw new Error(
-          "Impossible de générer le token administrateur. Vérifiez vos droits d'accès."
+          "Impossible de générer le token administrateur. Vérifiez vos droits d'accès.",
         );
       }
     },
