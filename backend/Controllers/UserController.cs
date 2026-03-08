@@ -70,7 +70,7 @@ namespace backend.Controllers
                 return Forbid();
             }
 
-            return await _context.Users.ToListAsync();
+            return await _context.Users.Where(u => !u.IsDeleted).ToListAsync();
         }
 
         /**
@@ -95,7 +95,7 @@ namespace backend.Controllers
             }
 
             var requestedUser = await _context.Users.FindAsync(id);
-            if (requestedUser == null)
+            if (requestedUser == null || requestedUser.IsDeleted)
             {
                 return NotFound();
             }
@@ -166,7 +166,7 @@ namespace backend.Controllers
             }
 
             var requestedUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+                .FirstOrDefaultAsync(u => u.StudentNumber == studentNumber && !u.IsDeleted);
 
             if (requestedUser == null)
             {
@@ -190,7 +190,7 @@ namespace backend.Controllers
         [HttpGet("IsUserAdmin/{username}")]
         public IActionResult IsUserAdmin(string username)
         {
-            var isAdmin = _context.Users.Any(u => u.StudentNumber == username && u.IsAdmin);
+            var isAdmin = _context.Users.Any(u => u.StudentNumber == username && u.IsAdmin && !u.IsDeleted);
             return Ok(new { IsAdmin = isAdmin });
         }
         /**
@@ -246,7 +246,7 @@ namespace backend.Controllers
                 return Forbid();
             }
 
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber && !u.IsDeleted);
             if (existingUser == null)
             {
                 return NotFound();
@@ -313,6 +313,12 @@ namespace backend.Controllers
                 return NotFound();
             }
 
+            if (user.IsDeleted)
+            {
+                return NotFound();
+            }
+
+            // Supprimer les présences futures (pas encore passées)
             var today = DateTime.Now.Date;
             var futureAttendances = await _context.Attendances
                 .Include(a => a.Session)
@@ -320,8 +326,16 @@ namespace backend.Controllers
                 .ToListAsync();
             _context.Attendances.RemoveRange(futureAttendances);
 
-            _context.Users.Remove(user);
+            // Suppression logique : conservation du compte et de l'historique
+            user.IsDeleted = true;
+            user.DeletedAt = DateTime.UtcNow;
+            user.RegisterToken = null;
+            user.RegisterTokenExpiration = null;
+            user.RegisterMailSent = false;
+
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"Utilisateur {studentNumber} désactivé (soft delete) par {adminUser!.StudentNumber}");
 
             return NoContent();
         }
@@ -338,7 +352,7 @@ namespace backend.Controllers
             _logger.LogInformation($"Public request for users in year {year}");
 
             var users = await _context.Users
-                .Where(s => s.Year == year)
+                .Where(s => s.Year == year && !s.IsDeleted)
                 .ToListAsync();
 
             if (users == null || users.Count == 0)
@@ -357,7 +371,7 @@ namespace backend.Controllers
         [HttpPost("send-register-link")]
         public async Task<IActionResult> SendRegisterLink([FromBody] RegisterLinkRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber && !u.IsDeleted);
             if (user == null)
                 return NotFound(new { message = "Étudiant introuvable." });
             if (string.IsNullOrEmpty(user.Email))
@@ -490,7 +504,7 @@ namespace backend.Controllers
             {
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
 
-                if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+                if (user == null || string.IsNullOrEmpty(user.PasswordHash) || user.IsDeleted)
                 {
                     _logger.LogWarning("Login attempt with invalid student number: {StudentNumber}", request.StudentNumber);
                     return Unauthorized(new LoginResponse
@@ -829,7 +843,7 @@ namespace backend.Controllers
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
 
                 // Toujours retourner une réponse positive pour éviter l'énumération d'utilisateurs
-                if (user == null || string.IsNullOrEmpty(user.Email))
+                if (user == null || string.IsNullOrEmpty(user.Email) || user.IsDeleted)
                 {
                     _logger.LogWarning("Password reset attempted for non-existent user: {StudentNumber}", request.StudentNumber);
                     return Ok(new { Success = true, Message = "Si ce numéro étudiant existe, un email de réinitialisation a été envoyé." });
@@ -1065,9 +1079,51 @@ namespace backend.Controllers
 
             _logger.LogInformation($"Admin user {adminUser!.StudentNumber} is creating a new user");
 
-            if (await _context.Users.AnyAsync(u => u.StudentNumber == user.StudentNumber))
+            // Vérifie si un compte actif existe déjà
+            if (await _context.Users.AnyAsync(u => u.StudentNumber == user.StudentNumber && !u.IsDeleted))
             {
                 return Conflict(new { error = true, message = "Un utilisateur avec ce numéro étudiant existe déjà." });
+            }
+
+            // Vérifie si un compte désactivé (soft-deleted) existe : on le réactive au lieu d'en créer un nouveau
+            var deletedUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == user.StudentNumber && u.IsDeleted);
+            if (deletedUser != null)
+            {
+                deletedUser.Name = user.Name;
+                deletedUser.Firstname = user.Firstname;
+                deletedUser.Email = user.Email;
+                deletedUser.Year = user.Year;
+                deletedUser.Signature = user.Signature;
+                deletedUser.IsAdmin = user.IsAdmin;
+                deletedUser.IsDelegate = user.IsDelegate;
+                deletedUser.IsDeleted = false;
+                deletedUser.DeletedAt = null;
+                deletedUser.RegisterToken = null;
+                deletedUser.RegisterTokenExpiration = null;
+                deletedUser.RegisterMailSent = false;
+
+                var reactivationToday = DateTime.Now.Date;
+                var reactivationSessions = await _context.Sessions
+                    .Where(s => s.Year == deletedUser.Year && s.Date >= reactivationToday)
+                    .ToListAsync();
+
+                foreach (var session in reactivationSessions)
+                {
+                    var alreadyExists = await _context.Attendances.AnyAsync(a => a.SessionId == session.Id && a.StudentId == deletedUser.Id);
+                    if (!alreadyExists)
+                    {
+                        _context.Attendances.Add(new Attendance
+                        {
+                            SessionId = session.Id,
+                            StudentId = deletedUser.Id,
+                            Status = AttendanceStatus.Absent
+                        });
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Compte de {deletedUser.StudentNumber} réactivé par {adminUser.StudentNumber}");
+                return CreatedAtAction(nameof(GetUser), new { id = deletedUser.Id }, deletedUser);
             }
 
             _context.Users.Add(user);

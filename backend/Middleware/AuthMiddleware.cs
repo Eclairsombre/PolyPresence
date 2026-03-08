@@ -105,6 +105,13 @@ namespace backend.Middleware
                 return;
             }
 
+            if (user.IsDeleted)
+            {
+                _logger.LogWarning("Deleted user {UserId} attempted to authenticate", userId);
+                await UnauthorizedResponse(context, "Ce compte a été désactivé.");
+                return;
+            }
+
             context.User = principal;
             context.Items["User"] = user;
             context.Items["UserId"] = userId;

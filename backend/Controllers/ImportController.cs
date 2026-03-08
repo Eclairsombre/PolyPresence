@@ -392,7 +392,7 @@ namespace backend.Controllers
 
         private async Task CreateAttendancesForNewSessions(List<Session> sessions, string year)
         {
-            var students = await _context.Users.Where(u => u.Year == year).ToListAsync();
+            var students = await _context.Users.Where(u => u.Year == year && !u.IsDeleted).ToListAsync();
             var attendances = new List<Attendance>();
 
             foreach (var session in sessions)

@@ -23,5 +23,8 @@ namespace backend.Models
         public int? MailPreferencesId { get; set; }
         public MailPreferences? MailPreferences { get; set; }
         public List<Attendance> Attendances { get; set; } = new List<Attendance>();
+
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }
