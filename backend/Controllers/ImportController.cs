@@ -132,16 +132,21 @@ namespace backend.Controllers
                     await _context.SaveChangesAsync();
                 }
 
+                var rawName = component.Summary ?? "Sans titre";
+                var cleanName = Regex.Replace(rawName, @"^#+\s*", "").Trim();
+                if (string.IsNullOrEmpty(cleanName)) cleanName = "Sans titre";
+
                 sessions.Add(new ImportedSession
                 {
                     Date = start.Date,
                     Start = start.TimeOfDay,
                     End = end.TimeOfDay,
-                    Name = component.Summary ?? "Sans titre",
+                    Name = cleanName,
                     Room = component.Location ?? "",
                     ProfId = professor1?.Id != null ? professor1.Id.ToString() : "",
                     ProfId2 = professor2?.Id != null ? professor2.Id.ToString() : "",
-                    Year = year
+                    Year = year,
+                    TargetGroup = ExtractTargetGroup(component.Description)
                 });
             }
 
@@ -152,14 +157,15 @@ namespace backend.Controllers
         {
             if (string.IsNullOrWhiteSpace(description)) return ("", "", "", "");
 
-            // Filtrage des lignes inutiles (Timestamp, Promotion, Export date)
+            // Filtrage des lignes inutiles : timestamps, promotions, groupes (INFO 1-A, 3A-1 ...), codes ADE, export
             var lines = description.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(l => l.Trim())
                 .Where(l => !string.IsNullOrWhiteSpace(l))
-                .Where(l => !Regex.IsMatch(l, @"^\d+$")) // Timestamp
+                .Where(l => !Regex.IsMatch(l, @"\d"))            // Timestamps, groupes (INFO 1-A, 3A-1 ...), codes ADE
                 .Where(l => !l.StartsWith("Ingénieur", StringComparison.OrdinalIgnoreCase))
                 .Where(l => !l.StartsWith("Diplôme", StringComparison.OrdinalIgnoreCase))
                 .Where(l => !l.StartsWith("(Exporté le", StringComparison.OrdinalIgnoreCase))
+                .Where(l => !l.StartsWith("Apprentissage", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             string p1 = "", f1 = "", p2 = "", f2 = "";
@@ -168,6 +174,23 @@ namespace backend.Controllers
             if (lines.Count > 1) ParseName(lines[1], out p2, out f2);
 
             return (p1, f1, p2, f2);
+        }
+
+        private static string ExtractTargetGroup(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return "";
+
+            // Cherche les lignes de type "3A-1 Apprentissage Informatique" pour identifier le groupe cible
+            var groups = description.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Select(l => Regex.Match(l, @"^(\d+[A-Z]-\d+)\s+Apprentissage"))
+                .Where(m => m.Success)
+                .Select(m => m.Groups[1].Value)
+                .Distinct()
+                .ToList();
+
+            // Un seul groupe identifié → session de sous-groupe, sinon toute la promotion
+            return groups.Count == 1 ? groups[0] : "";
         }
 
         private void ParseName(string fullName, out string name, out string firstname)
@@ -339,6 +362,7 @@ namespace backend.Controllers
                     if (match.ProfId != imported.ProfId) { match.ProfId = imported.ProfId; changed = true; }
                     if (match.ProfId2 != imported.ProfId2) { match.ProfId2 = imported.ProfId2; changed = true; }
                     if (match.IsMerged != imported.IsMerged) { match.IsMerged = imported.IsMerged; changed = true; }
+                    if (match.TargetGroup != imported.TargetGroup) { match.TargetGroup = imported.TargetGroup; changed = true; }
 
                     if (changed) sessionsToUpdate.Add(match);
 
@@ -359,6 +383,7 @@ namespace backend.Controllers
                         ProfId = imported.ProfId,
                         ProfId2 = imported.ProfId2,
                         IsMerged = imported.IsMerged,
+                        TargetGroup = imported.TargetGroup,
                         ValidationCode = new Random().Next(1000, 9999).ToString(),
                         ProfSignatureToken = Guid.NewGuid().ToString(),
                         ProfSignatureToken2 = !string.IsNullOrEmpty(imported.ProfId2) ? Guid.NewGuid().ToString() : null
@@ -427,6 +452,7 @@ namespace backend.Controllers
             public string ProfId { get; set; } = "";
             public string ProfId2 { get; set; } = "";
             public string Year { get; set; } = "";
+            public string TargetGroup { get; set; } = "";
             public bool IsMerged { get; set; }
         }
     }
