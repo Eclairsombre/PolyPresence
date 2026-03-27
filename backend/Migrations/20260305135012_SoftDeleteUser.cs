@@ -50,7 +50,9 @@ namespace backend.Migrations
                 oldNullable: true);
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" TYPE boolean USING \"RegisterMailSent\"::int::boolean");
+                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" DROP DEFAULT; " +
+                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" TYPE boolean USING \"RegisterMailSent\"::int::boolean; " +
+                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" SET DEFAULT false");
 
             migrationBuilder.AlterColumn<string>(
                 name: "PasswordHash",
@@ -79,10 +81,14 @@ namespace backend.Migrations
                 oldNullable: true);
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" TYPE boolean USING \"IsDelegate\"::int::boolean");
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" DROP DEFAULT; " +
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" TYPE boolean USING \"IsDelegate\"::int::boolean; " +
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" SET DEFAULT false");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" TYPE boolean USING \"IsAdmin\"::int::boolean");
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" DROP DEFAULT; " +
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" TYPE boolean USING \"IsAdmin\"::int::boolean; " +
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" SET DEFAULT false");
 
             migrationBuilder.AlterColumn<string>(
                 name: "Firstname",
@@ -248,16 +254,24 @@ namespace backend.Migrations
                 oldType: "TEXT");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" TYPE boolean USING \"IsSent\"::int::boolean");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" DROP DEFAULT; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" TYPE boolean USING \"IsSent\"::int::boolean; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" SET DEFAULT false");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" TYPE boolean USING \"IsMerged\"::int::boolean");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" DROP DEFAULT; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" TYPE boolean USING \"IsMerged\"::int::boolean; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" SET DEFAULT false");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" TYPE boolean USING \"IsMailSent2\"::int::boolean");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" DROP DEFAULT; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" TYPE boolean USING \"IsMailSent2\"::int::boolean; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" SET DEFAULT false");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" TYPE boolean USING \"IsMailSent\"::int::boolean");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" DROP DEFAULT; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" TYPE boolean USING \"IsMailSent\"::int::boolean; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" SET DEFAULT false");
 
             migrationBuilder.Sql(
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"EndTime\"");
@@ -319,7 +333,9 @@ namespace backend.Migrations
                 "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Days\" TYPE text[] USING string_to_array(\"Days\", ',')");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" TYPE boolean USING \"Active\"::int::boolean");
+                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" DROP DEFAULT; " +
+                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" TYPE boolean USING \"Active\"::int::boolean; " +
+                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" SET DEFAULT false");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
