@@ -38,7 +38,10 @@ namespace backend.Migrations
                 oldType: "TEXT");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterTokenExpiration\" TYPE timestamp without time zone USING \"RegisterTokenExpiration\"::timestamp without time zone");
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Users' AND column_name='RegisterTokenExpiration' AND data_type<>'timestamp without time zone') THEN " +
+                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterTokenExpiration\" TYPE timestamp without time zone USING \"RegisterTokenExpiration\"::timestamp without time zone; " +
+                "END IF; END $$;");
 
             migrationBuilder.AlterColumn<string>(
                 name: "RegisterToken",
@@ -50,9 +53,12 @@ namespace backend.Migrations
                 oldNullable: true);
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Users' AND column_name='RegisterMailSent' AND data_type='integer') THEN " +
                 "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" DROP DEFAULT; " +
                 "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" TYPE boolean USING \"RegisterMailSent\"::int::boolean; " +
-                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" SET DEFAULT false");
+                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.AlterColumn<string>(
                 name: "PasswordHash",
@@ -81,14 +87,20 @@ namespace backend.Migrations
                 oldNullable: true);
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Users' AND column_name='IsDelegate' AND data_type='integer') THEN " +
                 "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" DROP DEFAULT; " +
                 "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" TYPE boolean USING \"IsDelegate\"::int::boolean; " +
-                "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" SET DEFAULT false");
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Users' AND column_name='IsAdmin' AND data_type='integer') THEN " +
                 "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" DROP DEFAULT; " +
                 "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" TYPE boolean USING \"IsAdmin\"::int::boolean; " +
-                "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" SET DEFAULT false");
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.AlterColumn<string>(
                 name: "Firstname",
@@ -145,7 +157,10 @@ namespace backend.Migrations
                 oldType: "INTEGER");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"SessionSentToUsers\" ALTER COLUMN \"SentAt\" TYPE timestamp without time zone USING \"SentAt\"::timestamp without time zone");
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='SessionSentToUsers' AND column_name='SentAt' AND data_type<>'timestamp without time zone') THEN " +
+                "ALTER TABLE \"SessionSentToUsers\" ALTER COLUMN \"SentAt\" TYPE timestamp without time zone USING \"SentAt\"::timestamp without time zone; " +
+                "END IF; END $$;");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
@@ -181,7 +196,10 @@ namespace backend.Migrations
                 oldType: "TEXT");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"StartTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"StartTime\"");
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='StartTime' AND data_type<>'timestamp without time zone') THEN " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"StartTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"StartTime\"; " +
+                "END IF; END $$;");
 
             migrationBuilder.AlterColumn<string>(
                 name: "Room",
@@ -254,30 +272,48 @@ namespace backend.Migrations
                 oldType: "TEXT");
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='IsSent' AND data_type='integer') THEN " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" DROP DEFAULT; " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" TYPE boolean USING \"IsSent\"::int::boolean; " +
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" SET DEFAULT false");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='IsMerged' AND data_type='integer') THEN " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" DROP DEFAULT; " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" TYPE boolean USING \"IsMerged\"::int::boolean; " +
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" SET DEFAULT false");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='IsMailSent2' AND data_type='integer') THEN " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" DROP DEFAULT; " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" TYPE boolean USING \"IsMailSent2\"::int::boolean; " +
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" SET DEFAULT false");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='IsMailSent' AND data_type='integer') THEN " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" DROP DEFAULT; " +
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" TYPE boolean USING \"IsMailSent\"::int::boolean; " +
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" SET DEFAULT false");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"EndTime\"");
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='EndTime' AND data_type<>'timestamp without time zone') THEN " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"EndTime\"; " +
+                "END IF; END $$;");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"Date\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"Date\"");
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='Date' AND data_type<>'timestamp without time zone') THEN " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"Date\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"Date\"; " +
+                "END IF; END $$;");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
@@ -330,12 +366,18 @@ namespace backend.Migrations
                 oldType: "TEXT");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Days\" TYPE text[] USING string_to_array(\"Days\", ',')");
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='MailPreferences' AND column_name='Days' AND data_type<>'ARRAY') THEN " +
+                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Days\" TYPE text[] USING string_to_array(\"Days\", ','); " +
+                "END IF; END $$;");
 
             migrationBuilder.Sql(
+                "DO $$ BEGIN " +
+                "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='MailPreferences' AND column_name='Active' AND data_type='integer') THEN " +
                 "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" DROP DEFAULT; " +
                 "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" TYPE boolean USING \"Active\"::int::boolean; " +
-                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" SET DEFAULT false");
+                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" SET DEFAULT false; " +
+                "END IF; END $$;");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
