@@ -37,14 +37,8 @@ namespace backend.Migrations
                 oldClrType: typeof(string),
                 oldType: "TEXT");
 
-            migrationBuilder.AlterColumn<DateTime>(
-                name: "RegisterTokenExpiration",
-                table: "Users",
-                type: "timestamp without time zone",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "TEXT",
-                oldNullable: true);
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterTokenExpiration\" TYPE timestamp without time zone USING \"RegisterTokenExpiration\"::timestamp without time zone");
 
             migrationBuilder.AlterColumn<string>(
                 name: "RegisterToken",
@@ -55,13 +49,8 @@ namespace backend.Migrations
                 oldType: "TEXT",
                 oldNullable: true);
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "RegisterMailSent",
-                table: "Users",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Users\" ALTER COLUMN \"RegisterMailSent\" TYPE boolean USING \"RegisterMailSent\"::int::boolean");
 
             migrationBuilder.AlterColumn<string>(
                 name: "PasswordHash",
@@ -89,21 +78,11 @@ namespace backend.Migrations
                 oldType: "INTEGER",
                 oldNullable: true);
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "IsDelegate",
-                table: "Users",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsDelegate\" TYPE boolean USING \"IsDelegate\"::int::boolean");
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "IsAdmin",
-                table: "Users",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Users\" ALTER COLUMN \"IsAdmin\" TYPE boolean USING \"IsAdmin\"::int::boolean");
 
             migrationBuilder.AlterColumn<string>(
                 name: "Firstname",
@@ -159,13 +138,8 @@ namespace backend.Migrations
                 oldClrType: typeof(int),
                 oldType: "INTEGER");
 
-            migrationBuilder.AlterColumn<DateTime>(
-                name: "SentAt",
-                table: "SessionSentToUsers",
-                type: "timestamp without time zone",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "TEXT");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"SessionSentToUsers\" ALTER COLUMN \"SentAt\" TYPE timestamp without time zone USING \"SentAt\"::timestamp without time zone");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
@@ -200,13 +174,8 @@ namespace backend.Migrations
                 oldClrType: typeof(string),
                 oldType: "TEXT");
 
-            migrationBuilder.AlterColumn<DateTime>(
-                name: "StartTime",
-                table: "Sessions",
-                type: "timestamp without time zone",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "TEXT");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"StartTime\" TYPE timestamp without time zone USING \"StartTime\"::timestamp without time zone");
 
             migrationBuilder.AlterColumn<string>(
                 name: "Room",
@@ -278,53 +247,23 @@ namespace backend.Migrations
                 oldClrType: typeof(string),
                 oldType: "TEXT");
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "IsSent",
-                table: "Sessions",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsSent\" TYPE boolean USING \"IsSent\"::int::boolean");
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "IsMerged",
-                table: "Sessions",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMerged\" TYPE boolean USING \"IsMerged\"::int::boolean");
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "IsMailSent2",
-                table: "Sessions",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent2\" TYPE boolean USING \"IsMailSent2\"::int::boolean");
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "IsMailSent",
-                table: "Sessions",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" TYPE boolean USING \"IsMailSent\"::int::boolean");
 
-            migrationBuilder.AlterColumn<DateTime>(
-                name: "EndTime",
-                table: "Sessions",
-                type: "timestamp without time zone",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "TEXT");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING \"EndTime\"::timestamp without time zone");
 
-            migrationBuilder.AlterColumn<DateTime>(
-                name: "Date",
-                table: "Sessions",
-                type: "timestamp without time zone",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "TEXT");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"Date\" TYPE timestamp without time zone USING \"Date\"::timestamp without time zone");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
@@ -376,21 +315,11 @@ namespace backend.Migrations
                 oldClrType: typeof(string),
                 oldType: "TEXT");
 
-            migrationBuilder.AlterColumn<List<string>>(
-                name: "Days",
-                table: "MailPreferences",
-                type: "text[]",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "TEXT");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Days\" TYPE text[] USING string_to_array(\"Days\", ',')");
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "Active",
-                table: "MailPreferences",
-                type: "boolean",
-                nullable: false,
-                oldClrType: typeof(int),
-                oldType: "INTEGER");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"MailPreferences\" ALTER COLUMN \"Active\" TYPE boolean USING \"Active\"::int::boolean");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
