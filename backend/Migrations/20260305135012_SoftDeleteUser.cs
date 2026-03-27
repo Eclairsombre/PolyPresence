@@ -175,7 +175,7 @@ namespace backend.Migrations
                 oldType: "TEXT");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"StartTime\" TYPE timestamp without time zone USING \"StartTime\"::timestamp without time zone");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"StartTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"StartTime\"");
 
             migrationBuilder.AlterColumn<string>(
                 name: "Room",
@@ -260,10 +260,10 @@ namespace backend.Migrations
                 "ALTER TABLE \"Sessions\" ALTER COLUMN \"IsMailSent\" TYPE boolean USING \"IsMailSent\"::int::boolean");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING \"EndTime\"::timestamp without time zone");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"EndTime\"");
 
             migrationBuilder.Sql(
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"Date\" TYPE timestamp without time zone USING \"Date\"::timestamp without time zone");
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"Date\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"Date\"");
 
             migrationBuilder.AlterColumn<int>(
                 name: "Id",
