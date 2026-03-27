@@ -45,6 +45,7 @@ namespace backend.Controllers
             var session = _context.Sessions
                 .Include(s => s.Attendances)
                 .ThenInclude(a => a.User)
+                .Include(s => s.Specialization)
                 .FirstOrDefault(s => s.Id == sessionId);
 
             if (session == null) return NotFound("Session non trouvée.");
@@ -132,7 +133,8 @@ namespace backend.Controllers
                             column.Item().Background("#eaf6fb").BorderLeft(4).BorderColor("#3498db").Padding(12).PaddingLeft(18).Column(schoolCol =>
                             {
                                 schoolCol.Item().Text("Etablissement de formation : UCBL1 - EPUL").FontSize(12).FontColor("#2c3e50").Bold();
-                                schoolCol.Item().Text("Diplôme : Ingénieur de l'EPUL - spécialité Informatique - apprentissage").FontSize(12).FontColor("#2c3e50").Bold();
+                                var specName = session.Specialization?.Name ?? "Informatique";
+                                schoolCol.Item().Text($"Diplôme : Ingénieur de l'EPUL - spécialité {specName} - apprentissage").FontSize(12).FontColor("#2c3e50").Bold();
                             });
 
                             column.Item().PaddingTop(2);
@@ -371,6 +373,7 @@ namespace backend.Controllers
                 if (prefs.Days == null || !prefs.Days.Contains(today)) continue;
 
                 var sessions = _context.Sessions
+                    .Include(s => s.Specialization)
                     .Where(s => !_context.SessionSentToUsers.Any(ssu => ssu.SessionId == s.Id && ssu.UserId == user.Id) &&
                                 s.Date <= DateTime.Now)
                     .ToList();

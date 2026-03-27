@@ -1,106 +1,143 @@
 <template>
-    <div class="students-list-page">
-        <div class="header-section">
-            <h1>Liste des {{ yearFilter !== 'ADMIN' ? 'étudiants' : ' administrateurs' }}</h1>
-        </div>
-        <div class="actions-bar">
-            <div class="filter-buttons">
-                <button 
-                    :class="{ active: yearFilter === 'ADMIN' }" 
-                    @click="filterYear('ADMIN')"
-                >Admin</button>
-                <button 
-                :class="{ active: yearFilter === '3A' }" 
-                @click="filterYear('3A')"
-                >3A</button>
-                <button 
-                    :class="{ active: yearFilter === '4A' }" 
-                    @click="filterYear('4A')"
-                >4A</button>
-                <button 
-                    :class="{ active: yearFilter === '5A' }" 
-                    @click="filterYear('5A')"
-                >5A</button>
-                <button v-if="yearFilter!=='ADMIN'" @click="openImportPopup">Importer</button>
-            </div>
-            <AddStudentButton @click="openAddPopup" :year="yearFilter" />
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Nom</th>
-                    <th>Prénom</th>
-                    <th>Numéro étudiant</th>
-                    <th>Email</th>
-                    <th>Année</th>
-                    <th v-if="yearFilter!=='ADMIN'">Délégué</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="student in students" :key="student.id">
-                    <td>{{ student.name }}</td>
-                    <td>{{ student.firstname }}</td>
-                    <td>{{ student.studentNumber }}</td>
-                    <td>{{ student.email }}</td>
-                    <td>{{ student.year }}</td>
-                    <td v-if="yearFilter!=='ADMIN'">
-                        <span v-if="student.isDelegate" class="delegate-badge">✔️</span>
-                        <span v-else>-</span>
-                    </td>
-                    <td>
-                        <button class="edit-btn" @click="openEditPopup(student)">Modifier</button>
-                        <button 
-                            class="delete-btn" 
-                            @click="confirmDeleteStudent(student)"
-                            :disabled="isCurrentUser(student)"
-                        >Supprimer</button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <div v-if="students.length === 0" class="empty-message">
-            Aucun étudiant à afficher pour cette année.
-        </div>
+  <div class="students-list-page">
+    <div class="header-section">
+      <h1>
+        Liste des
+        {{ yearFilter !== "ADMIN" ? "étudiants" : " administrateurs" }}
+      </h1>
     </div>
-    <PopUpImportStudent 
-      v-if="showImportPopup" 
-      :year="yearFilter" 
-      :students="students"
-      @close="closeImportPopup" 
-    />
-    <PopUpAddStudent
-      v-if="showAddPopup"
-      :year="yearFilter"
-      @close="closeAddPopup"
-      @student-added="refreshStudents"
-    />
-    <PopUpEditStudent
-      v-if="showEditPopup"
-      :student="selectedStudent"
-      @close="closeEditPopup"
-      @student-updated="refreshStudents"
-    />
-    <PopUpDeleteStudent
-      v-if="showDeleteConfirm"
-      @close="cancelDelete"
-      @confirm="deleteStudent"
-    />
+    <div class="actions-bar">
+      <div class="filter-buttons">
+        <select
+          v-model="selectedSpecializationId"
+          @change="refreshStudents"
+          class="spec-filter"
+        >
+          <option value="">Toutes filières</option>
+          <option
+            v-for="spec in specializations"
+            :key="spec.id"
+            :value="spec.id"
+          >
+            {{ spec.name }} ({{ spec.code }})
+          </option>
+        </select>
+        <button
+          :class="{ active: yearFilter === 'ADMIN' }"
+          @click="filterYear('ADMIN')"
+        >
+          Admin
+        </button>
+        <button
+          :class="{ active: yearFilter === '3A' }"
+          @click="filterYear('3A')"
+        >
+          3A
+        </button>
+        <button
+          :class="{ active: yearFilter === '4A' }"
+          @click="filterYear('4A')"
+        >
+          4A
+        </button>
+        <button
+          :class="{ active: yearFilter === '5A' }"
+          @click="filterYear('5A')"
+        >
+          5A
+        </button>
+        <button v-if="yearFilter !== 'ADMIN'" @click="openImportPopup">
+          Importer
+        </button>
+      </div>
+      <AddStudentButton @click="openAddPopup" :year="yearFilter" />
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Prénom</th>
+          <th>Numéro étudiant</th>
+          <th>Email</th>
+          <th>Année</th>
+          <th v-if="yearFilter !== 'ADMIN'">Délégué</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="student in students" :key="student.id">
+          <td>{{ student.name }}</td>
+          <td>{{ student.firstname }}</td>
+          <td>{{ student.studentNumber }}</td>
+          <td>{{ student.email }}</td>
+          <td>{{ student.year }}</td>
+          <td v-if="yearFilter !== 'ADMIN'">
+            <span v-if="student.isDelegate" class="delegate-badge">✔️</span>
+            <span v-else>-</span>
+          </td>
+          <td>
+            <button class="edit-btn" @click="openEditPopup(student)">
+              Modifier
+            </button>
+            <button
+              class="delete-btn"
+              @click="confirmDeleteStudent(student)"
+              :disabled="isCurrentUser(student)"
+            >
+              Supprimer
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div v-if="students.length === 0" class="empty-message">
+      Aucun étudiant à afficher pour cette année.
+    </div>
+  </div>
+  <PopUpImportStudent
+    v-if="showImportPopup"
+    :year="yearFilter"
+    :students="students"
+    @close="closeImportPopup"
+  />
+  <PopUpAddStudent
+    v-if="showAddPopup"
+    :year="yearFilter"
+    @close="closeAddPopup"
+    @student-added="refreshStudents"
+  />
+  <PopUpEditStudent
+    v-if="showEditPopup"
+    :student="selectedStudent"
+    @close="closeEditPopup"
+    @student-updated="refreshStudents"
+  />
+  <PopUpDeleteStudent
+    v-if="showDeleteConfirm"
+    @close="cancelDelete"
+    @confirm="deleteStudent"
+  />
 </template>
 
 <script setup>
-import { useStudentsStore } from '../../stores/studentsStore.js';
-import { useAuthStore } from '../../stores/authStore.js';
-import { onMounted, ref, computed } from 'vue';
-import PopUpImportStudent from '../popups/PopUpImportStudent.vue';
-import PopUpAddStudent from '../popups/PopUpAddStudent.vue';
-import AddStudentButton from '../buttons/AddStudentButton.vue';
-import PopUpEditStudent from '../popups/PopUpEditStudent.vue';
-import PopUpDeleteStudent from '../popups/PopUpDeleteStudent.vue';
+import { useStudentsStore } from "../../stores/studentsStore.js";
+import { useAuthStore } from "../../stores/authStore.js";
+import { useSpecializationStore } from "../../stores/specializationStore.js";
+import { onMounted, ref, computed } from "vue";
+import PopUpImportStudent from "../popups/PopUpImportStudent.vue";
+import PopUpAddStudent from "../popups/PopUpAddStudent.vue";
+import AddStudentButton from "../buttons/AddStudentButton.vue";
+import PopUpEditStudent from "../popups/PopUpEditStudent.vue";
+import PopUpDeleteStudent from "../popups/PopUpDeleteStudent.vue";
 
-const yearFilter = ref('3A');
+const yearFilter = ref("3A");
+const selectedSpecializationId = ref("");
 const studentsStore = useStudentsStore();
 const authStore = useAuthStore();
+const specializationStore = useSpecializationStore();
+const specializations = computed(
+  () => specializationStore.activeSpecializations,
+);
 const showImportPopup = ref(false);
 const showAddPopup = ref(false);
 const showEditPopup = ref(false);
@@ -110,24 +147,28 @@ const selectedStudent = ref(null);
 const students = ref([]);
 
 onMounted(async () => {
-    authStore.initialize();
-    await refreshStudents();
+  authStore.initialize();
+  await specializationStore.fetchSpecializations();
+  await refreshStudents();
 });
 
 const refreshStudents = async () => {
-    students.value = await studentsStore.fetchStudents(yearFilter.value);
-    students.value = students.value.sort((a, b) => a.name.localeCompare(b.name));
+  const specId = selectedSpecializationId.value || undefined;
+  students.value = await studentsStore.fetchStudents(yearFilter.value, specId);
+  students.value = students.value.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const currentUser = computed(() => authStore.user);
 
 const isCurrentUser = (student) => {
-  return currentUser.value && currentUser.value.studentId === student.studentNumber;
+  return (
+    currentUser.value && currentUser.value.studentId === student.studentNumber
+  );
 };
 
 const filterYear = async (year) => {
-    yearFilter.value = year;
-    await refreshStudents();
+  yearFilter.value = year;
+  await refreshStudents();
 };
 
 const openImportPopup = () => {
@@ -174,124 +215,144 @@ const cancelDelete = () => {
 
 <style scoped>
 .students-list-page {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
 .header-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .actions-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .filter-buttons {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.spec-filter {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+  background: #fff;
 }
 
 .filter-buttons button {
-    padding: 8px 16px;
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
+  padding: 8px 16px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .filter-buttons button:hover {
-    background-color: #e0e0e0;
+  background-color: #e0e0e0;
 }
 
 .filter-buttons button.active {
-    background-color: #2c3e50;
-    color: white;
-    border-color: #2c3e50;
+  background-color: #2c3e50;
+  color: white;
+  border-color: #2c3e50;
 }
 
 table {
-    width: 100%;
-    border-collapse: collapse;
+  width: 100%;
+  border-collapse: collapse;
 }
 
-th, td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
+th,
+td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
 th {
-    background-color: #f5f5f5;
-    font-weight: bold;
+  background-color: #f5f5f5;
+  font-weight: bold;
 }
 
 tr:hover {
-    background-color: #f9f9f9;
+  background-color: #f9f9f9;
 }
 
 .empty-message {
-    margin-top: 20px;
-    text-align: center;
-    color: #888;
+  margin-top: 20px;
+  text-align: center;
+  color: #888;
 }
 
-.edit-btn, .delete-btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.95rem;
-    font-weight: 500;
-    cursor: pointer;
-    margin-right: 8px;
-    transition: background-color 0.2s, color 0.2s;
+.edit-btn,
+.delete-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 8px;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .edit-btn {
-    background-color: #3498db;
-    color: white;
+  background-color: #3498db;
+  color: white;
 }
 
 .edit-btn:hover {
-    background-color: #217dbb;
+  background-color: #217dbb;
 }
 
 .delete-btn {
-    background-color: #e74c3c;
-    color: white;
-    margin-right: 0;
+  background-color: #e74c3c;
+  color: white;
+  margin-right: 0;
 }
 
 .delete-btn:hover {
-    background-color: #c0392b;
+  background-color: #c0392b;
 }
 
 .delete-btn:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 
 .delete-btn:disabled:hover {
-    background-color: #ccc;
+  background-color: #ccc;
 }
 
 @media (max-width: 600px) {
-  table, thead, tbody, th, td, tr {
+  table,
+  thead,
+  tbody,
+  th,
+  td,
+  tr {
     display: block;
     width: 100%;
   }
-  th, td {
+  th,
+  td {
     padding: 8px 4px;
     font-size: 0.98em;
   }
-  .edit-btn, .delete-btn {
+  .edit-btn,
+  .delete-btn {
     width: 100%;
     margin: 4px 0 0 0;
     font-size: 0.95em;

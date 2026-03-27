@@ -22,7 +22,7 @@ export const useStudentsStore = defineStore("students", {
 
       if (!authStore.user?.isAdmin) {
         console.error(
-          "Seuls les administrateurs peuvent effectuer cette action"
+          "Seuls les administrateurs peuvent effectuer cette action",
         );
         throw new Error("Non autorisé : action réservée aux administrateurs");
       }
@@ -61,7 +61,7 @@ export const useStudentsStore = defineStore("students", {
         if (!authStore.user || !authStore.user.studentId) {
           console.error("Vous devez être connecté pour ajouter un étudiant");
           throw new Error(
-            "Non autorisé : vous devez être connecté pour ajouter un étudiant"
+            "Non autorisé : vous devez être connecté pour ajouter un étudiant",
           );
         }
 
@@ -83,7 +83,7 @@ export const useStudentsStore = defineStore("students", {
         }
         if (error.response?.status === 401) {
           console.error(
-            "Non autorisé : seuls les administrateurs peuvent ajouter des étudiants."
+            "Non autorisé : seuls les administrateurs peuvent ajouter des étudiants.",
           );
           return false;
         }
@@ -95,11 +95,16 @@ export const useStudentsStore = defineStore("students", {
     /**
      * Fetches all students for a specific academic year
      * @param {string} year - Academic year ('3A', '4A', '5A')
+     * @param {number} [specializationId] - Optional specialization ID filter
      * @returns {Promise<Array>} Array of student objects
      */
-    async fetchStudents(year) {
+    async fetchStudents(year, specializationId) {
       try {
-        const response = await axios.get(`${API_URL}/User/year/${year}`);
+        let url = `${API_URL}/User/year/${year}`;
+        if (specializationId) {
+          url += `?specializationId=${specializationId}`;
+        }
+        const response = await axios.get(url);
 
         if (response.status === 404) {
           console.warn("Aucun étudiant trouvé pour l'année spécifiée.");
@@ -136,14 +141,14 @@ export const useStudentsStore = defineStore("students", {
 
         if (axios.isAxiosError(error) && error.response?.status === 401) {
           console.warn(
-            `Accès non autorisé à la liste des étudiants de ${year}`
+            `Accès non autorisé à la liste des étudiants de ${year}`,
           );
           return [];
         }
 
         console.error(
           `Erreur lors de la récupération des étudiants de ${year}:`,
-          error
+          error,
         );
         return [];
       }
@@ -160,11 +165,11 @@ export const useStudentsStore = defineStore("students", {
 
         const response = await axios.delete(
           `${API_URL}/User/${encodeURIComponent(studentNumber)}`,
-          config
+          config,
         );
         if (response.status === 204 || response.status === 200) {
           this.students = this.students.filter(
-            (student) => student.studentNumber !== studentNumber
+            (student) => student.studentNumber !== studentNumber,
           );
           return true;
         }
@@ -192,7 +197,7 @@ export const useStudentsStore = defineStore("students", {
     async getStudent(studentNumber) {
       try {
         const response = await axios.get(
-          `${API_URL}/User/search/${encodeURIComponent(studentNumber)}`
+          `${API_URL}/User/search/${encodeURIComponent(studentNumber)}`,
         );
         if (response.status === 200 && response.data.exists) {
           const student = response.data.user || response.data;
@@ -208,7 +213,7 @@ export const useStudentsStore = defineStore("students", {
         } else {
           console.error(
             "Erreur lors de la récupération de l'étudiant:",
-            response.statusText
+            response.statusText,
           );
           return null;
         }
@@ -259,11 +264,11 @@ export const useStudentsStore = defineStore("students", {
         const response = await axios.put(
           `${API_URL}/User/${encodeURIComponent(student.studentNumber)}`,
           student,
-          config
+          config,
         );
         if (response.data) {
           const idx = this.students.findIndex(
-            (s) => s.studentNumber === student.studentNumber
+            (s) => s.studentNumber === student.studentNumber,
           );
           if (idx !== -1) {
             this.students[idx] = { ...response.data };
@@ -294,7 +299,7 @@ export const useStudentsStore = defineStore("students", {
     async havePasword(studentNumber) {
       try {
         const response = await axios.get(
-          `${API_URL}/User/have-password/${encodeURIComponent(studentNumber)}`
+          `${API_URL}/User/have-password/${encodeURIComponent(studentNumber)}`,
         );
         return response.data.havePassword;
       } catch (error) {
@@ -312,7 +317,7 @@ export const useStudentsStore = defineStore("students", {
       try {
         const config = await this._createAdminConfig();
         const url = `${API_URL}/User/make-admin/${encodeURIComponent(
-          studentNumber
+          studentNumber,
         )}`;
 
         const response = await axios.post(url, {}, config);

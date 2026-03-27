@@ -39,12 +39,13 @@ export const useIcsLinkStore = defineStore("icsLink", {
      * Adds a new ICS calendar link
      * @param {string} year - Academic year ('3A', '4A', '5A')
      * @param {string} url - ICS calendar URL
+     * @param {number} specializationId - Specialization ID
      */
-    async addIcsLink(year, url) {
+    async addIcsLink(year, url, specializationId) {
       this.loading = true;
       this.error = null;
       try {
-        await axios.post(`${API_URL}/IcsLink`, { year, url });
+        await axios.post(`${API_URL}/IcsLink`, { year, url, specializationId });
         this.message = "Lien ajouté !";
         this.success = true;
         await this.fetchIcsLinks();
@@ -62,12 +63,18 @@ export const useIcsLinkStore = defineStore("icsLink", {
      * @param {number} id - Link ID
      * @param {string} year - Academic year ('3A', '4A', '5A')
      * @param {string} url - ICS calendar URL
+     * @param {number} specializationId - Specialization ID
      */
-    async updateIcsLink(id, year, url) {
+    async updateIcsLink(id, year, url, specializationId) {
       this.loading = true;
       this.error = null;
       try {
-        await axios.put(`${API_URL}/IcsLink/${id}`, { id, year, url });
+        await axios.put(`${API_URL}/IcsLink/${id}`, {
+          id,
+          year,
+          url,
+          specializationId,
+        });
         this.message = "Lien modifié !";
         this.success = true;
         await this.fetchIcsLinks();
@@ -107,12 +114,17 @@ export const useIcsLinkStore = defineStore("icsLink", {
      * Imports sessions from an ICS calendar
      * @param {string} icsUrl - ICS calendar URL
      * @param {string} year - Academic year to associate with imported sessions
+     * @param {number} specializationId - Specialization ID
      */
-    async importIcs(icsUrl, year) {
+    async importIcs(icsUrl, year, specializationId) {
       this.loading = true;
       this.error = null;
       try {
-        await axios.post(`${API_URL}/Import/import-ics`, { icsUrl, year });
+        await axios.post(`${API_URL}/Import/import-ics`, {
+          icsUrl,
+          year,
+          specializationId,
+        });
         this.message = "Import effectué !";
         this.success = true;
       } catch (e) {
@@ -159,7 +171,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
       } catch (e) {
         console.error(
           "Erreur lors de la récupération du statut de l'import automatique",
-          e
+          e,
         );
       }
     },

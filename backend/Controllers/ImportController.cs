@@ -27,6 +27,7 @@ namespace backend.Controllers
         {
             public string IcsUrl { get; set; } = string.Empty;
             public string Year { get; set; } = string.Empty;
+            public int? SpecializationId { get; set; }
         }
 
         /**
@@ -38,6 +39,22 @@ namespace backend.Controllers
         {
             if (string.IsNullOrWhiteSpace(model.IcsUrl) || string.IsNullOrWhiteSpace(model.Year))
                 return BadRequest(new { error = true, message = "URL ICS ou année manquante." });
+
+            int specializationId;
+            if (model.SpecializationId.HasValue)
+            {
+                var spec = await _context.Specializations.FindAsync(model.SpecializationId.Value);
+                if (spec == null)
+                    return BadRequest(new { error = true, message = "Filière introuvable." });
+                specializationId = spec.Id;
+            }
+            else
+            {
+                var defaultSpec = await _context.Specializations.FirstOrDefaultAsync(s => s.Code == "INFO");
+                if (defaultSpec == null)
+                    return BadRequest(new { error = true, message = "Aucune filière par défaut trouvée." });
+                specializationId = defaultSpec.Id;
+            }
 
             try
             {
@@ -52,7 +69,7 @@ namespace backend.Controllers
                 _logger.LogInformation($"{processedSessions.Count} sessions après application des règles métier.");
 
                 // Save
-                await SyncWithDatabase(processedSessions, model.Year);
+                await SyncWithDatabase(processedSessions, model.Year, specializationId);
 
                 _logger.LogInformation($"=== FIN ImportIcs pour {model.Year} ===");
                 return Ok(new { success = true, message = "Import terminé avec succès." });
@@ -78,7 +95,7 @@ namespace backend.Controllers
                     logger.LogInformation($"Traitement du lien pour l'année {link.Year}...");
                     var rawSessions = await FetchAndParseIcs(link.Url, link.Year);
                     var processedSessions = ApplyBusinessRules(rawSessions);
-                    await SyncWithDatabase(processedSessions, link.Year);
+                    await SyncWithDatabase(processedSessions, link.Year, link.SpecializationId);
                 }
                 catch (Exception ex)
                 {
@@ -325,11 +342,11 @@ namespace backend.Controllers
             return string.Join(" / ", parts.Distinct());
         }
 
-        private async Task SyncWithDatabase(List<ImportedSession> importedSessions, string year)
+        private async Task SyncWithDatabase(List<ImportedSession> importedSessions, string year, int specializationId)
         {
             // Récupération des sessions existantes pour l'année
             var existingSessions = await _context.Sessions
-                .Where(s => s.Year == year)
+                .Where(s => s.Year == year && s.SpecializationId == specializationId)
                 .Include(s => s.Attendances)
                 .ToListAsync();
 
@@ -386,7 +403,8 @@ namespace backend.Controllers
                         TargetGroup = imported.TargetGroup,
                         ValidationCode = new Random().Next(1000, 9999).ToString(),
                         ProfSignatureToken = Guid.NewGuid().ToString(),
-                        ProfSignatureToken2 = !string.IsNullOrEmpty(imported.ProfId2) ? Guid.NewGuid().ToString() : null
+                        ProfSignatureToken2 = !string.IsNullOrEmpty(imported.ProfId2) ? Guid.NewGuid().ToString() : null,
+                        SpecializationId = specializationId
                     };
                     sessionsToAdd.Add(newSession);
                 }
@@ -411,13 +429,13 @@ namespace backend.Controllers
             // Création des feuilles de présence pour les nouvelles sessions
             if (sessionsToAdd.Any())
             {
-                await CreateAttendancesForNewSessions(sessionsToAdd, year);
+                await CreateAttendancesForNewSessions(sessionsToAdd, year, specializationId);
             }
         }
 
-        private async Task CreateAttendancesForNewSessions(List<Session> sessions, string year)
+        private async Task CreateAttendancesForNewSessions(List<Session> sessions, string year, int specializationId)
         {
-            var students = await _context.Users.Where(u => u.Year == year && !u.IsDeleted).ToListAsync();
+            var students = await _context.Users.Where(u => u.Year == year && !u.IsDeleted && u.SpecializationId == specializationId).ToListAsync();
             var attendances = new List<Attendance>();
 
             foreach (var session in sessions)

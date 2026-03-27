@@ -101,7 +101,9 @@ namespace backend.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<object>>> GetSessions()
         {
-            var sessions = await _context.Sessions.ToListAsync();
+            var sessions = await _context.Sessions
+                .Include(s => s.Specialization)
+                .ToListAsync();
 
             var isAdmin = false;
             var isDelegate = false;
@@ -136,13 +138,40 @@ namespace backend.Controllers
                     s.ProfSignatureToken2,
                     s.IsSent,
                     s.IsMailSent,
-                    s.IsMailSent2
+                    s.IsMailSent2,
+                    s.SpecializationId,
+                    SpecializationName = s.Specialization?.Name,
+                    SpecializationCode = s.Specialization?.Code
                 }).ToList();
 
                 return sessionsWithoutCode;
             }
 
-            return sessions;
+            return sessions.Select(s => new
+            {
+                s.Id,
+                s.Date,
+                s.StartTime,
+                s.EndTime,
+                s.Year,
+                s.Name,
+                s.Room,
+                s.ValidationCode,
+                s.ProfId,
+                s.ProfSignature,
+                s.ProfSignatureToken,
+                s.ProfId2,
+                s.ProfSignature2,
+                s.ProfSignatureToken2,
+                s.TargetGroup,
+                s.IsSent,
+                s.IsMailSent,
+                s.IsMailSent2,
+                s.IsMerged,
+                s.SpecializationId,
+                SpecializationName = s.Specialization?.Name,
+                SpecializationCode = s.Specialization?.Code
+            }).ToList();
         }
 
         /**
@@ -154,7 +183,9 @@ namespace backend.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<object>> GetSession(int id)
         {
-            var session = await _context.Sessions.FindAsync(id);
+            var session = await _context.Sessions
+                .Include(s => s.Specialization)
+                .FirstOrDefaultAsync(s => s.Id == id);
 
             if (session == null)
             {
@@ -202,12 +233,39 @@ namespace backend.Controllers
                     session.ProfSignatureToken2,
                     session.IsSent,
                     session.IsMailSent,
-                    session.IsMailSent2
+                    session.IsMailSent2,
+                    session.SpecializationId,
+                    SpecializationName = session.Specialization?.Name,
+                    SpecializationCode = session.Specialization?.Code
                 });
             }
 
             _logger.LogInformation($"Returning full session {id} with validation code");
-            return session;
+            return new ActionResult<object>(new
+            {
+                session.Id,
+                session.Date,
+                session.StartTime,
+                session.EndTime,
+                session.Year,
+                session.Name,
+                session.Room,
+                session.ValidationCode,
+                session.ProfId,
+                session.ProfSignature,
+                session.ProfSignatureToken,
+                session.ProfId2,
+                session.ProfSignature2,
+                session.ProfSignatureToken2,
+                session.TargetGroup,
+                session.IsSent,
+                session.IsMailSent,
+                session.IsMailSent2,
+                session.IsMerged,
+                session.SpecializationId,
+                SpecializationName = session.Specialization?.Name,
+                SpecializationCode = session.Specialization?.Code
+            });
         }
 
         /**
@@ -221,6 +279,7 @@ namespace backend.Controllers
         {
             var sessions = await _context.Sessions
                 .Where(s => s.Year == year)
+                .Include(s => s.Specialization)
                 .ToListAsync();
 
             if (sessions == null || sessions.Count == 0)
@@ -261,13 +320,40 @@ namespace backend.Controllers
                     s.ProfSignatureToken2,
                     s.IsSent,
                     s.IsMailSent,
-                    s.IsMailSent2
+                    s.IsMailSent2,
+                    s.SpecializationId,
+                    SpecializationName = s.Specialization?.Name,
+                    SpecializationCode = s.Specialization?.Code
                 }).ToList();
 
                 return sessionsWithoutCode;
             }
 
-            return sessions;
+            return sessions.Select(s => new
+            {
+                s.Id,
+                s.Date,
+                s.StartTime,
+                s.EndTime,
+                s.Year,
+                s.Name,
+                s.Room,
+                s.ValidationCode,
+                s.ProfId,
+                s.ProfSignature,
+                s.ProfSignatureToken,
+                s.ProfId2,
+                s.ProfSignature2,
+                s.ProfSignatureToken2,
+                s.TargetGroup,
+                s.IsSent,
+                s.IsMailSent,
+                s.IsMailSent2,
+                s.IsMerged,
+                s.SpecializationId,
+                SpecializationName = s.Specialization?.Name,
+                SpecializationCode = s.Specialization?.Code
+            }).ToList();
         }
 
         /**

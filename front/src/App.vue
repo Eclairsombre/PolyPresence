@@ -3,28 +3,45 @@
     <header class="app-header">
       <div class="header-left">
         <router-link to="/">
-          <img src="/polytech-logo.png" alt="Logo PolyPresence" class="header-logo" />
+          <img
+            src="/polytech-logo.png"
+            alt="Logo PolyPresence"
+            class="header-logo"
+          />
         </router-link>
         <h1>PolyPresence</h1>
       </div>
       <nav class="app-nav">
         <router-link to="/">Accueil</router-link>
-        <router-link to="/signature" v-if="user && !isAdmin">Ma signature</router-link>
+        <router-link to="/signature" v-if="user && !isAdmin"
+          >Ma signature</router-link
+        >
         <div v-if="isAdmin" class="admin-menu">
-          <button class="admin-menu-btn" @click="showAdminMenu = !showAdminMenu">
-            Administration <span class="arrow" :class="{ open: showAdminMenu }">▼</span>
+          <button
+            class="admin-menu-btn"
+            @click="showAdminMenu = !showAdminMenu"
+          >
+            Administration
+            <span class="arrow" :class="{ open: showAdminMenu }">▼</span>
           </button>
           <div v-if="showAdminMenu" class="admin-dropdown">
             <router-link to="/professors">Professeurs</router-link>
             <router-link to="/students">Étudiants</router-link>
             <router-link to="/sessions">Sessions</router-link>
-            <router-link to="/mail-preferences">Préférences de Mail</router-link>
+            <router-link to="/mail-preferences"
+              >Préférences de Mail</router-link
+            >
             <router-link to="/admin/import-edt">Importer l'EDT</router-link>
+            <router-link to="/admin/specializations">Filières</router-link>
           </div>
         </div>
         <div class="auth-actions">
-          <button v-if="!user" class="auth-btn" @click="goToLogin">Se connecter</button>
-          <button v-else class="auth-btn" @click="logout">Se déconnecter</button>
+          <button v-if="!user" class="auth-btn" @click="goToLogin">
+            Se connecter
+          </button>
+          <button v-else class="auth-btn" @click="logout">
+            Se déconnecter
+          </button>
         </div>
       </nav>
     </header>
@@ -36,12 +53,11 @@
     </footer>
   </div>
 </template>
-  
 
 <script setup>
-import { useAuthStore } from './stores/authStore';
-import { computed, onMounted, ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from "./stores/authStore";
+import { computed, onMounted, ref } from "vue";
+import { useRouter, useRoute } from "vue-router";
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -55,16 +71,16 @@ const user = computed(() => authStore.user);
 const showAdminMenu = ref(false);
 
 const goToLogin = () => {
-  router.push({ name: 'login' });
+  router.push({ name: "login" });
 };
 
 const logout = async () => {
   await authStore.logout();
-  router.push({ name: 'login' });
+  router.push({ name: "login" });
 };
 
 const isAuthPage = computed(() => {
-  const authRoutes = ['/login', '/register', '/forgot-password'];
+  const authRoutes = ["/login", "/register", "/forgot-password"];
   return authRoutes.includes(route.path);
 });
 
@@ -73,7 +89,6 @@ onMounted(() => {
     authStore.isAdmin();
   }
 });
-
 </script>
 
 <style>
@@ -84,7 +99,7 @@ onMounted(() => {
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
   color: #333;
   background-color: #f5f7fa;
@@ -111,7 +126,6 @@ body {
   font-weight: 500;
 }
 
-
 .app-nav {
   display: flex;
   gap: 10px;
@@ -133,8 +147,10 @@ body {
   display: inline-block;
 }
 
-.app-nav > a:hover, .app-nav > a.router-link-active,
-.admin-menu-btn:hover, .admin-menu-btn:focus {
+.app-nav > a:hover,
+.app-nav > a.router-link-active,
+.admin-menu-btn:hover,
+.admin-menu-btn:focus {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -161,7 +177,7 @@ body {
   left: 0;
   background: #34495e;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   min-width: 180px;
   z-index: 100;
   display: flex;
@@ -176,7 +192,8 @@ body {
   transition: background 0.2s;
   font-size: 1em;
 }
-.admin-dropdown a:hover, .admin-dropdown a.router-link-active {
+.admin-dropdown a:hover,
+.admin-dropdown a.router-link-active {
   background: #217dbb;
 }
 .auth-actions {
@@ -222,8 +239,6 @@ pre {
   font-size: 0.9rem;
 }
 
-
-
 @media (max-width: 900px) {
   .app-nav {
     flex-wrap: wrap;
@@ -240,7 +255,6 @@ pre {
     padding: 15px;
   }
 }
-
 
 @media (max-width: 600px) {
   .app-header {
@@ -282,18 +296,21 @@ pre {
 .auth-btn {
   background: transparent;
   color: white;
-  border: 1px solid rgba(255,255,255,0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   padding: 8px 18px;
   border-radius: 20px;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, border 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    border 0.2s,
+    color 0.2s;
   box-shadow: none;
 }
 
 .auth-btn:hover {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   color: #e0e0e0;
   border: 1px solid #fff;
 }

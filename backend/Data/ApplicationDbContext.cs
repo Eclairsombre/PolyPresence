@@ -19,6 +19,7 @@ namespace backend.Data
 
         public DbSet<SessionSentToUser> SessionSentToUsers { get; set; }
         public DbSet<IcsLink> IcsLinks { get; set; }
+        public DbSet<Specialization> Specializations { get; set; } = null!;
 
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -40,6 +41,31 @@ namespace backend.Data
                 .HasIndex(a => new { a.SessionId, a.StudentId })
                 .IsUnique();
 
+            modelBuilder.Entity<Specialization>()
+                .HasIndex(s => s.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<Session>()
+                .HasOne(s => s.Specialization)
+                .WithMany()
+                .HasForeignKey(s => s.SpecializationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Specialization)
+                .WithMany()
+                .HasForeignKey(u => u.SpecializationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<IcsLink>()
+                .HasOne(l => l.Specialization)
+                .WithMany()
+                .HasForeignKey(l => l.SpecializationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<IcsLink>()
+                .HasIndex(l => new { l.SpecializationId, l.Year })
+                .IsUnique();
 
         }
     }

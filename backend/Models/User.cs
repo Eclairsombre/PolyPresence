@@ -26,5 +26,8 @@ namespace backend.Models
 
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
+
+        public int? SpecializationId { get; set; }
+        public Specialization? Specialization { get; set; }
     }
 }

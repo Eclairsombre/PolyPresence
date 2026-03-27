@@ -13,8 +13,8 @@
         <div class="school-info">
           <p>Etablissement de formation : UCBL1 - EPUL</p>
           <p>
-            Diplôme : Ingénieur de l'EPUL - spécialité Informatique -
-            apprentissage
+            Diplôme : Ingénieur de l'EPUL - spécialité
+            {{ session?.specializationName || "Informatique" }} - apprentissage
           </p>
         </div>
         <div class="session-info">

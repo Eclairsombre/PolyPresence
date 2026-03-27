@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace backend.Models
 {
@@ -12,6 +13,11 @@ namespace backend.Models
         public string Name { get; set; } = string.Empty;
         public string Room { get; set; } = string.Empty;
         public string ValidationCode { get; set; } = string.Empty;
+
+        public int SpecializationId { get; set; }
+        [JsonIgnore]
+        [ValidateNever]
+        public Specialization Specialization { get; set; } = null!;
 
         public string? ProfId { get; set; }
 

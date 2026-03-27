@@ -5,129 +5,208 @@
       <div v-if="loading" class="loading-indicator">
         Chargement des données...
       </div>
-      <div v-else-if="loadingError" class="register-error" style="margin-bottom: 20px;">
+      <div
+        v-else-if="loadingError"
+        class="register-error"
+        style="margin-bottom: 20px"
+      >
         {{ loadingError }}
         <button class="retry-btn" @click="retryLoading">Réessayer</button>
       </div>
       <div v-else class="register-form-select">
+        <label for="spec-select">Choisissez votre filière :</label>
+        <select
+          v-model="selectedSpecializationId"
+          id="spec-select"
+          class="register-input"
+          style="max-width: 300px; margin-bottom: 20px"
+        >
+          <option value="">Toutes les filières</option>
+          <option
+            v-for="spec in specializations"
+            :key="spec.id"
+            :value="spec.id"
+          >
+            {{ spec.name }} ({{ spec.code }})
+          </option>
+        </select>
         <label for="year-select">Choisissez votre année :</label>
-        <select v-model="selectedYear" id="year-select" class="register-input" style="max-width:200px;margin-bottom:20px;">
-          <option value="ADMIN">Admin</option> 
+        <select
+          v-model="selectedYear"
+          id="year-select"
+          class="register-input"
+          style="max-width: 200px; margin-bottom: 20px"
+        >
+          <option value="ADMIN">Admin</option>
           <option value="3A">3A</option>
           <option value="4A">4A</option>
           <option value="5A">5A</option>
         </select>
         <label for="student-select">Sélectionnez votre nom :</label>
-        <select v-model="selectedStudentNumber" id="student-select" class="register-input" style="max-width:300px;margin-bottom:20px;">
+        <select
+          v-model="selectedStudentNumber"
+          id="student-select"
+          class="register-input"
+          style="max-width: 300px; margin-bottom: 20px"
+        >
           <option value="" disabled>Choisir un étudiant</option>
-          <option v-for="student in studentsByYear[selectedYear]" :key="student.studentNumber" :value="student.studentNumber">
+          <option
+            v-for="student in studentsByYear[selectedYear]"
+            :key="student.studentNumber"
+            :value="student.studentNumber"
+          >
             {{ student.name }} {{ student.firstname }}
           </option>
         </select>
-        <div v-if="studentsByYear[selectedYear].length === 0" class="register-info">
-          Aucun étudiant disponible pour cette année ou tous les étudiants ont déjà un compte.
+        <div
+          v-if="studentsByYear[selectedYear].length === 0"
+          class="register-info"
+        >
+          Aucun étudiant disponible pour cette année ou tous les étudiants ont
+          déjà un compte.
         </div>
-        <button class="register-btn" :disabled="!selectedStudentNumber || sending" @click="sendRegisterMail">
-          {{ sending ? 'Envoi en cours...' : 'Recevoir un lien de création de mot de passe' }}
+        <button
+          class="register-btn"
+          :disabled="!selectedStudentNumber || sending"
+          @click="sendRegisterMail"
+        >
+          {{
+            sending
+              ? "Envoi en cours..."
+              : "Recevoir un lien de création de mot de passe"
+          }}
         </button>
         <div v-if="errorMessage" class="register-error">{{ errorMessage }}</div>
-        <div v-if="successMessage" class="register-success">{{ successMessage }}</div>
+        <div v-if="successMessage" class="register-success">
+          {{ successMessage }}
+        </div>
       </div>
-      <button @click="goToLogin" class="redirect-btn">Déjà un compte ? Se connecter</button>
+      <button @click="goToLogin" class="redirect-btn">
+        Déjà un compte ? Se connecter
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
-import { useRouter } from 'vue-router';
-import { useStudentsStore } from '../../stores/studentsStore.js';
+import { ref, onMounted, computed, watch } from "vue";
+import axios from "axios";
+import { useRouter } from "vue-router";
+import { useStudentsStore } from "../../stores/studentsStore.js";
+import { useSpecializationStore } from "../../stores/specializationStore.js";
 
-const studentsByYear = ref({'ADMIN':[], '3A': [], '4A': [], '5A': [] });
+const studentsByYear = ref({ ADMIN: [], "3A": [], "4A": [], "5A": [] });
 const studentsStore = useStudentsStore();
-const selectedYear = ref('3A');
-const selectedStudentNumber = ref('');
-const errorMessage = ref('');
-const successMessage = ref('');
+const specializationStore = useSpecializationStore();
+const specializations = computed(
+  () => specializationStore.activeSpecializations,
+);
+const selectedSpecializationId = ref("");
+const selectedYear = ref("3A");
+const selectedStudentNumber = ref("");
+const errorMessage = ref("");
+const successMessage = ref("");
 const sending = ref(false);
 const loading = ref(true);
-const loadingError = ref('');
+const loadingError = ref("");
 const router = useRouter();
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const fetchAllStudents = async () => {
-  errorMessage.value = '';
-  loadingError.value = '';
-  
+  errorMessage.value = "";
+  loadingError.value = "";
+
   try {
-    for (const year of ['ADMIN','3A', '4A', '5A']) {
-      const students = await studentsStore.fetchStudents(year);
+    for (const year of ["ADMIN", "3A", "4A", "5A"]) {
+      const specId = selectedSpecializationId.value || undefined;
+      const students = await studentsStore.fetchStudents(year, specId);
       const tempStudents = [];
-      
+
       if (students && students.length > 0) {
         for (const student of students) {
           try {
             try {
-              const hasPassword = await studentsStore.havePasword(student.studentNumber);
+              const hasPassword = await studentsStore.havePasword(
+                student.studentNumber,
+              );
               if (hasPassword !== true) {
                 tempStudents.push(student);
               }
             } catch (err) {
-              console.warn(`Erreur lors de la vérification du mot de passe pour ${student.studentNumber}, on l'ajoute par défaut:`, err);
+              console.warn(
+                `Erreur lors de la vérification du mot de passe pour ${student.studentNumber}, on l'ajoute par défaut:`,
+                err,
+              );
               tempStudents.push(student);
             }
           } catch (err) {
-            console.warn(`Erreur lors de la vérification du mot de passe pour ${student.studentNumber}:`, err);
+            console.warn(
+              `Erreur lors de la vérification du mot de passe pour ${student.studentNumber}:`,
+              err,
+            );
           }
         }
       }
-      
-      studentsByYear.value[year] = tempStudents.sort((a, b) => a.name.localeCompare(b.name));
+
+      studentsByYear.value[year] = tempStudents.sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
     }
-    loadingError.value = '';
+    loadingError.value = "";
   } catch (error) {
-    loadingError.value = "Erreur lors du chargement des étudiants. Veuillez réessayer plus tard.";
+    loadingError.value =
+      "Erreur lors du chargement des étudiants. Veuillez réessayer plus tard.";
     console.error("Erreur lors de la récupération des étudiants:", error);
-    throw error; 
+    throw error;
   }
 };
 
 const goToLogin = () => {
-  router.push('/login');
+  router.push("/login");
 };
 
 const retryLoading = async () => {
   loading.value = true;
-  loadingError.value = '';
+  loadingError.value = "";
   await fetchAllStudents();
 };
 
 onMounted(async () => {
   try {
     loading.value = true;
+    await specializationStore.fetchSpecializations();
     await fetchAllStudents();
   } finally {
     loading.value = false;
   }
 });
 
+watch(selectedSpecializationId, async () => {
+  loading.value = true;
+  await fetchAllStudents();
+  loading.value = false;
+});
+
 const sendRegisterMail = async () => {
-  errorMessage.value = '';
-  successMessage.value = '';
+  errorMessage.value = "";
+  successMessage.value = "";
   sending.value = true;
   try {
     await axios.post(`${API_URL}/User/send-register-link`, {
       studentNumber: selectedStudentNumber.value,
     });
-    successMessage.value = 'Un mail vous a été envoyé avec un lien pour créer votre mot de passe.';
+    successMessage.value =
+      "Un mail vous a été envoyé avec un lien pour créer votre mot de passe.";
   } catch (error) {
-    if (error?.response?.data?.message?.includes('mot de passe existe déjà')) {
-      errorMessage.value = 'Vous avez déjà un compte. Veuillez utiliser la page de connexion.';
-    } else if (error?.response?.data?.message?.includes('déjà été envoyé')) {
-      errorMessage.value = "Un mail a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande.";
+    if (error?.response?.data?.message?.includes("mot de passe existe déjà")) {
+      errorMessage.value =
+        "Vous avez déjà un compte. Veuillez utiliser la page de connexion.";
+    } else if (error?.response?.data?.message?.includes("déjà été envoyé")) {
+      errorMessage.value =
+        "Un mail a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande.";
     } else {
-      errorMessage.value = error?.response?.data?.message || 'Erreur lors de l’envoi du mail.';
+      errorMessage.value =
+        error?.response?.data?.message || "Erreur lors de l’envoi du mail.";
     }
   } finally {
     sending.value = false;
@@ -180,7 +259,7 @@ const sendRegisterMail = async () => {
   background: #fff;
   padding: 40px 30px;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   text-align: center;
 }
 .register-btn {
@@ -240,7 +319,9 @@ const sendRegisterMail = async () => {
   cursor: pointer;
   margin-top: 14px;
   margin-bottom: 0;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
   display: block;
   width: 100%;
 }
@@ -250,7 +331,8 @@ const sendRegisterMail = async () => {
 }
 
 @media (max-width: 600px) {
-  .register-btn, .redirect-btn {
+  .register-btn,
+  .redirect-btn {
     padding: 10px 0;
     font-size: 1em;
     width: 100%;
@@ -259,6 +341,5 @@ const sendRegisterMail = async () => {
     padding: 10px;
     font-size: 0.98em;
   }
-
 }
 </style>

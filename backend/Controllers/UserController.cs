@@ -347,13 +347,18 @@ namespace backend.Controllers
          * Public endpoint to get users by year.
          */
         [HttpGet("year/{year}")]
-        public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year)
+        public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year, [FromQuery] int? specializationId)
         {
             _logger.LogInformation($"Public request for users in year {year}");
 
-            var users = await _context.Users
-                .Where(s => s.Year == year && !s.IsDeleted)
-                .ToListAsync();
+            var query = _context.Users.Where(s => s.Year == year && !s.IsDeleted);
+
+            if (specializationId.HasValue)
+            {
+                query = query.Where(s => s.SpecializationId == specializationId.Value);
+            }
+
+            var users = await query.ToListAsync();
 
             if (users == null || users.Count == 0)
             {

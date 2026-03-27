@@ -70,6 +70,12 @@ const routes = [
     meta: { requiresAdmin: true },
   },
   {
+    path: "/admin/specializations",
+    name: "AdminSpecializations",
+    component: () => import("../components/pages/SpecializationListPage.vue"),
+    beforeEnter: requiresAdmin,
+  },
+  {
     path: "/login",
     name: "login",
     component: () => import("../components/pages/LoginPage.vue"),

@@ -13,6 +13,7 @@ export const useSessionStore = defineStore("session", {
     loading: false,
     error: null,
     availableYears: ["3A", "4A", "5A"],
+    selectedSpecialization: null,
   }),
 
   getters: {

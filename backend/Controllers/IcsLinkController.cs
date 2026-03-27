@@ -28,9 +28,21 @@ namespace backend.Controllers
          * This method retrieves all IcsLink entities from the database.
          */
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<IcsLink>>> GetAll()
+        public async Task<ActionResult<IEnumerable<object>>> GetAll()
         {
-            return await _context.IcsLinks.ToListAsync();
+            var links = await _context.IcsLinks
+                .Include(l => l.Specialization)
+                .ToListAsync();
+
+            return links.Select(l => new
+            {
+                l.Id,
+                l.Year,
+                l.Url,
+                l.SpecializationId,
+                SpecializationName = l.Specialization?.Name,
+                SpecializationCode = l.Specialization?.Code
+            }).ToList();
         }
 
         /*
@@ -41,6 +53,13 @@ namespace backend.Controllers
         [HttpPost]
         public async Task<ActionResult<IcsLink>> Create(IcsLink link)
         {
+            if (link.SpecializationId == 0)
+            {
+                var defaultSpec = await _context.Specializations.FirstOrDefaultAsync(s => s.Code == "INFO");
+                if (defaultSpec != null)
+                    link.SpecializationId = defaultSpec.Id;
+            }
+
             _context.IcsLinks.Add(link);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetAll), new { id = link.Id }, link);
@@ -55,7 +74,15 @@ namespace backend.Controllers
         public async Task<IActionResult> Update(int id, IcsLink link)
         {
             if (id != link.Id) return BadRequest();
-            _context.Entry(link).State = EntityState.Modified;
+
+            var existing = await _context.IcsLinks.FindAsync(id);
+            if (existing == null) return NotFound();
+
+            existing.Year = link.Year;
+            existing.Url = link.Url;
+            if (link.SpecializationId != 0)
+                existing.SpecializationId = link.SpecializationId;
+
             await _context.SaveChangesAsync();
             return NoContent();
         }

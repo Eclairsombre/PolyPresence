@@ -1,86 +1,120 @@
 <template>
   <div class="sessions-page">
     <h1>Mes Sessions</h1>
-    
+
     <div class="filter-container">
       <div class="filter-group">
+        <select
+          v-model="selectedSpecializationId"
+          class="year-filter"
+          @change="loadSessions"
+        >
+          <option value="">Toutes les filières</option>
+          <option
+            v-for="spec in specializations"
+            :key="spec.id"
+            :value="spec.id"
+          >
+            {{ spec.name }} ({{ spec.code }})
+          </option>
+        </select>
+
         <select v-model="selectedYear" class="year-filter">
           <option value="">Toutes les années</option>
           <option value="3A">3A</option>
           <option value="4A">4A</option>
           <option value="5A">5A</option>
         </select>
-        
+
         <div class="date-filter">
           <div class="date-input-group">
             <label for="startDate">Du:</label>
-            <input 
-              type="date" 
-              id="startDate" 
-              v-model="filters.startDate" 
+            <input
+              type="date"
+              id="startDate"
+              v-model="filters.startDate"
               class="date-input"
-            >
+            />
           </div>
-          
+
           <div class="date-input-group">
             <label for="endDate">Au:</label>
-            <input 
-              type="date" 
-              id="endDate" 
-              v-model="filters.endDate" 
+            <input
+              type="date"
+              id="endDate"
+              v-model="filters.endDate"
               class="date-input"
               :min="filters.startDate"
-            >
+            />
           </div>
-          
+
           <button @click="applyFilters" class="filter-button">Filtrer</button>
-          <button @click="clearFilters" class="clear-filter-button">Réinitialiser</button>
+          <button @click="clearFilters" class="clear-filter-button">
+            Réinitialiser
+          </button>
         </div>
       </div>
-      
+
       <button @click="showCreateSessionModal = true" class="create-button">
         Créer une session
       </button>
       <ExportSessionsPdf :sessions="sessions" :selectedYear="selectedYear" />
-
     </div>
-    
-    <PopUpCreateSession v-if="showCreateSessionModal" @close="showCreateSessionModal = false" @sessionCreated="handleSessionCreated" />
-    
+
+    <PopUpCreateSession
+      v-if="showCreateSessionModal"
+      @close="showCreateSessionModal = false"
+      @sessionCreated="handleSessionCreated"
+    />
+
     <div v-if="showSuccessMessage" class="success-message">
       Session créée avec succès!
     </div>
-    
+
     <div v-if="sessionStore.loading" class="loading-state">
       Chargement des sessions...
     </div>
-    
+
     <div v-else-if="sessionStore.error" class="error-state">
       <p>{{ sessionStore.error }}</p>
       <button @click="loadSessions" class="retry-button">Réessayer</button>
     </div>
-    
+
     <div v-else-if="sessions.length === 0" class="empty-state">
       <p>Aucune session trouvée.</p>
     </div>
-    
+
     <div v-else>
-      
       <div class="sessions-list">
         <div v-for="session in sessions" :key="session.id" class="session-card">
           <div class="session-header">
             <h3>Session du {{ formatDate(session.date) }}</h3>
-            <span class="session-year">{{ session.year }}</span>
+            <span class="session-year"
+              >{{
+                session.specializationCode
+                  ? session.specializationCode + " - "
+                  : ""
+              }}{{ session.year }}</span
+            >
           </div>
           <div class="session-details">
             <p v-if="session.name"><strong>Nom :</strong> {{ session.name }}</p>
-            <p><strong>Horaires:</strong> {{ formatTime(session.startTime) }} - {{ formatTime(session.endTime) }}</p>
-            <p v-if="session.room"><strong>Salle :</strong> {{ session.room }}</p>
+            <p>
+              <strong>Horaires:</strong> {{ formatTime(session.startTime) }} -
+              {{ formatTime(session.endTime) }}
+            </p>
+            <p v-if="session.room">
+              <strong>Salle :</strong> {{ session.room }}
+            </p>
             <div v-if="session.profId" class="prof-info">
-              <p><strong>Professeur:</strong> {{ getProfName(session.profId) }}</p>
+              <p>
+                <strong>Professeur:</strong> {{ getProfName(session.profId) }}
+              </p>
             </div>
             <div v-if="session.profId2" class="prof-info">
-              <p><strong>Professeur:</strong> {{ getProfName(session.profId2) }}</p>
+              <p>
+                <strong>Professeur:</strong> {{ getProfName(session.profId2) }}
+              </p>
             </div>
             <div class="session-actions">
               <router-link
@@ -89,14 +123,22 @@
                   query: {
                     year: selectedYear,
                     startDate: filters.startDate,
-                    endDate: filters.endDate
-                  }
+                    endDate: filters.endDate,
+                  },
                 }"
                 class="view-attendance-btn"
               >
                 Voir les présences
               </router-link>
-              <button v-if="session.name && session.name.toLowerCase().includes('travail personnel')" class="view-attendance-btn" @click="openEditSessionModal(session)" style="min-width: 90px;">
+              <button
+                v-if="
+                  session.name &&
+                  session.name.toLowerCase().includes('travail personnel')
+                "
+                class="view-attendance-btn"
+                @click="openEditSessionModal(session)"
+                style="min-width: 90px"
+              >
                 Signer
               </button>
             </div>
@@ -114,33 +156,39 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted, reactive } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useSessionStore } from '../../stores/sessionStore';
-import { useStudentsStore } from '../../stores/studentsStore';
-import { useProfessorStore } from '../../stores/professorStore';
-import ExportSessionsPdf from '../exports/ExportSessionsPdf.vue';
-import PopUpCreateSession from '../popups/PopUpCreateSession.vue';
-import PopUpSignSession from '../popups/PopUpSignSession.vue';
+import { defineComponent, ref, computed, onMounted, reactive } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useSessionStore } from "../../stores/sessionStore";
+import { useStudentsStore } from "../../stores/studentsStore";
+import { useProfessorStore } from "../../stores/professorStore";
+import { useSpecializationStore } from "../../stores/specializationStore";
+import ExportSessionsPdf from "../exports/ExportSessionsPdf.vue";
+import PopUpCreateSession from "../popups/PopUpCreateSession.vue";
+import PopUpSignSession from "../popups/PopUpSignSession.vue";
 
 export default defineComponent({
-  name: 'StudentsSessionPage',
+  name: "StudentsSessionPage",
   components: {
     ExportSessionsPdf,
     PopUpCreateSession,
-    PopUpSignSession: PopUpSignSession
+    PopUpSignSession: PopUpSignSession,
   },
   setup() {
     const sessionStore = useSessionStore();
     const studentsStore = useStudentsStore();
     const professorStore = useProfessorStore();
+    const specializationStore = useSpecializationStore();
     const route = useRoute();
     const router = useRouter();
-    const selectedYear = ref(route.query.year || '');
-    const today = new Date().toISOString().split('T')[0];
+    const selectedYear = ref(route.query.year || "");
+    const selectedSpecializationId = ref("");
+    const specializations = computed(
+      () => specializationStore.activeSpecializations,
+    );
+    const today = new Date().toISOString().split("T")[0];
     const filters = reactive({
       startDate: route.query.startDate || today,
-      endDate: route.query.endDate || '',
+      endDate: route.query.endDate || "",
     });
     const showCreateSessionForm = ref(false);
     const showSuccessMessage = ref(false);
@@ -150,81 +198,94 @@ export default defineComponent({
     const showCreateSessionModal = ref(false);
     const showEditSessionModal = ref(false);
     const selectedSession = ref(null);
-    
+
     const newSession = reactive({
-      date: '',
-      startTime: '',
-      endTime: '',
-      year: '',
-      profName: '',
-      profFirstname: '',
-      profEmail: ''
+      date: "",
+      startTime: "",
+      endTime: "",
+      year: "",
+      profName: "",
+      profFirstname: "",
+      profEmail: "",
     });
-    
+
     const sessions = computed(() => {
-      return sessionStore.sessions.slice().sort((a, b) => {
-      const dateComparison = new Date(a.date) - new Date(b.date);
-      if (dateComparison !== 0) {
-        return dateComparison;
+      let filtered = sessionStore.sessions.slice();
+      if (selectedSpecializationId.value) {
+        filtered = filtered.filter(
+          (s) => s.specializationId == selectedSpecializationId.value,
+        );
       }
-      return a.startTime.localeCompare(b.startTime);
+      return filtered.sort((a, b) => {
+        const dateComparison = new Date(a.date) - new Date(b.date);
+        if (dateComparison !== 0) {
+          return dateComparison;
+        }
+        return a.startTime.localeCompare(b.startTime);
       });
     });
-    
-    
+
     const loadSessions = async () => {
       isFiltering.value = true;
       router.replace({
         query: {
           year: selectedYear.value || undefined,
           startDate: filters.startDate || undefined,
-          endDate: filters.endDate || undefined
-        }
+          endDate: filters.endDate || undefined,
+        },
       });
       await sessionStore.fetchSessionsByFilters({
         year: selectedYear.value,
         startDate: filters.startDate,
-        endDate: filters.endDate
+        endDate: filters.endDate,
       });
       isFiltering.value = false;
     };
-    
+
     const applyFilters = async () => {
       await loadSessions();
     };
-      const clearFilters = () => {
-      filters.startDate = new Date().toISOString().split('T')[0]; 
-      filters.endDate = '';
-      selectedYear.value = '';
+    const clearFilters = () => {
+      filters.startDate = new Date().toISOString().split("T")[0];
+      filters.endDate = "";
+      selectedYear.value = "";
       loadSessions();
     };
-    
+
     const loadStudentsByYear = async () => {
       if (!newSession.year) {
         students.value = [];
         return;
       }
-      
+
       studentLoading.value = true;
-      studentsStore.fetchStudents(newSession.year)
-        .then(response => {
+      studentsStore
+        .fetchStudents(newSession.year)
+        .then((response) => {
           students.value = response;
         })
-        .catch(error => {
-          console.error('Erreur lors du chargement des étudiants:', error);
+        .catch((error) => {
+          console.error("Erreur lors du chargement des étudiants:", error);
         })
         .finally(() => {
           studentLoading.value = false;
         });
-
     };
-    
+
     const createNewSession = async () => {
-      if (!newSession.date || !newSession.startTime || !newSession.endTime || !newSession.year || !newSession.profName || !newSession.profFirstname || !newSession.profEmail) {
+      if (
+        !newSession.date ||
+        !newSession.startTime ||
+        !newSession.endTime ||
+        !newSession.year ||
+        !newSession.profName ||
+        !newSession.profFirstname ||
+        !newSession.profEmail
+      ) {
         return;
       }
-      
-      let validationCode ='';
+
+      let validationCode = "";
       for (let i = 0; i < 4; i++) {
         validationCode += Math.floor(Math.random() * 10).toString();
       }
@@ -236,57 +297,64 @@ export default defineComponent({
         validationCode: validationCode,
         profName: newSession.profName,
         profFirstname: newSession.profFirstname,
-        profEmail: newSession.profEmail
+        profEmail: newSession.profEmail,
       };
-      
+
       try {
         const createdSession = await sessionStore.createSession(sessionData);
-        
+
         if (createdSession && students.value.length > 0) {
           try {
-            await sessionStore.addStudentsToSessionByNumber(createdSession.id, students.value);
+            await sessionStore.addStudentsToSessionByNumber(
+              createdSession.id,
+              students.value,
+            );
           } catch (error) {
-            console.error("Erreur lors de l'ajout des étudiants à la session:", error);
+            console.error(
+              "Erreur lors de l'ajout des étudiants à la session:",
+              error,
+            );
           }
         }
-        
-        newSession.date = '';
-        newSession.startTime = '';
-        newSession.endTime = '';
-        newSession.year = '';
-        newSession.profName = '';
-        newSession.profFirstname = '';
-        newSession.profEmail = '';
+
+        newSession.date = "";
+        newSession.startTime = "";
+        newSession.endTime = "";
+        newSession.year = "";
+        newSession.profName = "";
+        newSession.profFirstname = "";
+        newSession.profEmail = "";
         students.value = [];
         showCreateSessionForm.value = false;
-        
+
         showSuccessMessage.value = true;
         setTimeout(() => {
           showSuccessMessage.value = false;
         }, 3000);
-        
+
         loadSessions();
-        
       } catch (error) {
-        console.error('Erreur lors de la création de la session:', error);
+        console.error("Erreur lors de la création de la session:", error);
       }
     };
-    
+
     const formatDate = (dateString) => {
-      if (!dateString) return '';
+      if (!dateString) return "";
       const date = new Date(dateString);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = date.getFullYear();
       return `${day}/${month}/${year}`;
     };
 
     const formatTime = (timeString) => {
-      if (!timeString) return '';
-      const t = timeString.includes('T') ? timeString.split('T')[1] : timeString;
+      if (!timeString) return "";
+      const t = timeString.includes("T")
+        ? timeString.split("T")[1]
+        : timeString;
       return t.substring(0, 5);
     };
-    
+
     const handleSessionCreated = () => {
       showCreateSessionModal.value = false;
       loadSessions();
@@ -303,21 +371,24 @@ export default defineComponent({
     };
 
     const getProfName = (id) => {
-      if (!id) return '';
-      const prof = professorStore.professors.find(p => p.id == id);
-      if (!prof) return '';
+      if (!id) return "";
+      const prof = professorStore.professors.find((p) => p.id == id);
+      if (!prof) return "";
       return `${prof.firstname} ${prof.name}`;
     };
 
     onMounted(() => {
       professorStore.fetchProfessors();
+      specializationStore.fetchSpecializations();
       loadSessions();
     });
-    
+
     return {
       sessionStore,
       sessions,
       selectedYear,
+      selectedSpecializationId,
+      specializations,
       loadSessions,
       formatDate,
       formatTime,
@@ -340,7 +411,7 @@ export default defineComponent({
       handleSessionUpdated,
       getProfName,
     };
-  }
+  },
 });
 </script>
 
@@ -431,7 +502,9 @@ export default defineComponent({
   min-width: 150px;
 }
 
-.loading-state, .error-state, .empty-state {
+.loading-state,
+.error-state,
+.empty-state {
   padding: 40px;
   text-align: center;
   background-color: #f9f9f9;
@@ -470,7 +543,9 @@ export default defineComponent({
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s;
 }
 
 .session-card:hover {
@@ -543,7 +618,6 @@ export default defineComponent({
   background-color: #219653;
 }
 
-
 .session-form-container h2 {
   margin-bottom: 20px;
   color: #2c3e50;
@@ -554,7 +628,6 @@ export default defineComponent({
   margin-bottom: 5px;
   font-weight: 500;
 }
-
 
 .success-message {
   background-color: #d4edda;
@@ -580,14 +653,14 @@ export default defineComponent({
     font-size: 0.98em;
     padding: 0;
   }
-  .session-header, .session-details {
+  .session-header,
+  .session-details {
     padding: 8px;
   }
 
-  .form-group label{
+  .form-group label {
     font-size: 0.98em;
   }
-
 }
 
 .view-attendance-btn {
@@ -606,4 +679,3 @@ export default defineComponent({
   background-color: #2980b9;
 }
 </style>
-
