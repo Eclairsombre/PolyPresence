@@ -52,7 +52,7 @@ services:
         networks:
             - app_network
         ports:
-            - "5433:5433"
+            - "5432:5432"
         command: -c config_file=/etc/postgresql/postgresql.conf
         logging:
             driver: journald
