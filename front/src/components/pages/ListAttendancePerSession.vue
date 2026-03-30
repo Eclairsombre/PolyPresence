@@ -1,149 +1,181 @@
 <template>
   <div class="attendance-page">
-    <div v-if="loading" class="loading-state">Chargement des données...</div>
+    <div v-if="loading" class="state-card">
+      <p>Chargement des données…</p>
+    </div>
 
-    <div v-else-if="error" class="error-state">
+    <div v-else-if="error" class="state-card state-error">
       <p>{{ error }}</p>
-      <button @click="loadSessionData" class="retry-button">Réessayer</button>
+      <button
+        @click="loadSessionData"
+        class="btn btn-primary"
+        style="margin-top: 12px"
+      >
+        Réessayer
+      </button>
     </div>
 
     <div v-else class="attendance-container">
-      <div class="header-section">
-        <h1>Liste de présence</h1>
-        <div class="school-info">
-          <p>Etablissement de formation : UCBL1 - EPUL</p>
-          <p>
-            Diplôme : Ingénieur de l'EPUL - spécialité
-            {{ session?.specializationName || "Informatique" }} - apprentissage
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-title">
+          <h1>Liste de présence</h1>
+          <p class="page-subtitle" v-if="session">
+            {{ formatDate(session.date) }} &mdash;
+            {{ formatTime(session.startTime) }} –
+            {{ formatTime(session.endTime) }}
           </p>
         </div>
-        <div class="session-info">
-          <h2>{{ formatDate(session?.date) }} - {{ session?.year }}</h2>
-          <p>
-            {{ formatTime(session?.startTime) }} -
-            {{ formatTime(session?.endTime) }}
-          </p>
-        </div>
-        <div class="prof-info" v-if="session">
-          <p v-if="session.name" class="session-name">
-            <strong>Nom de la session :</strong> {{ session.name }}
-          </p>
-          <p v-if="session.room" class="session-room">
-            <strong>Salle :</strong> {{ session.room }}
-          </p>
-          <div class="professors-section">
-            <h3>Encadrement pédagogique</h3>
-            <div
-              class="professor-card"
-              v-if="professor1 && (professor1.firstname || professor1.name)"
-            >
-              <div class="professor-details">
-                <span class="professor-name"
-                  >{{ professor1.firstname }} {{ professor1.name }}</span
-                >
-                <span v-if="professor1.email" class="professor-email"
-                  >({{ professor1.email }})</span
-                >
-              </div>
-              <div class="professor-signature" v-if="session.profSignature">
-                <span class="signature-label">Signature :</span>
-                <img
-                  :src="session.profSignature"
-                  alt="Signature du professeur 1"
-                  class="signature-image"
-                />
-              </div>
-              <div class="professor-signature" v-else>
-                <span class="signature-label"
-                  >Signature : <em>Non signée</em></span
-                >
-              </div>
-            </div>
-            <div
-              class="professor-card"
-              v-if="professor2 && (professor2.firstname || professor2.name)"
-            >
-              <div class="professor-details">
-                <span class="professor-name"
-                  >{{ professor2.firstname }} {{ professor2.name }}</span
-                >
-                <span v-if="professor2.email" class="professor-email"
-                  >({{ professor2.email }})</span
-                >
-              </div>
-              <div class="professor-signature" v-if="session.profSignature2">
-                <span class="signature-label">Signature :</span>
-                <img
-                  :src="session.profSignature2"
-                  alt="Signature du professeur 2"
-                  class="signature-image"
-                />
-              </div>
-              <div class="professor-signature" v-else>
-                <span class="signature-label"
-                  >Signature : <em>Non signée</em></span
-                >
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="back-button" @click="goBack">
-            Retour aux sessions
-          </button>
+        <div class="page-actions">
+          <button class="btn btn-outline" @click="goBack">Retour</button>
           <button
-            class="export-button"
+            class="btn btn-primary"
             @click="exportToPDF"
             :disabled="exporting"
           >
-            {{ exporting ? "Génération PDF..." : "Exporter en PDF" }}
+            {{ exporting ? "Génération…" : "Exporter PDF" }}
           </button>
         </div>
       </div>
 
-      <div class="attendance-table-wrapper">
-        <table class="attendance-table">
-          <thead>
-            <tr>
-              <th class="number-column">N°</th>
-              <th class="name-column">Nom</th>
-              <th class="firstname-column">Prénom</th>
-              <th class="status-column">Présent/Absent</th>
-              <th class="signature-column">Signature</th>
-              <th class="comment-column">Retard/Commentaire</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(student, index) in students" :key="student.id">
-              <td>{{ index + 1 }}</td>
-              <td>{{ student.name }}</td>
-              <td>{{ student.firstname }}</td>
-              <td class="status-cell">
-                <span
-                  :class="{
-                    'status-present': student.status === 'Present',
-                    'status-absent': student.status === 'Absent',
-                  }"
-                >
-                  {{ student.status === "Present" ? "P" : "A" }}
-                </span>
-              </td>
-              <td class="signature-cell">
-                <div v-if="student.status === 'Present'">
+      <!-- Info Cards Row -->
+      <div class="info-row">
+        <div class="info-card">
+          <div class="info-card-header">Établissement</div>
+          <div class="info-card-body">
+            <p>UCBL1 - EPUL</p>
+            <p class="info-detail">
+              Ingénieur de l'EPUL - spécialité
+              {{ session?.specializationName || "Informatique" }} -
+              apprentissage
+            </p>
+          </div>
+        </div>
+        <div class="info-card" v-if="session && (session.name || session.room)">
+          <div class="info-card-header">Session</div>
+          <div class="info-card-body">
+            <p v-if="session.name">
+              <strong>{{ session.name }}</strong>
+            </p>
+            <p v-if="session.room" class="info-detail">
+              Salle : {{ session.room }}
+            </p>
+            <p class="info-detail">Année : {{ session?.year }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Professors -->
+      <div
+        class="professors-row"
+        v-if="
+          session &&
+          ((professor1 && (professor1.firstname || professor1.name)) ||
+            (professor2 && (professor2.firstname || professor2.name)))
+        "
+      >
+        <h2 class="section-label">Encadrement pédagogique</h2>
+        <div class="prof-cards">
+          <div
+            class="prof-card"
+            v-if="professor1 && (professor1.firstname || professor1.name)"
+          >
+            <div class="prof-identity">
+              <span class="prof-name"
+                >{{ professor1.firstname }} {{ professor1.name }}</span
+              >
+              <span v-if="professor1.email" class="prof-email">{{
+                professor1.email
+              }}</span>
+            </div>
+            <div class="prof-sig">
+              <template v-if="session.profSignature">
+                <img
+                  :src="session.profSignature"
+                  alt="Signature"
+                  class="sig-img"
+                />
+              </template>
+              <span v-else class="sig-missing">Non signée</span>
+            </div>
+          </div>
+          <div
+            class="prof-card"
+            v-if="professor2 && (professor2.firstname || professor2.name)"
+          >
+            <div class="prof-identity">
+              <span class="prof-name"
+                >{{ professor2.firstname }} {{ professor2.name }}</span
+              >
+              <span v-if="professor2.email" class="prof-email">{{
+                professor2.email
+              }}</span>
+            </div>
+            <div class="prof-sig">
+              <template v-if="session.profSignature2">
+                <img
+                  :src="session.profSignature2"
+                  alt="Signature"
+                  class="sig-img"
+                />
+              </template>
+              <span v-else class="sig-missing">Non signée</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Table -->
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-num">N°</th>
+                <th>Nom</th>
+                <th>Prénom</th>
+                <th class="col-status">Statut</th>
+                <th class="col-sig">Signature</th>
+                <th class="col-comment">Commentaire</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(student, index) in students" :key="student.id">
+                <td class="cell-num">{{ index + 1 }}</td>
+                <td class="cell-name">{{ student.name }}</td>
+                <td>{{ student.firstname }}</td>
+                <td class="cell-status">
+                  <span
+                    :class="[
+                      'status-badge',
+                      student.status === 'Present'
+                        ? 'badge-present'
+                        : 'badge-absent',
+                    ]"
+                  >
+                    {{ student.status === "Present" ? "P" : "A" }}
+                  </span>
+                </td>
+                <td class="cell-sig">
                   <SignatureDisplay
+                    v-if="student.status === 'Present'"
                     :signatureData="student.signature"
                     :inAttendanceList="true"
                   />
-                </div>
-              </td>
-              <td class="comment-cell">
-                <div class="comment-content" :title="student.comment">
-                  {{ student.comment }}
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td class="cell-comment">
+                  <div
+                    v-if="student.comment"
+                    class="comment-bubble"
+                    :title="student.comment"
+                  >
+                    {{ student.comment }}
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -321,344 +353,358 @@ export default defineComponent({
 <style scoped>
 .attendance-page {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 20px;
 }
 
-.signature-cell {
-  vertical-align: top;
-  padding: 10px;
-}
-
-.loading-state,
-.error-state {
-  padding: 40px;
+/* States */
+.state-card {
   text-align: center;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  margin: 20px 0;
+  padding: 48px 24px;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  color: #6c757d;
 }
 
-.error-state {
-  border: 1px solid #e74c3c;
+.state-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.state-error {
+  border-color: #e74c3c;
   color: #e74c3c;
 }
 
-.retry-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  margin-top: 10px;
-  cursor: pointer;
-}
-
-.header-section {
-  margin-bottom: 30px;
+/* Page Header */
+.page-header {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
-.school-info {
-  background-color: #eaf6fb;
-  border-left: 4px solid #3498db;
-  padding: 12px 18px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-  font-size: 1.08em;
-  color: #2c3e50;
-  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.07);
-}
-.school-info p {
-  margin: 0 0 4px 0;
-  font-weight: 500;
+.page-title h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 2px;
 }
 
-.session-info {
-  background-color: #f8f9fa;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.session-info h2 {
-  margin: 0 0 10px 0;
-  color: #2c3e50;
-}
-
-.prof-info {
-  margin-top: 20px;
-}
-
-.session-name,
-.session-room {
-  margin: 10px 0;
-  font-size: 1.1em;
-  color: #2c3e50;
-}
-
-.professors-section {
-  margin-top: 20px;
-}
-
-.professors-section h3 {
-  margin: 0 0 15px 0;
-  color: #2c3e50;
-  font-size: 1.2em;
-  border-bottom: 2px solid #3498db;
-  padding-bottom: 8px;
-}
-
-.professor-card {
-  background-color: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.professor-header {
-  margin-bottom: 10px;
-  color: #2c3e50;
-  font-size: 1.05em;
-}
-
-.professor-details {
-  margin-bottom: 10px;
-}
-
-.professor-name {
-  font-weight: 600;
-  color: #2c3e50;
-  margin-right: 10px;
-}
-
-.professor-email {
+.page-subtitle {
   color: #6c757d;
-  font-style: italic;
+  font-size: 0.95rem;
+  margin: 0;
 }
 
-.professor-signature {
+.page-actions {
   display: flex;
-  align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
-.signature-label {
-  font-weight: 500;
-  color: #495057;
-}
-
-.signature-image {
-  max-height: 50px;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  background-color: white;
-  padding: 2px;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-start;
-  margin-top: 15px;
-  gap: 10px;
-}
-
-.back-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
+/* Buttons */
+.btn {
   padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  font-weight: 500;
-}
-
-.back-button:hover {
-  background-color: #2980b9;
-}
-
-.export-button {
-  background-color: #34495e;
-  color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
-.export-button:disabled {
-  background-color: #95a5a6;
+.btn-primary {
+  background: #3498db;
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2980b9;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.export-button:hover:not(:disabled) {
-  background-color: #2c3e50;
+.btn-outline {
+  background: transparent;
+  color: #3498db;
+  border: 1px solid #3498db;
 }
 
-.attendance-table-wrapper {
+.btn-outline:hover {
+  background: #eef6ff;
+}
+
+/* Info Cards Row */
+.info-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.info-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.info-card-header {
+  padding: 12px 18px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6c757d;
+  background: #f8f9fb;
+  border-bottom: 1px solid #f0f0f5;
+}
+
+.info-card-body {
+  padding: 16px 18px;
+}
+
+.info-card-body p {
+  margin: 0 0 4px 0;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.info-detail {
+  font-weight: 400 !important;
+  color: #6c757d !important;
+  font-size: 0.92rem;
+}
+
+/* Professors */
+.professors-row {
+  margin-bottom: 24px;
+}
+
+.section-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 12px 0;
+}
+
+.prof-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.prof-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.prof-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prof-name {
+  font-weight: 600;
+  color: #1a1a2e;
+  font-size: 0.95rem;
+}
+
+.prof-email {
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.prof-sig {
+  flex-shrink: 0;
+}
+
+.sig-img {
+  max-height: 48px;
+  border: 1px solid #e0e4ea;
+  border-radius: 6px;
+  background: #fff;
+  padding: 2px;
+}
+
+.sig-missing {
+  color: #adb5bd;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Table Card */
+.table-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table-scroll {
   overflow-x: auto;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
 }
 
-.attendance-table {
+table {
   width: 100%;
   border-collapse: collapse;
-  background-color: white;
 }
 
-.attendance-table th,
-.attendance-table td {
-  padding: 12px 15px;
+thead {
+  background: #f8f9fb;
+}
+
+thead th {
+  padding: 12px 16px;
   text-align: left;
-  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e0e4ea;
 }
 
-.attendance-table th {
-  background-color: #f1f1f1;
-  font-weight: 600;
-  color: #333;
+tbody tr {
+  transition: background 0.15s;
 }
 
-.attendance-table tr:last-child td {
+tbody tr:hover {
+  background: #f8f9fb;
+}
+
+tbody td {
+  padding: 12px 16px;
+  font-size: 0.93rem;
+  color: #2d3748;
+  border-bottom: 1px solid #f0f0f5;
+  vertical-align: middle;
+}
+
+tbody tr:last-child td {
   border-bottom: none;
 }
 
-.attendance-table tr:hover {
-  background-color: #f9f9f9;
-}
-
-.number-column {
+.col-num {
   width: 50px;
 }
-
-.name-column,
-.firstname-column {
-  width: 25%;
+.col-status {
+  width: 80px;
 }
-
-.status-column {
-  width: 150px;
+.col-sig {
+  width: 18%;
 }
-
-.signature-column {
+.col-comment {
   width: 20%;
 }
 
-.comment-column {
-  width: 20%;
-  background-color: #f7fbfd;
+.cell-num {
+  color: #adb5bd;
+  font-weight: 600;
 }
 
-.comment-cell {
-  background-color: #f7fbfd;
-  vertical-align: top;
-  padding: 10px;
+.cell-name {
+  font-weight: 600;
+  color: #1a1a2e;
 }
 
-.comment-content {
-  font-style: italic;
-  color: #576574;
-  background-color: #fff;
-  border-left: 3px solid #3498db;
-  padding: 8px;
-  border-radius: 3px;
-  max-height: 100px;
-  overflow-y: auto;
-  font-size: 0.95em;
-  line-height: 1.4;
-  word-break: break-word;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: background-color 0.2s;
-}
-
-.comment-content:hover {
-  background-color: #f8f9fa;
-}
-
-.comment-content:empty {
-  display: none;
-  background-color: transparent;
-  box-shadow: none;
-  border-left: none;
-  padding: 0;
-}
-
-.status-cell {
+.cell-status {
   text-align: center;
 }
 
-.status-present {
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.badge-present {
+  background: #eafaf1;
   color: #27ae60;
-  font-weight: bold;
 }
 
-.status-absent {
+.badge-absent {
+  background: #fdf0ef;
   color: #e74c3c;
-  font-weight: bold;
 }
 
+.cell-sig {
+  vertical-align: middle;
+  padding: 8px 16px;
+}
+
+.comment-bubble {
+  font-size: 0.88rem;
+  color: #576574;
+  background: #f8f9fb;
+  border-left: 3px solid #3498db;
+  padding: 8px 10px;
+  border-radius: 4px;
+  max-height: 80px;
+  overflow-y: auto;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-  .attendance-table {
+  .page-header {
+    flex-direction: column;
+  }
+
+  .page-actions {
+    width: 100%;
+  }
+
+  .page-actions .btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  table {
     min-width: 600px;
   }
 
-  .comment-content {
-    font-size: 0.9em;
+  .comment-bubble {
+    font-size: 0.82rem;
     max-height: 60px;
   }
 }
 
-@media (max-width: 600px) {
-  .attendance-page {
-    padding: 4px;
+@media (max-width: 480px) {
+  .info-row {
+    grid-template-columns: 1fr;
   }
-  .header-section {
-    gap: 4px;
+
+  .prof-cards {
+    grid-template-columns: 1fr;
   }
-  .attendance-table-wrapper {
-    box-shadow: none;
-    border-radius: 0;
-  }
-  .attendance-table {
-    min-width: 400px;
-    font-size: 0.95em;
-  }
-  .attendance-table th,
-  .attendance-table td {
-    padding: 6px 4px;
-  }
-  .back-button,
-  .export-button {
-    padding: 8px 8px;
-    font-size: 0.95em;
-    width: 100%;
-  }
-  .actions {
+
+  .prof-card {
     flex-direction: column;
-    gap: 6px;
-  }
-
-  .comment-column,
-  .comment-cell {
-    min-width: 100px;
-  }
-
-  .comment-content {
-    padding: 4px;
-    font-size: 0.85em;
-    max-height: 50px;
+    align-items: flex-start;
   }
 }
 </style>

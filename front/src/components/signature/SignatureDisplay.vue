@@ -43,29 +43,30 @@
   .signature-display-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
+    gap: 10px;
+    align-items: center;
   }
   
   .signature-image {
     max-width: 100%;
-    max-height: 180px; 
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    max-height: 180px;
+    border: 1px solid #e0e4ea;
+    border-radius: 10px;
     background-color: #fff;
   }
   
   .no-signature-placeholder {
     width: 100%;
-    height: 100px; 
+    height: 100px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #f8f9fa;
-    border: 1px dashed #ced4da;
+    background: #f8f9fb;
+    border: 2px dashed #d1d5db;
     color: #6c757d;
     font-style: italic;
-    border-radius: 4px;
+    font-size: 0.9rem;
+    border-radius: 10px;
   }
   
   .signature-actions {
@@ -75,28 +76,36 @@
   }
   
   .edit-button {
-    padding: 6px 12px;
+    padding: 8px 16px;
     border: none;
-    background-color: #3498db;
+    background: #3498db;
     color: white;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
+    font-weight: 600;
     display: flex;
     align-items: center;
     gap: 5px;
     text-decoration: none;
+    transition: all 0.2s;
   }
   
   .edit-button:hover {
-    background-color: #2980b9;
+    background: #2980b9;
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.25);
   }
 
-  /* Style spécifique pour les signatures dans les listes de présence */
   .signature-image-small {
-    max-height: 80px !important; /* Taille réduite pour les listes de présence */
-    border: 1px solid #eaeaea;
+    max-height: 80px !important;
+    border: 1px solid #e0e4ea;
   }
+
+  .no-signature-placeholder-small {
+    height: 50px;
+    font-size: 0.8rem;
+  }
+  </style>
 
   .no-signature-placeholder-small {
     height: 50px !important; /* Taille réduite pour les placeholders dans les listes */

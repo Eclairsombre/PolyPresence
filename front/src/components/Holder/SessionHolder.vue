@@ -2,179 +2,227 @@
   <div class="attendance-sheet">
     <div
       v-if="authStore.user && authStore.user.existsInDb === false"
-      class="error-state"
+      class="state-card state-error"
     >
+      <div class="state-icon">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </svg>
+      </div>
       <p>
         Vous n'êtes pas présent dans la base de données. Veuillez contacter un
-        administrateur pour être ajouté.
+        administrateur.
       </p>
     </div>
     <div v-else>
-      <div v-if="loading" class="loading-state">
+      <div v-if="loading" class="state-card state-loading">
         <div class="spinner"></div>
         <p>Chargement des données...</p>
       </div>
-      <div v-else-if="error" class="error-state">
+      <div v-else-if="error" class="state-card state-error">
         <p>{{ error }}</p>
       </div>
       <div v-else-if="currentSession" class="session-content">
-        <div class="session-info">
-          <div class="session-header">
-            <h2>Session du {{ formatDate(currentSession.date) }}</h2>
-            <span v-if="currentSession.name" class="session-name">{{
-              currentSession.name
-            }}</span>
-            <div
-              class="session-status"
-              :class="{
-                'status-present': attendance && attendance.status !== 1,
-                'status-absent': attendance && attendance.status === 1,
-                'status-annule': attendance && attendance.status === 2,
-              }"
-            >
-              {{
-                attendance && attendance.status === 2
-                  ? "Annulé"
-                  : attendance && attendance.status !== 1
-                    ? "Présent"
-                    : "Absent"
-              }}
+        <!-- Session Card -->
+        <div class="session-card">
+          <div class="session-card-header">
+            <div class="session-title-row">
+              <h2>{{ currentSession.name || "Session" }}</h2>
+              <span
+                class="status-badge"
+                :class="{
+                  'badge-present':
+                    attendance &&
+                    attendance.status !== 1 &&
+                    attendance.status !== 2,
+                  'badge-absent': attendance && attendance.status === 1,
+                  'badge-cancelled': attendance && attendance.status === 2,
+                }"
+              >
+                {{
+                  attendance && attendance.status === 2
+                    ? "Annulé"
+                    : attendance && attendance.status !== 1
+                      ? "Présent"
+                      : "Absent"
+                }}
+              </span>
+            </div>
+            <p class="session-date">{{ formatDate(currentSession.date) }}</p>
+          </div>
+
+          <div class="session-details-grid">
+            <div class="detail-card">
+              <span class="detail-icon">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </span>
+              <div>
+                <span class="detail-label">Horaires</span>
+                <span class="detail-value"
+                  >{{ formatTime(currentSession.startTime) }} —
+                  {{ formatTime(currentSession.endTime) }}</span
+                >
+              </div>
+            </div>
+            <div class="detail-card">
+              <span class="detail-icon">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </span>
+              <div>
+                <span class="detail-label">Salle</span>
+                <span class="detail-value">{{ currentSession.room }}</span>
+              </div>
+            </div>
+            <div class="detail-card">
+              <span class="detail-icon">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                  <path d="M6 12v5c0 1.1 2.7 2 6 2s6-.9 6-2v-5" />
+                </svg>
+              </span>
+              <div>
+                <span class="detail-label">Formation</span>
+                <span class="detail-value"
+                  >{{
+                    currentSession.specializationName
+                      ? currentSession.specializationName + " — "
+                      : ""
+                  }}{{ currentSession.year }}</span
+                >
+              </div>
             </div>
           </div>
-          <div class="session-details">
-            <div class="detail-item">
-              <span class="detail-label">Horaires: </span>
-              <span class="detail-value"
-                >{{ formatTime(currentSession.startTime) }} -
-                {{ formatTime(currentSession.endTime) }}</span
+
+          <!-- Delegate section -->
+          <div v-if="isDelegate" class="delegate-section">
+            <div class="delegate-header">
+              <span class="delegate-badge">Délégué</span>
+            </div>
+
+            <!-- Validation code -->
+            <div class="delegate-row">
+              <span class="delegate-label">Code de validation</span>
+              <div
+                class="delegate-actions"
+                v-if="currentSession.validationCode"
               >
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Année:</span>
-              <span class="detail-value"
-                >{{
-                  currentSession.specializationName
-                    ? currentSession.specializationName + " - "
-                    : ""
-                }}{{ currentSession.year }}</span
-              >
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Salle :</span>
-              <span class="detail-value">{{ currentSession.room }}</span>
-            </div>
-            <div v-if="isDelegate" class="detail-item">
-              <span class="detail-label">Code de validation:</span>
-              <template v-if="currentSession.validationCode">
-                <span
-                  class="detail-value code-value"
-                  :class="{ blurred: !showCode }"
-                  >{{ currentSession.validationCode }}</span
-                >
+                <span class="code-display" :class="{ blurred: !showCode }">{{
+                  currentSession.validationCode
+                }}</span>
                 <button
-                  type="button"
-                  class="show-code-btn"
+                  class="btn-sm btn-outline-sm"
                   @click="handleShowCodeClick"
                 >
                   {{ showCode ? "Cacher" : "Voir" }}
                 </button>
-              </template>
+              </div>
             </div>
-            <div class="detail-item">
-              <span class="detail-label">Email du professeur 1 :</span>
-              <span
-                class="detail-value"
-                v-if="!isDelegate || profEmailEditMode"
-                >{{ professor1?.email || "Non défini" }}</span
-              >
-              <template v-if="isDelegate">
-                <template v-if="!profEmailEditMode">
-                  <span class="detail-value">{{
-                    professor1?.email || ""
-                  }}</span>
-                  <button
-                    @click="showEditProfMailPopup = true"
-                    class="edit-btn"
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    @click="showResendProf1MailPopup = true"
-                    class="resend-btn"
-                  >
-                    Renvoyer le mail
-                  </button>
-                </template>
-                <template v-else>
-                  <input
-                    v-model="profEmailInput"
-                    type="email"
-                    class="edit-input"
-                  />
-                  <button @click="saveProfEmail" class="save-btn">
-                    Enregistrer
-                  </button>
-                  <button @click="cancelProfEmailEdit" class="cancel-btn">
-                    Annuler
-                  </button>
-                </template>
-              </template>
+
+            <!-- Prof 1 -->
+            <div class="delegate-row">
+              <span class="delegate-label">Professeur 1</span>
+              <div class="delegate-actions">
+                <span class="prof-email">{{
+                  professor1?.email || "Non défini"
+                }}</span>
+                <button
+                  @click="showEditProfMailPopup = true"
+                  class="btn-sm btn-outline-sm"
+                >
+                  Modifier
+                </button>
+                <button
+                  @click="showResendProf1MailPopup = true"
+                  class="btn-sm btn-accent-sm"
+                >
+                  Renvoyer
+                </button>
+              </div>
             </div>
+
+            <!-- Prof 2 -->
             <div
               v-if="
                 professor2?.email ||
                 (isDelegate && currentSession.profFirstname2)
               "
-              class="detail-item"
+              class="delegate-row"
             >
-              <span class="detail-label">Email du professeur 2 :</span>
-              <span
-                class="detail-value"
-                v-if="!isDelegate || prof2EmailEditMode"
-                >{{ professor2?.email || "Non défini" }}</span
+              <span class="delegate-label">Professeur 2</span>
+              <div class="delegate-actions">
+                <span class="prof-email">{{
+                  professor2?.email || "Non défini"
+                }}</span>
+                <button
+                  @click="showEditProf2MailPopup = true"
+                  class="btn-sm btn-outline-sm"
+                >
+                  Modifier
+                </button>
+                <button
+                  v-if="professor2?.email"
+                  @click="showResendProf2MailPopup = true"
+                  class="btn-sm btn-accent-sm"
+                >
+                  Renvoyer
+                </button>
+              </div>
+            </div>
+
+            <Transition name="fade">
+              <div
+                v-if="mailSentMessage"
+                class="feedback feedback-success"
+                style="margin-top: 8px"
               >
-              <template v-if="isDelegate">
-                <template v-if="!prof2EmailEditMode">
-                  <span class="detail-value">{{
-                    professor2?.email || ""
-                  }}</span>
-                  <button
-                    @click="showEditProf2MailPopup = true"
-                    class="edit-btn"
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    v-if="professor2.email"
-                    @click="showResendProf2MailPopup = true"
-                    class="resend-btn"
-                  >
-                    Renvoyer le mail
-                  </button>
-                </template>
-                <template v-else>
-                  <input
-                    v-model="prof2EmailInput"
-                    type="email"
-                    class="edit-input"
-                  />
-                  <button @click="saveProf2Email" class="save-btn">
-                    Enregistrer
-                  </button>
-                  <button @click="cancelProf2EmailEdit" class="cancel-btn">
-                    Annuler
-                  </button>
-                </template>
-              </template>
-            </div>
-            <div v-if="mailSentMessage" class="mail-sent-message">
-              {{ mailSentMessage }}
-            </div>
+                {{ mailSentMessage }}
+              </div>
+            </Transition>
           </div>
         </div>
+
+        <!-- Validate Presence -->
         <div
           v-if="attendance && attendance.status === 1"
-          class="validate-presence"
+          class="validate-section"
         >
           <ValidatePresence
             @presence-validated="loadData"
@@ -182,9 +230,28 @@
           />
         </div>
       </div>
-      <div v-else class="no-session">
+
+      <div v-else class="state-card state-info">
+        <div class="state-icon">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </div>
         <p>Aucune session en cours.</p>
       </div>
+
       <PopUpEditProfMail
         v-if="showEditProfMailPopup"
         :value="profEmailInput"
@@ -464,280 +531,327 @@ watch(
 
 <style scoped>
 .attendance-sheet {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100%;
 }
 
-.attendance-sheet h1 {
-  color: #2c3e50;
-  margin-bottom: 20px;
-  text-align: center;
-  font-size: 1.8rem;
-}
-
-.loading-state,
-.error-state,
-.no-session {
+/* State cards (loading, error, info) */
+.state-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 30px;
-  border-radius: 8px;
-  background-color: #f8f9fa;
+  gap: 12px;
+  padding: 40px 24px;
+  border-radius: 12px;
   text-align: center;
-  margin: 20px 0;
+  border: 1px solid #e0e4ea;
+  background: #fff;
 }
 
-.spinner {
-  border: 4px solid rgba(0, 0, 0, 0.1);
+.state-card p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #6c757d;
+}
+
+.state-icon {
+  color: #6c757d;
+}
+
+.state-loading .spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e0e4ea;
+  border-top-color: #1a1a2e;
   border-radius: 50%;
-  border-top: 4px solid #2c3e50;
-  width: 30px;
-  height: 30px;
-  animation: spin 1s linear infinite;
-  margin-bottom: 15px;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
+  to {
     transform: rotate(360deg);
   }
 }
 
-.error-state {
-  background-color: #fff5f5;
-  border-left: 4px solid #e53e3e;
-  color: #c53030;
+.state-error {
+  border-color: #fecaca;
+  background: #fff5f5;
 }
 
-.error-icon,
-.info-icon {
-  font-size: 24px;
-  margin-bottom: 10px;
+.state-error p {
+  color: #c0392b;
 }
 
-.no-session {
-  background-color: #f0f4ff;
-  border-left: 4px solid #4c6ef5;
+.state-error .state-icon {
+  color: #e74c3c;
+}
+
+.state-info {
+  border-color: #dbeafe;
+  background: #f0f4ff;
+}
+
+.state-info p {
   color: #3b5bdb;
 }
 
+.state-info .state-icon {
+  color: #3498db;
+}
+
+/* Session card */
 .session-content {
-  margin-top: 20px;
-}
-
-.session-info {
-  background-color: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.session-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.session-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.session-card-header {
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #f0f0f5;
+}
+
+.session-title-row {
+  display: flex;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #eee;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.session-header h2 {
+.session-title-row h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a2e;
   margin: 0;
-  color: #2c3e50;
-  font-size: 1.4rem;
 }
 
-.session-status {
-  padding: 6px 12px;
+.session-date {
+  font-size: 0.88rem;
+  color: #6c757d;
+  margin: 4px 0 0;
+}
+
+/* Status badge */
+.status-badge {
+  padding: 5px 14px;
   border-radius: 20px;
-  font-weight: bold;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
 }
 
-.status-present {
-  background-color: #d4edda;
-  color: #155724;
+.badge-present {
+  background: #d1fae5;
+  color: #065f46;
 }
 
-.status-absent {
-  background-color: #f8d7da;
-  color: #721c24;
+.badge-absent {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
-.status-annule {
-  background-color: #ececec;
-  color: #888;
-  font-style: italic;
+.badge-cancelled {
+  background: #e8ecf1;
+  color: #6c757d;
   text-decoration: line-through;
 }
 
-.session-details {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* Details grid */
+.session-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1px;
+  background: #f0f0f5;
 }
 
-.detail-item {
+.detail-card {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #fff;
+}
+
+.detail-icon {
+  color: #6c757d;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .detail-label {
-  font-weight: bold;
-  min-width: 140px;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: block;
 }
 
 .detail-value {
-  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  display: block;
+  margin-top: 2px;
 }
 
-.code-value {
-  font-family: monospace;
-  font-size: 1.1rem;
-  color: #2c3e50;
-  letter-spacing: 1px;
+/* Delegate section */
+.delegate-section {
+  border-top: 1px solid #f0f0f5;
+  padding: 16px 24px 20px;
 }
 
-.signature-section {
-  margin-top: 20px;
+.delegate-header {
+  margin-bottom: 14px;
+}
+
+.delegate-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.delegate-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f8;
+  flex-wrap: wrap;
 }
 
-.signature-link {
-  color: #007bff;
-  text-decoration: none;
+.delegate-row:last-of-type {
+  border-bottom: none;
 }
 
-.signature-link:hover {
-  text-decoration: underline;
+.delegate-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #495057;
+  flex-shrink: 0;
 }
 
-.validate-presence {
-  margin-top: 20px;
-  padding: 20px;
-  border-radius: 8px;
-  background-color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  text-align: center;
+.delegate-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.edit-btn,
-.resend-btn,
-.save-btn,
-.cancel-btn {
-  margin-left: 8px;
-  padding: 6px 14px;
-  border-radius: 4px;
-  border: none;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    color 0.2s;
+.prof-email {
+  font-size: 0.9rem;
+  color: #1a1a2e;
 }
-.edit-btn {
-  background: #f1c40f;
-  color: #fff;
-}
-.edit-btn:hover {
-  background: #f39c12;
-}
-.resend-btn {
-  background: #2980b9;
-  color: #fff;
-}
-.resend-btn:hover {
-  background: #1c5d8c;
-}
-.save-btn {
-  background: #27ae60;
-  color: #fff;
-}
-.save-btn:hover {
-  background: #219150;
-}
-.cancel-btn {
-  background: #e74c3c;
-  color: #fff;
-}
-.cancel-btn:hover {
-  background: #c0392b;
-}
-.mail-sent-message {
-  color: #27ae60;
-  margin-top: 8px;
-  font-size: 0.98rem;
-  font-weight: 500;
-}
-.edit-input {
-  padding: 7px 10px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  font-size: 1rem;
-  margin-right: 8px;
+
+.code-display {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: 2px;
+  transition: filter 0.2s;
 }
 
 .blurred {
-  filter: blur(5px);
+  filter: blur(6px);
+  user-select: none;
 }
 
-.show-code-btn {
+/* Small buttons */
+.btn-sm {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-outline-sm {
+  background: #f8f9fb;
+  color: #495057;
+  border: 1px solid #d1d5db;
+}
+
+.btn-outline-sm:hover {
+  background: #e8ecf1;
+  border-color: #adb5bd;
+}
+
+.btn-accent-sm {
   background: #3498db;
   color: #fff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-left: 10px;
 }
 
-.show-code-btn:hover {
+.btn-accent-sm:hover {
   background: #2980b9;
 }
 
-.mail-status {
-  margin-left: 10px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.85rem;
+/* Validate section */
+.validate-section {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 14px;
+  padding: 24px;
+}
+
+/* Feedback */
+.feedback {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-weight: 500;
 }
 
-.mail-status.sent {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+.feedback-success {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
 }
 
-.mail-status.not-sent {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 @media (max-width: 768px) {
-  .session-header {
+  .session-title-row {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 8px;
   }
 
-  .detail-item {
+  .session-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .delegate-row {
     flex-direction: column;
-  }
-
-  .detail-label {
-    margin-bottom: 5px;
+    align-items: flex-start;
+    gap: 6px;
   }
 }
 </style>

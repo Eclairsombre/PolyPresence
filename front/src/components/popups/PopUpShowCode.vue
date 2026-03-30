@@ -1,13 +1,20 @@
-<template>
-  <div class="popup-show-code">
-    <div class="popup-content">
-      <h3>Attention</h3>
-      <p>
-        Ne défloutez le code de session que s’il y a un problème avec l’envoi du mail, un problème avec le professeur, ou si la session est du travail personnel.
-      </p>
-      <div class="actions">
-        <button @click="$emit('confirm')" class="confirm-btn">Déflouter</button>
-        <button @click="$emit('close')" class="cancel-btn">Annuler</button>
+﻿<template>
+  <div class="popup-overlay">
+    <div class="popup-card">
+      <div class="popup-header">
+        <h2>Attention</h2>
+      </div>
+      <div class="popup-body">
+        <div class="popup-warning">
+          <span class="warning-icon">⚠️</span>
+          <span>
+            Ne défloutez le code que s'il y a un problème avec l'envoi du mail, un problème avec le professeur, ou si la session est du travail personnel.
+          </span>
+        </div>
+        <div class="popup-actions">
+          <button class="btn btn-cancel" @click="$emit('close')">Annuler</button>
+          <button class="btn btn-primary" @click="$emit('confirm')">Déflouter</button>
+        </div>
       </div>
     </div>
   </div>
@@ -17,62 +24,103 @@
 </script>
 
 <style scoped>
-.popup-show-code {
+.popup-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.4);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
-}
-.popup-content {
-  background: #fff;
-  border-radius: 8px;
-  padding: 30px 24px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
-  max-width: 400px;
-  text-align: center;
-}
-.actions {
-  margin-top: 24px;
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-}
-.confirm-btn {
-  background: #3498db;
-  color: #fff;
-  border: none;
-  padding: 8px 18px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.cancel-btn {
-  background: #e74c3c;
-  color: #fff;
-  border: none;
-  padding: 8px 18px;
-  border-radius: 4px;
-  cursor: pointer;
+  padding: 16px;
 }
 
-@media (max-width: 600px) {
-  .popup-content {
-    padding: 10px 2vw;
-    max-width: 98vw;
-  }
-  .actions {
-    flex-direction: column;
-    gap: 8px;
-  }
-  .confirm-btn, .cancel-btn {
-    width: 100%;
-    padding: 8px 0;
-    font-size: 1em;
+.popup-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+.popup-header {
+  padding: 24px 24px 16px;
+  text-align: center;
+}
+
+.popup-header h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.popup-body {
+  padding: 0 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.popup-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.warning-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.popup-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btn {
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.btn-cancel {
+  background: #f8f9fb;
+  color: #495057;
+  border: 1px solid #d1d5db;
+}
+
+.btn-cancel:hover {
+  background: #e8ecf1;
+}
+
+.btn-primary {
+  background: #3498db;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #2980b9;
+}
+
+@media (max-width: 480px) {
+  .popup-card {
+    max-width: 100%;
+    border-radius: 12px;
   }
 }
 </style>

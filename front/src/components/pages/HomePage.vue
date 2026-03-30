@@ -1,197 +1,257 @@
 <template>
   <div class="home-page">
-    <h1>Bienvenue sur PolyPresence !</h1>
-    <h2>{{ user ? `${user.lastname} ${user.firstname} (${user.studentId})` : '' }}</h2>
-    <div class="home-content">
-      <div v-if="user && user.isAdmin" class="admin-dashboard">
-        <h2>Tableau de bord administrateur</h2>
-        <div class="admin-actions">
-          <router-link to="/students" class="btn-primary">Gérer les étudiants</router-link>
-          <router-link to="/sessions" class="btn-primary">Gérer les sessions</router-link>
-          <router-link to="/mail-preferences" class="btn-primary">Préférences de mail</router-link>
-          <router-link to="/professors" class="btn-primary">Liste des professeurs</router-link>
-          <router-link to="/admin/import-edt" class="btn-primary">Importer l’EDT</router-link>
+    <!-- Admin Dashboard -->
+    <div v-if="user && user.isAdmin" class="admin-home">
+      <div class="page-header">
+        <div class="page-title">
+          <h1>Tableau de bord</h1>
+          <p class="page-subtitle">
+            Bienvenue, {{ user.firstname }} {{ user.lastname }}
+          </p>
         </div>
       </div>
-      <div class="student-dashboard" v-else-if="user && !user.isAdmin">
-        <div class="attendance-section">
-          <StudentsAttendanceSheetPage />
-        </div>
+
+      <div class="dashboard-grid">
+        <router-link to="/sessions" class="dash-card">
+          <div class="dash-card-icon">S</div>
+          <div class="dash-card-info">
+            <h3>Sessions</h3>
+            <p>Consulter et suivre les sessions</p>
+          </div>
+        </router-link>
+        <router-link to="/students" class="dash-card">
+          <div class="dash-card-icon">E</div>
+          <div class="dash-card-info">
+            <h3>Etudiants</h3>
+            <p>Consulter la liste des inscrits</p>
+          </div>
+        </router-link>
+        <router-link to="/professors" class="dash-card">
+          <div class="dash-card-icon">P</div>
+          <div class="dash-card-info">
+            <h3>Professeurs</h3>
+            <p>Liste des professeurs</p>
+          </div>
+        </router-link>
+        <router-link to="/admin/import-edt" class="dash-card">
+          <div class="dash-card-icon">I</div>
+          <div class="dash-card-info">
+            <h3>Import EDT</h3>
+            <p>Importer l'emploi du temps</p>
+          </div>
+        </router-link>
+        <router-link to="/admin/specializations" class="dash-card">
+          <div class="dash-card-icon">F</div>
+          <div class="dash-card-info">
+            <h3>Filieres</h3>
+            <p>Consulter les specialisations</p>
+          </div>
+        </router-link>
+        <router-link to="/mail-preferences" class="dash-card">
+          <div class="dash-card-icon">M</div>
+          <div class="dash-card-info">
+            <h3>Preferences Mail</h3>
+            <p>Configurer les envois</p>
+          </div>
+        </router-link>
       </div>
-      <div v-else>
-        <div>
-          <h2 class="warning">Veuillez vous connecter pour accéder à PolyPresence.</h2>
+    </div>
+
+    <!-- Student View -->
+    <div v-else-if="user && !user.isAdmin" class="student-home">
+      <StudentsAttendanceSheetPage />
+    </div>
+
+    <!-- Not logged in -->
+    <div v-else class="guest-home">
+      <div class="guest-card">
+        <div class="guest-icon">
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c0 1.1 2.7 2 6 2s6-.9 6-2v-5" />
+          </svg>
         </div>
+        <h1>PolyPresence</h1>
+        <p>Système d'émargement de Polytech Lyon</p>
+        <router-link to="/login" class="btn btn-primary"
+          >Se connecter</router-link
+        >
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import StudentsAttendanceSheetPage from '../Holder/SessionHolder.vue';
-import { useAuthStore } from '../../stores/authStore';
+import { computed } from "vue";
+import StudentsAttendanceSheetPage from "../Holder/SessionHolder.vue";
+import { useAuthStore } from "../../stores/authStore";
 
 const authStore = useAuthStore();
 const user = computed(() => authStore.user);
-
 </script>
 
 <style scoped>
 .home-page {
   width: 100%;
-  max-width: 1200px;
+  max-width: 960px;
   margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 28px;
+}
+
+.page-title h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.page-subtitle {
+  color: #6c757d;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.dash-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
   padding: 20px;
+  text-decoration: none;
+  transition: all 0.2s;
 }
 
-.home-content {
+.dash-card:hover {
+  border-color: #3498db;
+  box-shadow: 0 4px 16px rgba(52, 152, 219, 0.1);
+  transform: translateY(-2px);
+}
+
+.dash-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-card-info h3 {
+  margin: 0 0 2px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.dash-card-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.student-home {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.guest-home {
+  display: flex;
+  justify-content: center;
+  padding-top: 60px;
+}
+
+.guest-card {
   text-align: center;
-  margin: 40px 0;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 16px;
+  padding: 52px 44px 44px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
-.actions {
-  margin-top: 30px;
+.guest-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.guest-card h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+}
+
+.guest-card p {
+  color: #6c757d;
+  font-size: 0.92rem;
+  margin-bottom: 28px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 11px 28px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .btn-primary {
-  display: inline-block;
-  background-color: #2c3e50;
-  color: white;
-  padding: 12px 24px;
-  border-radius: 4px;
-  text-decoration: none;
-  font-weight: bold;
-  transition: background-color 0.3s;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
 }
 
 .btn-primary:hover {
-  background-color: #1a2533;
-}
-
-.warning {
-  color: #e74c3c;
-  background-color: #fdf2f2;
-  border: 1px solid #f5c6cb;
-  border-radius: 8px;
-  padding: 16px 20px;
-  margin: 20px auto;
-  max-width: 600px;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.1);
-}
-
-.modules {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 40px;
-}
-
-
-.student-dashboard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 30px;
-  padding: 20px 0;
-}
-
-.admin-dashboard {
-  background: #f8faff;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(44, 62, 80, 0.08);
-  padding: 32px 24px;
-  margin: 0 auto 40px auto;
-  max-width: 700px;
-}
-
-.admin-dashboard h2 {
-  font-size: 2rem;
-  color: #2c3e50;
-  margin-bottom: 28px;
-  font-weight: 700;
-}
-
-.admin-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 24px;
-  margin-top: 10px;
-}
-
-
-.admin-actions .btn-primary {
-  background-color: #2c3e50;
-  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
-  font-size: 1.1rem;
-  padding: 18px 0;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: background-color 0.3s, transform 0.2s;
-}
-
-
-.admin-actions .btn-primary:hover {
-  background-color: #1a2533;
-  transform: translateY(-2px) scale(1.04);
-}
-
-@media (max-width: 900px) {
-  .admin-dashboard {
-    padding: 18px 6px;
-    max-width: 98vw;
-  }
-  .admin-actions {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
-
-.attendance-section {
-  width: 100%;
-  max-width: 800px;
-  margin-top: 20px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-.login-prompt {
-  margin: 40px auto;
-  max-width: 500px;
+  box-shadow: 0 6px 20px rgba(26, 26, 46, 0.25);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 768px) {
-  .student-dashboard {
-    gap: 20px;
-  }
-  
-  .attendance-section {
-    padding: 15px;
+  .dashboard-grid {
+    grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 600px) {
-  .home-page {
-    padding: 6px;
-  }
-  .home-content {
-    margin: 18px 0;
-  }
-  .btn-primary {
-    padding: 10px 10vw;
-    font-size: 1em;
-  }
-  .attendance-section {
-    padding: 8px;
-    min-width: unset;
-    max-width: 100vw;
+@media (max-width: 480px) {
+  .guest-card {
+    padding: 36px 20px 32px;
   }
 }
 </style>

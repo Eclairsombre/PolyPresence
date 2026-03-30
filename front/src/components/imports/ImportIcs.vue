@@ -49,8 +49,7 @@
         </div>
 
         <div v-if="icsLinkStore.icsLinks.length === 0" class="empty-state">
-          <div class="empty-icon">📅</div>
-          <p>Aucun lien ICS enregistré.</p>
+          <div class="empty-text">Aucun lien ICS enregistré.</div>
           <p class="empty-hint">
             Utilisez le formulaire pour ajouter un premier lien.
           </p>
@@ -59,10 +58,10 @@
         <table v-else class="links-table">
           <thead>
             <tr>
-              <th>Filière</th>
-              <th>Année</th>
+              <th style="width: 100px">Filière</th>
+              <th style="width: 60px">Année</th>
               <th>URL</th>
-              <th style="width: 140px">Actions</th>
+              <th style="width: 130px">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -158,7 +157,6 @@
           <div class="form-field">
             <label for="ics-url">Lien ICS</label>
             <div class="url-input-wrapper">
-              <span class="url-icon">🔗</span>
               <input
                 v-model="icsUrl"
                 id="ics-url"
@@ -203,7 +201,7 @@
             class="feedback"
             :class="success ? 'feedback-success' : 'feedback-error'"
           >
-            <span class="feedback-icon">{{ success ? "✓" : "✗" }}</span>
+            <span class="feedback-icon">{{ success ? "OK" : "Err" }}</span>
             {{ message }}
           </div>
         </Transition>
@@ -494,6 +492,7 @@ onMounted(fetchAll);
 .links-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .links-table thead {
@@ -546,6 +545,12 @@ onMounted(fetchAll);
   border-radius: 6px;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.url-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .url-cell a {

@@ -1,64 +1,67 @@
 <template>
   <div class="sessions-page">
-    <h1>Mes Sessions</h1>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-title">
+        <h1>Sessions</h1>
+        <p class="page-subtitle">
+          Gérez et consultez toutes les sessions de cours.
+        </p>
+      </div>
+      <div class="page-actions">
+        <button @click="showCreateSessionModal = true" class="btn btn-success">
+          + Créer une session
+        </button>
+        <ExportSessionsPdf :sessions="sessions" :selectedYear="selectedYear" />
+      </div>
+    </div>
 
-    <div class="filter-container">
-      <div class="filter-group">
-        <select
-          v-model="selectedSpecializationId"
-          class="year-filter"
-          @change="loadSessions"
-        >
-          <option value="">Toutes les filières</option>
-          <option
-            v-for="spec in specializations"
-            :key="spec.id"
-            :value="spec.id"
-          >
-            {{ spec.name }} ({{ spec.code }})
-          </option>
-        </select>
-
-        <select v-model="selectedYear" class="year-filter">
-          <option value="">Toutes les années</option>
-          <option value="3A">3A</option>
-          <option value="4A">4A</option>
-          <option value="5A">5A</option>
-        </select>
-
-        <div class="date-filter">
-          <div class="date-input-group">
-            <label for="startDate">Du:</label>
-            <input
-              type="date"
-              id="startDate"
-              v-model="filters.startDate"
-              class="date-input"
-            />
-          </div>
-
-          <div class="date-input-group">
-            <label for="endDate">Au:</label>
-            <input
-              type="date"
-              id="endDate"
-              v-model="filters.endDate"
-              class="date-input"
-              :min="filters.startDate"
-            />
-          </div>
-
-          <button @click="applyFilters" class="filter-button">Filtrer</button>
-          <button @click="clearFilters" class="clear-filter-button">
+    <!-- Filters -->
+    <div class="filters-card">
+      <div class="filters-row">
+        <div class="filter-item">
+          <label>Filière</label>
+          <select v-model="selectedSpecializationId" @change="loadSessions">
+            <option value="">Toutes</option>
+            <option
+              v-for="spec in specializations"
+              :key="spec.id"
+              :value="spec.id"
+            >
+              {{ spec.name }} ({{ spec.code }})
+            </option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>Année</label>
+          <select v-model="selectedYear">
+            <option value="">Toutes</option>
+            <option value="3A">3A</option>
+            <option value="4A">4A</option>
+            <option value="5A">5A</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>Du</label>
+          <input type="date" v-model="filters.startDate" />
+        </div>
+        <div class="filter-item">
+          <label>Au</label>
+          <input
+            type="date"
+            v-model="filters.endDate"
+            :min="filters.startDate"
+          />
+        </div>
+        <div class="filter-buttons">
+          <button @click="applyFilters" class="btn btn-primary btn-sm">
+            Filtrer
+          </button>
+          <button @click="clearFilters" class="btn btn-ghost btn-sm">
             Réinitialiser
           </button>
         </div>
       </div>
-
-      <button @click="showCreateSessionModal = true" class="create-button">
-        Créer une session
-      </button>
-      <ExportSessionsPdf :sessions="sessions" :selectedYear="selectedYear" />
     </div>
 
     <PopUpCreateSession
@@ -67,85 +70,94 @@
       @sessionCreated="handleSessionCreated"
     />
 
-    <div v-if="showSuccessMessage" class="success-message">
-      Session créée avec succès!
+    <Transition name="fade">
+      <div v-if="showSuccessMessage" class="toast toast-success">
+        Session créée avec succès !
+      </div>
+    </Transition>
+
+    <!-- States -->
+    <div v-if="sessionStore.loading" class="state-card">
+      <div class="spinner"></div>
+      <p>Chargement des sessions...</p>
     </div>
 
-    <div v-if="sessionStore.loading" class="loading-state">
-      Chargement des sessions...
-    </div>
-
-    <div v-else-if="sessionStore.error" class="error-state">
+    <div v-else-if="sessionStore.error" class="state-card state-error">
       <p>{{ sessionStore.error }}</p>
-      <button @click="loadSessions" class="retry-button">Réessayer</button>
+      <button @click="loadSessions" class="btn btn-primary btn-sm">
+        Réessayer
+      </button>
     </div>
 
-    <div v-else-if="sessions.length === 0" class="empty-state">
+    <div v-else-if="sessions.length === 0" class="state-card">
+      <div class="empty-text">Aucune session</div>
       <p>Aucune session trouvée.</p>
+      <p class="state-hint">
+        Modifiez vos filtres ou créez une nouvelle session.
+      </p>
     </div>
 
-    <div v-else>
-      <div class="sessions-list">
-        <div v-for="session in sessions" :key="session.id" class="session-card">
-          <div class="session-header">
-            <h3>Session du {{ formatDate(session.date) }}</h3>
-            <span class="session-year"
-              >{{
-                session.specializationCode
-                  ? session.specializationCode + " - "
-                  : ""
-              }}{{ session.year }}</span
+    <!-- Sessions Grid -->
+    <div v-else class="sessions-grid">
+      <div v-for="session in sessions" :key="session.id" class="session-card">
+        <div class="card-top">
+          <div class="card-date">{{ formatDate(session.date) }}</div>
+          <span class="card-badge">
+            {{
+              session.specializationCode
+                ? session.specializationCode + " · "
+                : ""
+            }}{{ session.year }}
+          </span>
+        </div>
+        <div class="card-body">
+          <h3 v-if="session.name" class="card-name">{{ session.name }}</h3>
+          <div class="card-meta">
+            <span class="meta-item"
+              >{{ formatTime(session.startTime) }} -
+              {{ formatTime(session.endTime) }}</span
             >
+            <span v-if="session.room" class="meta-item">{{
+              session.room
+            }}</span>
           </div>
-          <div class="session-details">
-            <p v-if="session.name"><strong>Nom :</strong> {{ session.name }}</p>
-            <p>
-              <strong>Horaires:</strong> {{ formatTime(session.startTime) }} -
-              {{ formatTime(session.endTime) }}
-            </p>
-            <p v-if="session.room">
-              <strong>Salle :</strong> {{ session.room }}
-            </p>
-            <div v-if="session.profId" class="prof-info">
-              <p>
-                <strong>Professeur:</strong> {{ getProfName(session.profId) }}
-              </p>
-            </div>
-            <div v-if="session.profId2" class="prof-info">
-              <p>
-                <strong>Professeur:</strong> {{ getProfName(session.profId2) }}
-              </p>
-            </div>
-            <div class="session-actions">
-              <router-link
-                :to="{
-                  path: `/sessions/${session.id}`,
-                  query: {
-                    year: selectedYear,
-                    startDate: filters.startDate,
-                    endDate: filters.endDate,
-                  },
-                }"
-                class="view-attendance-btn"
-              >
-                Voir les présences
-              </router-link>
-              <button
-                v-if="
-                  session.name &&
-                  session.name.toLowerCase().includes('travail personnel')
-                "
-                class="view-attendance-btn"
-                @click="openEditSessionModal(session)"
-                style="min-width: 90px"
-              >
-                Signer
-              </button>
-            </div>
+          <div v-if="session.profId || session.profId2" class="card-profs">
+            <span v-if="session.profId" class="prof-tag">{{
+              getProfName(session.profId)
+            }}</span>
+            <span v-if="session.profId2" class="prof-tag">{{
+              getProfName(session.profId2)
+            }}</span>
           </div>
+        </div>
+        <div class="card-footer">
+          <router-link
+            :to="{
+              path: `/sessions/${session.id}`,
+              query: {
+                year: selectedYear,
+                startDate: filters.startDate,
+                endDate: filters.endDate,
+              },
+            }"
+            class="btn btn-primary btn-sm"
+          >
+            Voir les présences
+          </router-link>
+          <button
+            v-if="
+              session.name &&
+              session.name.toLowerCase().includes('travail personnel')
+            "
+            class="btn btn-outline btn-sm"
+            @click="openEditSessionModal(session)"
+          >
+            Signer
+          </button>
         </div>
       </div>
     </div>
+
     <PopUpSignSession
       v-if="showEditSessionModal"
       :session="selectedSession"
@@ -420,262 +432,355 @@ export default defineComponent({
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
 }
 
-.filter-container {
-  margin: 20px 0;
+/* Page Header */
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin-bottom: 20px;
   flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-title h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.page-subtitle {
+  color: #6c757d;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.page-actions {
+  display: flex;
   gap: 10px;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex-grow: 1;
-  max-width: 600px;
-}
-
-.date-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-end;
-}
-
-.date-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.date-input-group label {
-  font-size: 0.9rem;
-  color: #555;
-}
-
-.date-input {
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  font-size: 14px;
-}
-
-.filter-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  height: 37px;
-}
-
-.filter-button:hover {
-  background-color: #2980b9;
-}
-
-.clear-filter-button {
-  background-color: #f1f1f1;
-  color: #333;
-  border: 1px solid #ddd;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  height: 37px;
-}
-
-.clear-filter-button:hover {
-  background-color: #e6e6e6;
-}
-
-.year-filter {
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  font-size: 16px;
-  min-width: 150px;
-}
-
-.loading-state,
-.error-state,
-.empty-state {
-  padding: 40px;
-  text-align: center;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  margin: 20px 0;
-}
-
-.error-state {
-  border: 1px solid #e74c3c;
-  color: #e74c3c;
-}
-
-.retry-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  margin-top: 10px;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.retry-button:hover {
-  background-color: #2980b9;
-}
-
-.sessions-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
-}
-
-.session-card {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  transition:
-    transform 0.3s,
-    box-shadow 0.3s;
-}
-
-.session-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.session-header {
-  background-color: #3498db;
-  color: white;
-  padding: 15px;
-  display: flex;
-  justify-content: space-between;
   align-items: center;
 }
 
-.session-header h3 {
-  margin: 0;
-  font-weight: 500;
-}
-
-.session-year {
-  background-color: rgba(255, 255, 255, 0.2);
-  padding: 3px 8px;
-  border-radius: 4px;
+/* Buttons */
+.btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 8px;
   font-size: 0.9rem;
-}
-
-.session-details {
-  padding: 15px;
-}
-
-.session-details p {
-  margin: 10px 0;
-}
-
-.session-actions {
-  margin-top: 10px;
-}
-
-.view-attendance-btn {
-  background-color: #3498db;
-  color: white;
-  padding: 8px 12px;
-  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
   text-decoration: none;
-  transition: background-color 0.3s;
-  margin-left: 10px;
-  border: none;
-  cursor: pointer;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.view-attendance-btn:hover {
-  background-color: #2980b9;
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 0.85rem;
 }
 
-.create-button {
-  background-color: #27ae60;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.3s;
+.btn-primary {
+  background: #3498db;
+  color: #fff;
 }
 
-.create-button:hover {
-  background-color: #219653;
+.btn-primary:hover {
+  background: #2980b9;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
 }
 
-.session-form-container h2 {
-  margin-bottom: 20px;
-  color: #2c3e50;
-  font-size: 1.4rem;
+.btn-success {
+  background: #27ae60;
+  color: #fff;
 }
 
-.form-group label {
-  margin-bottom: 5px;
-  font-weight: 500;
+.btn-success:hover {
+  background: #219a52;
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.25);
 }
 
-.success-message {
-  background-color: #d4edda;
+.btn-outline {
+  background: transparent;
+  color: #3498db;
+  border: 1px solid #3498db;
+}
+
+.btn-outline:hover {
+  background: #eef6ff;
+}
+
+.btn-ghost {
+  background: #f0f2f5;
+  color: #495057;
+}
+
+.btn-ghost:hover {
+  background: #e2e6ea;
+}
+
+.btn-icon-text {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* Filters */
+.filters-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin-bottom: 24px;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-item label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.filter-item select,
+.filter-item input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1a1a2e;
+  background: #fff;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  min-width: 130px;
+}
+
+.filter-item select:focus,
+.filter-item input:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  padding: 14px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  z-index: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.toast-success {
+  background: #d4edda;
   color: #155724;
-  padding: 15px;
-  border-radius: 4px;
+  border: 1px solid #c3e6cb;
+}
+
+/* States */
+.state-card {
   text-align: center;
-  margin-bottom: 20px;
+  padding: 48px 24px;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  color: #6c757d;
 }
 
-@media (max-width: 768px) {
-  .sessions-list {
-    grid-template-columns: 1fr;
+.state-error {
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.state-hint {
+  font-size: 0.85rem;
+  color: #adb5bd;
+  margin-top: 4px;
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e0e4ea;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@media (max-width: 600px) {
-  .sessions-list {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-  .session-card {
-    font-size: 0.98em;
-    padding: 0;
-  }
-  .session-header,
-  .session-details {
-    padding: 8px;
-  }
-
-  .form-group label {
-    font-size: 0.98em;
-  }
+/* Sessions Grid */
+.sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
 }
 
-.view-attendance-btn {
-  background-color: #3498db;
+.session-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  overflow: hidden;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.session-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   color: white;
-  padding: 8px 12px;
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background-color 0.3s;
-  margin-left: 10px;
-  border: none;
-  cursor: pointer;
-  font-weight: 500;
 }
-.view-attendance-btn:hover {
-  background-color: #2980b9;
+
+.card-date {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.card-badge {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+.card-body {
+  padding: 16px 18px;
+  flex: 1;
+}
+
+.card-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 10px;
+}
+
+.card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-item {
+  font-size: 0.88rem;
+  color: #495057;
+}
+
+.card-profs {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prof-tag {
+  font-size: 0.82rem;
+  background: #eef2ff;
+  color: #3949ab;
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
+.card-footer {
+  padding: 12px 18px;
+  border-top: 1px solid #f0f0f5;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sessions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .filters-row {
+    flex-direction: column;
+  }
+
+  .filter-item select,
+  .filter-item input {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .page-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>

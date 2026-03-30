@@ -1,97 +1,128 @@
 <template>
   <div class="students-list-page">
-    <div class="header-section">
-      <h1>
-        Liste des
-        {{ yearFilter !== "ADMIN" ? "étudiants" : " administrateurs" }}
-      </h1>
-    </div>
-    <div class="actions-bar">
-      <div class="filter-buttons">
-        <select
-          v-model="selectedSpecializationId"
-          @change="refreshStudents"
-          class="spec-filter"
-        >
-          <option value="">Toutes filières</option>
-          <option
-            v-for="spec in specializations"
-            :key="spec.id"
-            :value="spec.id"
-          >
-            {{ spec.name }} ({{ spec.code }})
-          </option>
-        </select>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-title">
+        <h1>{{ yearFilter !== "ADMIN" ? "Étudiants" : "Administrateurs" }}</h1>
+        <p class="page-subtitle">
+          {{ students.length }}
+          {{ yearFilter !== "ADMIN" ? "étudiants" : "administrateurs" }} trouvés
+        </p>
+      </div>
+      <div class="page-actions">
         <button
-          :class="{ active: yearFilter === 'ADMIN' }"
-          @click="filterYear('ADMIN')"
+          v-if="yearFilter !== 'ADMIN'"
+          class="btn btn-outline"
+          @click="openImportPopup"
         >
-          Admin
-        </button>
-        <button
-          :class="{ active: yearFilter === '3A' }"
-          @click="filterYear('3A')"
-        >
-          3A
-        </button>
-        <button
-          :class="{ active: yearFilter === '4A' }"
-          @click="filterYear('4A')"
-        >
-          4A
-        </button>
-        <button
-          :class="{ active: yearFilter === '5A' }"
-          @click="filterYear('5A')"
-        >
-          5A
-        </button>
-        <button v-if="yearFilter !== 'ADMIN'" @click="openImportPopup">
           Importer
         </button>
+        <AddStudentButton @click="openAddPopup" :year="yearFilter" />
       </div>
-      <AddStudentButton @click="openAddPopup" :year="yearFilter" />
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Nom</th>
-          <th>Prénom</th>
-          <th>Numéro étudiant</th>
-          <th>Email</th>
-          <th>Année</th>
-          <th v-if="yearFilter !== 'ADMIN'">Délégué</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="student in students" :key="student.id">
-          <td>{{ student.name }}</td>
-          <td>{{ student.firstname }}</td>
-          <td>{{ student.studentNumber }}</td>
-          <td>{{ student.email }}</td>
-          <td>{{ student.year }}</td>
-          <td v-if="yearFilter !== 'ADMIN'">
-            <span v-if="student.isDelegate" class="delegate-badge">✔️</span>
-            <span v-else>-</span>
-          </td>
-          <td>
-            <button class="edit-btn" @click="openEditPopup(student)">
-              Modifier
-            </button>
-            <button
-              class="delete-btn"
-              @click="confirmDeleteStudent(student)"
-              :disabled="isCurrentUser(student)"
+
+    <!-- Filters -->
+    <div class="filters-card">
+      <div class="filters-row">
+        <div class="filter-item">
+          <label>Filière</label>
+          <select v-model="selectedSpecializationId" @change="refreshStudents">
+            <option value="">Toutes</option>
+            <option
+              v-for="spec in specializations"
+              :key="spec.id"
+              :value="spec.id"
             >
-              Supprimer
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div v-if="students.length === 0" class="empty-message">
-      Aucun étudiant à afficher pour cette année.
+              {{ spec.name }} ({{ spec.code }})
+            </option>
+          </select>
+        </div>
+        <div class="year-tabs">
+          <button
+            :class="['tab', { active: yearFilter === 'ADMIN' }]"
+            @click="filterYear('ADMIN')"
+          >
+            Admin
+          </button>
+          <button
+            :class="['tab', { active: yearFilter === '3A' }]"
+            @click="filterYear('3A')"
+          >
+            3A
+          </button>
+          <button
+            :class="['tab', { active: yearFilter === '4A' }]"
+            @click="filterYear('4A')"
+          >
+            4A
+          </button>
+          <button
+            :class="['tab', { active: yearFilter === '5A' }]"
+            @click="filterYear('5A')"
+          >
+            5A
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <table v-if="students.length > 0">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Prénom</th>
+            <th class="hide-mobile">N° étudiant</th>
+            <th class="hide-mobile">Email</th>
+            <th>Année</th>
+            <th v-if="yearFilter !== 'ADMIN'">Délégué</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="student in students" :key="student.id">
+            <td class="cell-name">{{ student.name }}</td>
+            <td>{{ student.firstname }}</td>
+            <td class="hide-mobile">
+              <code>{{ student.studentNumber }}</code>
+            </td>
+            <td class="hide-mobile cell-email">{{ student.email }}</td>
+            <td>
+              <span class="year-badge">{{ student.year }}</span>
+            </td>
+            <td v-if="yearFilter !== 'ADMIN'">
+              <span v-if="student.isDelegate" class="delegate-badge">Oui</span>
+              <span v-else class="no-delegate">Non</span>
+            </td>
+            <td>
+              <div class="cell-actions">
+                <button
+                  class="btn-icon btn-edit"
+                  @click="openEditPopup(student)"
+                  title="Modifier"
+                >
+                  ✏️
+                </button>
+                <button
+                  class="btn-icon btn-delete"
+                  @click="confirmDeleteStudent(student)"
+                  :disabled="isCurrentUser(student)"
+                  title="Supprimer"
+                >
+                  🗑️
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="empty-state">
+        <div class="empty-text">
+          Aucun
+          {{ yearFilter !== "ADMIN" ? "étudiant" : "administrateur" }} trouvé.
+        </div>
+      </div>
     </div>
   </div>
   <PopUpImportStudent
@@ -217,54 +248,141 @@ const cancelDelete = () => {
 .students-list-page {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  width: 100%;
 }
 
-.header-section {
+/* Page Header */
+.page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
-.actions-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+.page-title h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 2px;
 }
 
-.filter-buttons {
+.page-subtitle {
+  color: #6c757d;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.page-actions {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
-.spec-filter {
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  font-size: 0.95rem;
-  background: #fff;
-}
-
-.filter-buttons button {
+/* Buttons */
+.btn-outline {
   padding: 8px 16px;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  background: transparent;
+  color: #3498db;
+  border: 1px solid #3498db;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
-.filter-buttons button:hover {
-  background-color: #e0e0e0;
+.btn-outline:hover {
+  background: #eef6ff;
 }
 
-.filter-buttons button.active {
-  background-color: #2c3e50;
+/* Filters */
+.filters-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  padding: 16px 22px;
+  margin-bottom: 20px;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-item label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.filter-item select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1a1a2e;
+  background: #fff;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  min-width: 160px;
+}
+
+.filter-item select:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Year tabs */
+.year-tabs {
+  display: flex;
+  gap: 4px;
+  background: #f0f2f5;
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.tab {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #495057;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tab.active {
+  background: #1a1a2e;
   color: white;
-  border-color: #2c3e50;
+  box-shadow: 0 2px 8px rgba(26, 26, 46, 0.2);
+}
+
+/* Table */
+.table-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 table {
@@ -272,91 +390,157 @@ table {
   border-collapse: collapse;
 }
 
-th,
-td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
+thead {
+  background: #f8f9fb;
 }
 
 th {
-  background-color: #f5f5f5;
-  font-weight: bold;
+  text-align: left;
+  padding: 11px 16px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6c757d;
+  font-weight: 600;
+  border-bottom: 1px solid #f0f0f5;
 }
 
-tr:hover {
-  background-color: #f9f9f9;
+td {
+  padding: 13px 16px;
+  border-bottom: 1px solid #f5f5f8;
+  font-size: 0.92rem;
+  vertical-align: middle;
 }
 
-.empty-message {
-  margin-top: 20px;
-  text-align: center;
-  color: #888;
+tbody tr {
+  transition: background 0.15s;
 }
 
-.edit-btn,
-.delete-btn {
-  padding: 8px 16px;
-  border: none;
+tbody tr:hover {
+  background: #f8f9fb;
+}
+
+.cell-name {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.cell-email {
+  color: #6c757d;
+  font-size: 0.88rem;
+}
+
+code {
+  background: #f0f2f5;
+  padding: 2px 8px;
   border-radius: 4px;
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 0.85rem;
+  color: #495057;
+}
+
+.year-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.delegate-badge {
+  background: #d4edda;
+  color: #155724;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.no-delegate {
+  color: #adb5bd;
+}
+
+/* Cell actions */
+.cell-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e4ea;
+  border-radius: 8px;
+  background: #fff;
   cursor: pointer;
-  margin-right: 8px;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
+  font-size: 0.88rem;
+  transition: all 0.15s;
 }
 
-.edit-btn {
-  background-color: #3498db;
-  color: white;
+.btn-icon:hover {
+  transform: translateY(-1px);
 }
 
-.edit-btn:hover {
-  background-color: #217dbb;
+.btn-edit:hover {
+  background: #fff8e1;
+  border-color: #ffca28;
 }
 
-.delete-btn {
-  background-color: #e74c3c;
-  color: white;
-  margin-right: 0;
+.btn-delete:hover {
+  background: #ffebee;
+  border-color: #ef5350;
 }
 
-.delete-btn:hover {
-  background-color: #c0392b;
-}
-
-.delete-btn:disabled {
-  background-color: #ccc;
+.btn-icon:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
+  transform: none;
 }
 
-.delete-btn:disabled:hover {
-  background-color: #ccc;
+/* Empty */
+.empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  color: #6c757d;
 }
 
-@media (max-width: 600px) {
-  table,
-  thead,
-  tbody,
-  th,
-  td,
-  tr {
-    display: block;
+.empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .filters-row {
+    flex-direction: column;
+  }
+
+  .year-tabs {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-actions {
+    flex-direction: column;
     width: 100%;
   }
-  th,
-  td {
-    padding: 8px 4px;
-    font-size: 0.98em;
-  }
-  .edit-btn,
-  .delete-btn {
-    width: 100%;
-    margin: 4px 0 0 0;
-    font-size: 0.95em;
-    padding: 8px 0;
+
+  .tab {
+    padding: 7px 10px;
+    font-size: 0.82rem;
   }
 }
 </style>
