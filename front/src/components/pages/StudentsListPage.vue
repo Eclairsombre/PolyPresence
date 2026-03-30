@@ -24,9 +24,13 @@
     <!-- Filters -->
     <div class="filters-card">
       <div class="filters-row">
-        <div class="filter-item">
-          <label>Filière</label>
-          <select v-model="selectedSpecializationId" @change="refreshStudents">
+        <div v-if="yearFilter !== 'ADMIN'" class="filter-item">
+          <label for="students-specialization-filter">Filière</label>
+          <select
+            id="students-specialization-filter"
+            v-model="selectedSpecializationId"
+            @change="refreshStudents"
+          >
             <option value="">Toutes</option>
             <option
               v-for="spec in specializations"
@@ -128,12 +132,13 @@
   <PopUpImportStudent
     v-if="showImportPopup"
     :year="yearFilter"
-    :students="students"
+    :selected-specialization-id="selectedSpecializationId"
     @close="closeImportPopup"
   />
   <PopUpAddStudent
     v-if="showAddPopup"
     :year="yearFilter"
+    :selected-specialization-id="selectedSpecializationId"
     @close="closeAddPopup"
     @student-added="refreshStudents"
   />
@@ -199,6 +204,9 @@ const isCurrentUser = (student) => {
 
 const filterYear = async (year) => {
   yearFilter.value = year;
+  if (year === "ADMIN") {
+    selectedSpecializationId.value = "";
+  }
   await refreshStudents();
 };
 

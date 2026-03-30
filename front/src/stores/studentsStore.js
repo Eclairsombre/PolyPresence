@@ -122,6 +122,7 @@ export const useStudentsStore = defineStore("students", {
         }
 
         const formattedStudents = studentsData.map((student) => ({
+          id: student.id,
           name: student.name,
           firstname: student.firstname,
           studentNumber: student.studentNumber,
@@ -129,6 +130,7 @@ export const useStudentsStore = defineStore("students", {
           year: student.year,
           signature: student.signature,
           isDelegate: student.isDelegate ?? false,
+          specializationId: student.specializationId ?? null,
         }));
 
         this.students = formattedStudents;

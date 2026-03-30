@@ -9,141 +9,208 @@
         <form @submit.prevent="handleSubmit" class="add-student-form">
           <div class="form-group">
             <label for="name">Nom <span class="required">*</span></label>
-            <input 
-              type="text" 
-              id="name" 
-              v-model="student.name" 
-              required 
+            <input
+              type="text"
+              id="name"
+              v-model="student.name"
+              required
               placeholder="Nom de famille"
             />
           </div>
-          
+
           <div class="form-group">
-            <label for="firstname">Prénom <span class="required">*</span></label>
-            <input 
-              type="text" 
-              id="firstname" 
-              v-model="student.firstname" 
-              required 
+            <label for="firstname"
+              >Prénom <span class="required">*</span></label
+            >
+            <input
+              type="text"
+              id="firstname"
+              v-model="student.firstname"
+              required
               placeholder="Prénom"
             />
           </div>
-          
+
           <div class="form-group">
-            <label for="studentNumber">Numéro étudiant <span class="required">*</span></label>
-            <input 
-              type="text" 
-              id="studentNumber" 
-              v-model="student.studentNumber" 
-              required 
+            <label for="studentNumber"
+              >Numéro étudiant <span class="required">*</span></label
+            >
+            <input
+              type="text"
+              id="studentNumber"
+              v-model="student.studentNumber"
+              required
               placeholder="Ex: p1234567"
             />
           </div>
-          
+
           <div class="form-group">
             <label for="email">Email <span class="required">*</span></label>
-            <input 
-              type="email" 
-              id="email" 
-              v-model="student.email" 
-              required 
+            <input
+              type="email"
+              id="email"
+              v-model="student.email"
+              required
               placeholder="nom.prenom@etu.univ-lyon1.fr"
             />
           </div>
 
-          <div v-if="year!=='ADMIN'" class="form-group">
+          <div v-if="year !== 'ADMIN'" class="form-group">
+            <label for="specialization"
+              >Filière <span class="required">*</span></label
+            >
+            <select
+              id="specialization"
+              v-model="student.specializationId"
+              required
+            >
+              <option value="" disabled>Sélectionner une filière</option>
+              <option
+                v-for="spec in specializations"
+                :key="spec.id"
+                :value="spec.id"
+              >
+                {{ spec.name }} ({{ spec.code }})
+              </option>
+            </select>
+          </div>
+
+          <div v-if="year !== 'ADMIN'" class="form-group">
             <label>
               <input type="checkbox" v-model="student.isDelegate" />
               Délégué
             </label>
           </div>
-          
+
           <div class="form-actions">
-            <button type="button" class="cancel-btn" @click="$emit('close')">Annuler</button>
+            <button type="button" class="cancel-btn" @click="$emit('close')">
+              Annuler
+            </button>
             <button type="submit" class="submit-btn" :disabled="isSubmitting">
-              {{ isSubmitting ? 'Ajout en cours...' : 'Ajouter' }}
+              {{ isSubmitting ? "Ajout en cours..." : "Ajouter" }}
             </button>
           </div>
         </form>
         <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-        <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
+        <p v-if="successMessage" class="success-message">
+          {{ successMessage }}
+        </p>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { useStudentsStore } from '../../stores/studentsStore.js';
-import { ref } from 'vue';
+import { useStudentsStore } from "../../stores/studentsStore.js";
+import { useSpecializationStore } from "../../stores/specializationStore.js";
+import { computed, onMounted, ref } from "vue";
 
 export default {
-  name: 'PopUpAddStudent',
+  name: "PopUpAddStudent",
   props: {
     year: {
       type: String,
-      required: true
-    }
+      required: true,
+    },
+    selectedSpecializationId: {
+      type: [String, Number],
+      default: "",
+    },
   },
-  emits: ['close', 'student-added'],
+  emits: ["close", "student-added"],
   setup(props, { emit }) {
     const studentsStore = useStudentsStore();
-    const student = ref({
-      name: '',
-      firstname: '',
-      studentNumber: '',
-      email: '',
-      year: props.year,
-      group: '',
-      isDelegate: false
+    const specializationStore = useSpecializationStore();
+    const specializations = computed(
+      () => specializationStore.activeSpecializations,
+    );
+
+    onMounted(async () => {
+      if (props.year !== "ADMIN") {
+        await specializationStore.fetchSpecializations();
+      }
     });
-    
+
+    const initialSpecializationId =
+      props.year !== "ADMIN" && props.selectedSpecializationId
+        ? Number(props.selectedSpecializationId)
+        : "";
+
+    const student = ref({
+      name: "",
+      firstname: "",
+      studentNumber: "",
+      email: "",
+      year: props.year,
+      group: "",
+      isDelegate: false,
+      specializationId: initialSpecializationId,
+    });
+
     const isSubmitting = ref(false);
-    const errorMessage = ref('');
-    const successMessage = ref('');
-    
+    const errorMessage = ref("");
+    const successMessage = ref("");
+
     const handleSubmit = async () => {
       isSubmitting.value = true;
-      errorMessage.value = '';
-      
+      errorMessage.value = "";
+
       try {
+        if (student.value.year !== "ADMIN" && !student.value.specializationId) {
+          errorMessage.value = "Veuillez sélectionner une filière.";
+          isSubmitting.value = false;
+          return;
+        }
+
+        if (student.value.year === "ADMIN") {
+          student.value.specializationId = null;
+          student.value.isDelegate = false;
+        }
+
         await studentsStore.addStudent(student.value);
-        
-        if (student.value.year === 'ADMIN') {
+
+        if (student.value.year === "ADMIN") {
           try {
             await studentsStore.makeAdmin(student.value.studentNumber);
           } catch (adminError) {
-            console.error("Erreur lors de la promotion en administrateur:", adminError);
-            errorMessage.value = "L'étudiant a été ajouté mais n'a pas pu être promu administrateur: " + 
+            console.error(
+              "Erreur lors de la promotion en administrateur:",
+              adminError,
+            );
+            errorMessage.value =
+              "L'étudiant a été ajouté mais n'a pas pu être promu administrateur: " +
               (adminError.message || "Erreur inconnue");
             isSubmitting.value = false;
             return;
           }
         }
-        
-        successMessage.value = 'Étudiant ajouté avec succès!';
-        
+
+        successMessage.value = "Étudiant ajouté avec succès!";
+
         setTimeout(() => {
-          emit('student-added');
-          emit('close');
+          emit("student-added");
+          emit("close");
         }, 1000);
-        
       } catch (error) {
         console.error("Erreur complète lors de l'ajout:", error);
-        errorMessage.value = error.message || 'Une erreur est survenue lors de l\'ajout de l\'étudiant';
+        errorMessage.value =
+          error.message ||
+          "Une erreur est survenue lors de l'ajout de l'étudiant";
       } finally {
         isSubmitting.value = false;
       }
     };
-    
+
     return {
       student,
+      specializations,
       isSubmitting,
       errorMessage,
       successMessage,
-      handleSubmit
+      handleSubmit,
     };
-  }
-}
+  },
+};
 </script>
 
 <style scoped>
@@ -162,8 +229,12 @@ export default {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .popup-content {
@@ -177,8 +248,14 @@ export default {
 }
 
 @keyframes slideIn {
-  from { transform: translateY(-30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .popup-header {
@@ -238,7 +315,16 @@ export default {
   font-size: 1rem;
 }
 
-.form-group input:focus {
+.form-group select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.form-group input:focus,
+.form-group select:focus {
   outline: none;
   border-color: #4caf50;
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
@@ -251,7 +337,8 @@ export default {
   margin-top: 10px;
 }
 
-.cancel-btn, .submit-btn {
+.cancel-btn,
+.submit-btn {
   padding: 10px 20px;
   border: none;
   border-radius: 4px;
@@ -313,7 +400,8 @@ export default {
     font-size: 0.98em;
     padding: 8px;
   }
-  .cancel-btn, .submit-btn {
+  .cancel-btn,
+  .submit-btn {
     width: 100%;
     padding: 8px 0;
     font-size: 1em;

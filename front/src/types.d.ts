@@ -6,4 +6,5 @@ export interface Student {
     year: string;
     signature: string;
     isDelegate?: boolean;
+    specializationId?: number | null;
 }

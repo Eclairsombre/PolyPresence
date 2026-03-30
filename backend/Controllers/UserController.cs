@@ -353,7 +353,7 @@ namespace backend.Controllers
 
             var query = _context.Users.Where(s => s.Year == year && !s.IsDeleted);
 
-            if (specializationId.HasValue)
+            if (specializationId.HasValue && !string.Equals(year, "ADMIN", StringComparison.OrdinalIgnoreCase))
             {
                 query = query.Where(s => s.SpecializationId == specializationId.Value);
             }
@@ -1002,7 +1002,11 @@ namespace backend.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == studentNumber);
             if (user == null)
                 return NotFound(new { message = "Étudiant introuvable." });
+
             user.IsAdmin = true;
+            user.IsDelegate = false;
+            user.SpecializationId = null;
+
             await _context.SaveChangesAsync();
             return Ok(new { message = "L'étudiant a été promu administrateur." });
         }
@@ -1084,6 +1088,31 @@ namespace backend.Controllers
 
             _logger.LogInformation($"Admin user {adminUser!.StudentNumber} is creating a new user");
 
+            var isAdminYear = string.Equals(user.Year, "ADMIN", StringComparison.OrdinalIgnoreCase);
+            if (isAdminYear)
+            {
+                user.IsAdmin = true;
+            }
+
+            if (user.IsAdmin)
+            {
+                user.SpecializationId = null;
+                user.IsDelegate = false;
+            }
+            else
+            {
+                if (!user.SpecializationId.HasValue)
+                {
+                    return BadRequest(new { error = true, message = "La filière est obligatoire pour un étudiant." });
+                }
+
+                var specializationExists = await _context.Specializations.AnyAsync(s => s.Id == user.SpecializationId.Value && s.IsActive);
+                if (!specializationExists)
+                {
+                    return BadRequest(new { error = true, message = "Filière invalide ou inactive." });
+                }
+            }
+
             // Vérifie si un compte actif existe déjà
             if (await _context.Users.AnyAsync(u => u.StudentNumber == user.StudentNumber && !u.IsDeleted))
             {
@@ -1101,6 +1130,7 @@ namespace backend.Controllers
                 deletedUser.Signature = user.Signature;
                 deletedUser.IsAdmin = user.IsAdmin;
                 deletedUser.IsDelegate = user.IsDelegate;
+                deletedUser.SpecializationId = user.SpecializationId;
                 deletedUser.IsDeleted = false;
                 deletedUser.DeletedAt = null;
                 deletedUser.RegisterToken = null;
@@ -1108,9 +1138,15 @@ namespace backend.Controllers
                 deletedUser.RegisterMailSent = false;
 
                 var reactivationToday = DateTime.Now.Date;
-                var reactivationSessions = await _context.Sessions
-                    .Where(s => s.Year == deletedUser.Year && s.Date >= reactivationToday)
-                    .ToListAsync();
+                var reactivationSessionsQuery = _context.Sessions
+                    .Where(s => s.Year == deletedUser.Year && s.Date >= reactivationToday);
+
+                if (deletedUser.SpecializationId.HasValue)
+                {
+                    reactivationSessionsQuery = reactivationSessionsQuery.Where(s => s.SpecializationId == deletedUser.SpecializationId.Value);
+                }
+
+                var reactivationSessions = await reactivationSessionsQuery.ToListAsync();
 
                 foreach (var session in reactivationSessions)
                 {
@@ -1136,9 +1172,15 @@ namespace backend.Controllers
 
             // Utiliser DateTime.Now (heure locale CET) car les dates sont stockées en heure locale
             var today = DateTime.Now.Date;
-            var futureSessions = await _context.Sessions
-                .Where(s => s.Year == user.Year && s.Date >= today)
-                .ToListAsync();
+            var futureSessionsQuery = _context.Sessions
+                .Where(s => s.Year == user.Year && s.Date >= today);
+
+            if (user.SpecializationId.HasValue)
+            {
+                futureSessionsQuery = futureSessionsQuery.Where(s => s.SpecializationId == user.SpecializationId.Value);
+            }
+
+            var futureSessions = await futureSessionsQuery.ToListAsync();
 
             foreach (var session in futureSessions)
             {
