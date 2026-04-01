@@ -85,7 +85,7 @@ namespace backend.Services
                 {
                     await CheckAndSendSessionMails();
                 }
-                if (now.Hour >= 19 && now.Minute < 15)
+                if (now.Hour >= 19)
                 {
                     timer.Stop();
                     timer.Dispose();
