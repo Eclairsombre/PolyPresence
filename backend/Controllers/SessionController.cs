@@ -22,13 +22,11 @@ namespace backend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SessionController> _logger;
-        private readonly IServiceScopeFactory _serviceScopeFactory;
 
         public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
         {
             _context = context;
             _logger = logger;
-            _serviceScopeFactory = serviceScopeFactory;
         }
 
 
@@ -40,53 +38,48 @@ namespace backend.Controllers
          */
         public async Task CheckAndSendSessionMails()
         {
-            using (var scope = _serviceScopeFactory.CreateScope())
+            var now = DateTime.Now;
+            _logger.LogInformation($"Vérification des sessions à {now} pour l'envoi de mails aux professeurs.");
+
+            var sessions = await _context.Sessions
+                .Where(s => s.Date == now.Date &&
+                        ((!s.IsMailSent && s.ProfId != null) ||
+                            (!s.IsMailSent2 && s.ProfId2 != null)))
+                .ToListAsync();
+
+            sessions = sessions
+                .Where(s => s.StartTime <= now)
+                .ToList();
+
+            foreach (var session in sessions)
             {
-                var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
-                var now = DateTime.Now;
-                _logger.LogInformation($"Vérification des sessions à {now} pour l'envoi de mails aux professeurs.");
-
-                var sessions = await scopedContext.Sessions
-                    .Where(s => s.Date == now.Date &&
-                            ((!s.IsMailSent && s.ProfId != null) ||
-                                (!s.IsMailSent2 && s.ProfId2 != null)))
-                    .ToListAsync();
-
-                sessions = sessions
-                    .Where(s => s.StartTime <= now)
-                    .ToList();
-
-                foreach (var session in sessions)
+                if (!session.IsMailSent && !string.IsNullOrEmpty(session.ProfId))
                 {
-                    if (!session.IsMailSent && !string.IsNullOrEmpty(session.ProfId))
+                    try
                     {
-                        try
-                        {
-                            await SendProfSignatureMail(session, 1);
-                            session.IsMailSent = true;
-                            await scopedContext.SaveChangesAsync();
-                            logger.LogInformation($"Mail envoyé automatiquement au professeur 1 pour la session {session.Id}.");
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.LogError($"Erreur lors de l'envoi automatique du mail au professeur 1 pour la session {session.Id} : {ex.Message}");
-                        }
+                        await SendProfSignatureMail(session, 1);
+                        session.IsMailSent = true;
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Mail envoyé automatiquement au professeur 1 pour la session {session.Id}.");
                     }
-
-                    if (!session.IsMailSent2 && !string.IsNullOrEmpty(session.ProfId2))
+                    catch (Exception ex)
                     {
-                        try
-                        {
-                            await SendProfSignatureMail(session, 2);
-                            session.IsMailSent2 = true;
-                            await scopedContext.SaveChangesAsync();
-                            logger.LogInformation($"Mail envoyé automatiquement au professeur 2 pour la session {session.Id}.");
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.LogError($"Erreur lors de l'envoi automatique du mail au professeur 2 pour la session {session.Id} : {ex.Message}");
-                        }
+                        _logger.LogError($"Erreur lors de l'envoi automatique du mail au professeur 1 pour la session {session.Id} : {ex.Message}");
+                    }
+                }
+
+                if (!session.IsMailSent2 && !string.IsNullOrEmpty(session.ProfId2))
+                {
+                    try
+                    {
+                        await SendProfSignatureMail(session, 2);
+                        session.IsMailSent2 = true;
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Mail envoyé automatiquement au professeur 2 pour la session {session.Id}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Erreur lors de l'envoi automatique du mail au professeur 2 pour la session {session.Id} : {ex.Message}");
                     }
                 }
             }
@@ -1145,7 +1138,6 @@ namespace backend.Controllers
                 profEmail = professor?.Email;
                 profSignatureToken = session.ProfSignatureToken;
                 profName = $"{professor?.Firstname} {professor?.Name}";
-                session.IsMailSent = true;
             }
             else if (professorNumber == 2)
             {
@@ -1154,14 +1146,11 @@ namespace backend.Controllers
                 profEmail = professor2?.Email;
                 profSignatureToken = session.ProfSignatureToken2;
                 profName = $"{professor2?.Firstname} {professor2?.Name}";
-                session.IsMailSent2 = true;
             }
             else
             {
                 throw new ArgumentException("Le numéro de professeur doit être 1 ou 2", nameof(professorNumber));
             }
-
-            await _context.SaveChangesAsync();
 
             if (session == null || string.IsNullOrWhiteSpace(profEmail) || string.IsNullOrWhiteSpace(profSignatureToken))
                 return;
@@ -1177,7 +1166,7 @@ Veuillez cliquer sur le lien suivant pour renseigner votre nom, prénom et signe
 Informations de la session :
 - Année : {session.Year}
 - Date : {session.Date:yyyy/MM/dd}
-- Heure de début : {session.StartTime.ToString(@"hh\:mm")} - Heure de fin : {session.EndTime.ToString(@"hh\:mm")}
+- Heure de début : {session.StartTime.ToString(@"HH\:mm")} - Heure de fin : {session.EndTime.ToString(@"HH\:mm")}
 - Validation : {session.ValidationCode}
 
 Cordialement";
@@ -1214,6 +1203,7 @@ Cordialement";
             catch (Exception ex)
             {
                 _logger.LogError($"Erreur lors de l'envoi du mail au prof : {ex.Message}");
+                throw;
             }
         }
 
