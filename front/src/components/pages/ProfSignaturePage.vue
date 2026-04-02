@@ -129,6 +129,14 @@
           <h3 class="section-title">Liste des présences</h3>
           <div class="attendances-actions">
             <button
+              @click="markAllPresent"
+              class="mark-all-btn"
+              :disabled="attendancesLoading || markingAll"
+            >
+              <span class="reload-icon">✓</span>
+              <span class="reload-text">Tous présents</span>
+            </button>
+            <button
               @click="loadAttendances"
               class="reload-btn"
               :disabled="attendancesLoading"
@@ -312,6 +320,7 @@ const professor1 = ref(null);
 const professor2 = ref(null);
 const professorStore = useProfessorStore();
 const showSignatureWarning = ref(false);
+const markingAll = ref(false);
 
 function openSignatureWarning() {
   showSignatureWarning.value = true;
@@ -525,6 +534,33 @@ const submitSignature = async () => {
     error.value = "";
   } else {
     error.value = profSignatureStore.error;
+  }
+};
+
+const markAllPresent = async () => {
+  if (!session.value?.id) return;
+  markingAll.value = true;
+  const headers = { "Prof-Signature-Token": token };
+  try {
+    await Promise.all(
+      attendances.value
+        .filter((a) => a.item2 !== 0)
+        .map(async (a) => {
+          await sessionStore.changeAttendanceStatus(
+            session.value.id,
+            a.item1.studentNumber,
+            0,
+            headers,
+          );
+          a.item2 = 0;
+        }),
+    );
+  } catch (e) {
+    error.value =
+      "Erreur lors du marquage global: " +
+      (e.response?.status === 403 ? "Autorisation refusée" : e.message);
+  } finally {
+    markingAll.value = false;
   }
 };
 
@@ -938,6 +974,34 @@ const makeAction = async (action, studentNumber) => {
   transition: all 0.2s;
   font-weight: 500;
   box-shadow: 0 2px 6px rgba(52, 152, 219, 0.15);
+}
+
+.mark-all-btn {
+  background: #27ae60;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(39, 174, 96, 0.15);
+}
+
+.mark-all-btn:disabled {
+  background: #a9d6b8;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.mark-all-btn:hover:not(:disabled) {
+  background: #219a52;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.2);
 }
 
 .reload-icon {
