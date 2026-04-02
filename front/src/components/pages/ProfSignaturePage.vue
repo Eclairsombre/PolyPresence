@@ -129,14 +129,6 @@
           <h3 class="section-title">Liste des présences</h3>
           <div class="attendances-actions">
             <button
-              @click="markAllPresent"
-              class="mark-all-btn"
-              :disabled="attendancesLoading || markingAll"
-            >
-              <span class="reload-icon">✓</span>
-              <span class="reload-text">Tous présents</span>
-            </button>
-            <button
               @click="loadAttendances"
               class="reload-btn"
               :disabled="attendancesLoading"
@@ -165,16 +157,27 @@
         <div v-else class="attendances-table-container">
           <table class="attendances-table">
             <colgroup>
-              <col style="width: 5%" />
+              <col style="width: 4%" />
               <col style="width: 18%" />
               <col style="width: 18%" />
               <col style="width: 15%" />
-              <col style="width: 18%" />
+              <col style="width: 19%" />
               <col style="width: 26%" />
             </colgroup>
             <thead>
               <tr>
-                <th class="column-id">#</th>
+                <th class="column-cb">
+                  <input
+                    type="checkbox"
+                    ref="headerCheckbox"
+                    :checked="allPresent"
+                    @change="toggleSelectAll"
+                    class="global-checkbox"
+                    :title="
+                      allPresent ? 'Tout décocher' : 'Tout marquer présent'
+                    "
+                  />
+                </th>
                 <th class="column-name">Nom</th>
                 <th class="column-firstname">Prénom</th>
                 <th class="column-status">Statut</th>
@@ -194,7 +197,19 @@
                       : 'status-canceled',
                 ]"
               >
-                <td class="cell-id">{{ idx + 1 }}</td>
+                <td class="cell-cb">
+                  <input
+                    type="checkbox"
+                    :checked="attendance.item2 === 0"
+                    @change="
+                      togglePresence(
+                        attendance.item1.studentNumber,
+                        attendance.item2,
+                      )
+                    "
+                    class="row-checkbox"
+                  />
+                </td>
                 <td class="cell-name">{{ attendance.item1.name }}</td>
                 <td class="cell-firstname">{{ attendance.item1.firstname }}</td>
                 <td class="cell-status">
@@ -320,7 +335,22 @@ const professor1 = ref(null);
 const professor2 = ref(null);
 const professorStore = useProfessorStore();
 const showSignatureWarning = ref(false);
-const markingAll = ref(false);
+const headerCheckbox = ref(null);
+
+const allPresent = computed(
+  () =>
+    attendances.value.length > 0 &&
+    attendances.value.every((a) => a.item2 === 0),
+);
+const somePresent = computed(
+  () => attendances.value.some((a) => a.item2 === 0) && !allPresent.value,
+);
+
+watch([allPresent, somePresent], () => {
+  if (headerCheckbox.value) {
+    headerCheckbox.value.indeterminate = somePresent.value;
+  }
+});
 
 function openSignatureWarning() {
   showSignatureWarning.value = true;
@@ -537,30 +567,50 @@ const submitSignature = async () => {
   }
 };
 
-const markAllPresent = async () => {
+const toggleSelectAll = async () => {
   if (!session.value?.id) return;
-  markingAll.value = true;
   const headers = { "Prof-Signature-Token": token };
+  const targetStatus = allPresent.value ? 2 : 0;
   try {
     await Promise.all(
       attendances.value
-        .filter((a) => a.item2 !== 0)
+        .filter((a) => a.item2 !== targetStatus)
         .map(async (a) => {
           await sessionStore.changeAttendanceStatus(
             session.value.id,
             a.item1.studentNumber,
-            0,
+            targetStatus,
             headers,
           );
-          a.item2 = 0;
+          a.item2 = targetStatus;
         }),
     );
   } catch (e) {
     error.value =
-      "Erreur lors du marquage global: " +
+      "Erreur lors du changement global: " +
       (e.response?.status === 403 ? "Autorisation refusée" : e.message);
-  } finally {
-    markingAll.value = false;
+  }
+};
+
+const togglePresence = async (studentNumber, currentStatus) => {
+  if (!session.value?.id) return;
+  const newStatus = currentStatus === 0 ? 2 : 0;
+  const headers = { "Prof-Signature-Token": token };
+  try {
+    await sessionStore.changeAttendanceStatus(
+      session.value.id,
+      studentNumber,
+      newStatus,
+      headers,
+    );
+    const idx = attendances.value.findIndex(
+      (a) => a.item1.studentNumber === studentNumber,
+    );
+    if (idx !== -1) attendances.value[idx].item2 = newStatus;
+  } catch (e) {
+    error.value =
+      "Erreur lors du changement de statut: " +
+      (e.response?.status === 403 ? "Autorisation refusée" : e.message);
   }
 };
 
@@ -916,10 +966,20 @@ const makeAction = async (action, studentNumber) => {
   border-bottom: 1px solid #edf2f7;
 }
 
-.cell-id {
+.column-cb,
+.cell-cb {
   text-align: center;
-  font-weight: 600;
-  color: #7f8c8d;
+  padding: 14px 4px;
+}
+
+.global-checkbox,
+.row-checkbox {
+  width: 17px;
+  height: 17px;
+  accent-color: #27ae60;
+  cursor: pointer;
+  border-radius: 4px;
+  vertical-align: middle;
 }
 
 .cell-name,
@@ -974,34 +1034,6 @@ const makeAction = async (action, studentNumber) => {
   transition: all 0.2s;
   font-weight: 500;
   box-shadow: 0 2px 6px rgba(52, 152, 219, 0.15);
-}
-
-.mark-all-btn {
-  background: #27ae60;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9em;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-weight: 500;
-  box-shadow: 0 2px 6px rgba(39, 174, 96, 0.15);
-}
-
-.mark-all-btn:disabled {
-  background: #a9d6b8;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.mark-all-btn:hover:not(:disabled) {
-  background: #219a52;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.2);
 }
 
 .reload-icon {
@@ -1551,9 +1583,17 @@ input[type="text"]:focus {
     color: #2980b9;
   }
 
-  /* Cacher le numéro pour économiser de l'espace */
-  .cell-id {
-    display: none;
+  /* Checkbox en display block sur mobile */
+  .cell-cb {
+    display: block;
+    text-align: left;
+    padding: 8px 4px;
+  }
+
+  .cell-cb::before {
+    content: "Présent : ";
+    font-weight: bold;
+    color: #2980b9;
   }
 
   .cell-status {
