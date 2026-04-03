@@ -1076,6 +1076,75 @@ namespace backend.Controllers
         }
 
         /**
+         * SetSessionProfessor
+         *
+         * This method assigns or removes a professor on a given session slot (1 or 2).
+         * Passing null ProfessorId removes the professor from the slot.
+         */
+        [HttpPost("{sessionId}/set-professor/{slot}")]
+        [Authorize]
+        public async Task<IActionResult> SetSessionProfessor(int sessionId, int slot, [FromBody] SetSessionProfessorModel model)
+        {
+            if (slot is not 1 and not 2)
+                return BadRequest(new { error = true, message = "Le slot professeur doit être 1 ou 2." });
+
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+                return Forbid();
+
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session == null)
+                return NotFound(new { error = true, message = "Session non trouvée." });
+
+            if (!model.ProfessorId.HasValue)
+            {
+                if (slot == 1)
+                {
+                    session.ProfId = null;
+                }
+                else
+                {
+                    session.ProfId2 = null;
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Professeur retiré du créneau." });
+            }
+
+            var professor = await _context.Professors.FindAsync(model.ProfessorId.Value);
+            if (professor == null)
+                return NotFound(new { error = true, message = "Professeur non trouvé." });
+
+            var professorId = professor.Id.ToString();
+            if ((slot == 1 && session.ProfId2 == professorId) || (slot == 2 && session.ProfId == professorId))
+                return Conflict(new { error = true, message = "Ce professeur est déjà affecté à l'autre créneau." });
+
+            if (slot == 1)
+            {
+                session.ProfId = professorId;
+                session.ProfSignature = null;
+                session.ProfSignatureToken = null;
+                session.IsMailSent = false;
+            }
+            else
+            {
+                session.ProfId2 = professorId;
+                session.ProfSignature2 = null;
+                session.ProfSignatureToken2 = null;
+                session.IsMailSent2 = false;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Professeur de session mis à jour." });
+        }
+
+        /**
          * ResendProfMail
          *
          * This method resends the email to the professor for a session.
@@ -1215,6 +1284,11 @@ Cordialement";
         public class SetProfEmailModel
         {
             public string ProfEmail { get; set; } = string.Empty;
+        }
+
+        public class SetSessionProfessorModel
+        {
+            public int? ProfessorId { get; set; }
         }
 
         /**

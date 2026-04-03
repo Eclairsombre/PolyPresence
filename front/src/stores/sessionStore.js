@@ -618,6 +618,31 @@ export const useSessionStore = defineStore("session", {
     },
 
     /**
+     * Sets or removes a professor on a session slot
+     * @param {number} sessionId - Session ID
+     * @param {number} slot - Slot number (1 or 2)
+     * @param {number|null} professorId - Professor ID or null to clear slot
+     * @returns {Promise<boolean>} True if successful
+     */
+    async setSessionProfessor(slot, sessionId, professorId) {
+      try {
+        await apiClient.post(
+          `${API_URL}/Session/${sessionId}/set-professor/${slot}`,
+          {
+            professorId,
+          },
+        );
+        return true;
+      } catch (e) {
+        this.error =
+          e.response?.data?.message ||
+          e.message ||
+          "Erreur lors de la modification du professeur de session";
+        return false;
+      }
+    },
+
+    /**
      * Gets all attendance records for a specific session
      * @param {number} sessionId - Session ID
      * @returns {Promise<Array>} Array of attendance records

@@ -66,17 +66,66 @@
       </div>
 
       <!-- Professors -->
-      <div
-        class="professors-row"
-        v-if="
-          session &&
-          ((professor1 && (professor1.firstname || professor1.name)) ||
-            session.profSignature ||
-            (professor2 && (professor2.firstname || professor2.name)) ||
-            session.profSignature2)
-        "
-      >
+      <div class="professors-row" v-if="session">
         <h2 class="section-label">Encadrement pédagogique</h2>
+        <div class="prof-edit-row">
+          <div class="prof-edit-card">
+            <label class="prof-edit-label" for="session-prof-1"
+              >Professeur 1</label
+            >
+            <div class="prof-edit-controls">
+              <select
+                id="session-prof-1"
+                v-model="selectedProf1"
+                class="prof-select"
+              >
+                <option value="">Aucun professeur</option>
+                <option
+                  v-for="prof in allProfessors"
+                  :key="`p1-${prof.id}`"
+                  :value="String(prof.id)"
+                >
+                  {{ prof.firstname }} {{ prof.name }}
+                </option>
+              </select>
+              <button
+                class="btn btn-outline"
+                @click="updateSessionProfessor(1)"
+                :disabled="savingProfessorSlot === 1"
+              >
+                {{ savingProfessorSlot === 1 ? "Enregistrement..." : "Appliquer" }}
+              </button>
+            </div>
+          </div>
+          <div class="prof-edit-card">
+            <label class="prof-edit-label" for="session-prof-2"
+              >Professeur 2</label
+            >
+            <div class="prof-edit-controls">
+              <select
+                id="session-prof-2"
+                v-model="selectedProf2"
+                class="prof-select"
+              >
+                <option value="">Aucun professeur</option>
+                <option
+                  v-for="prof in allProfessors"
+                  :key="`p2-${prof.id}`"
+                  :value="String(prof.id)"
+                >
+                  {{ prof.firstname }} {{ prof.name }}
+                </option>
+              </select>
+              <button
+                class="btn btn-outline"
+                @click="updateSessionProfessor(2)"
+                :disabled="savingProfessorSlot === 2"
+              >
+                {{ savingProfessorSlot === 2 ? "Enregistrement..." : "Appliquer" }}
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="prof-cards">
           <div
             class="prof-card"
@@ -215,8 +264,17 @@ export default defineComponent({
     const professorStore = useProfessorStore();
     const professor1 = ref(null);
     const professor2 = ref(null);
+    const allProfessors = ref([]);
+    const selectedProf1 = ref("");
+    const selectedProf2 = ref("");
+    const savingProfessorSlot = ref(0);
     const professor1Label = ref("Professeur 1");
     const professor2Label = ref("Professeur 2");
+
+    const loadProfessorOptions = async () => {
+      allProfessors.value = await professorStore.fetchProfessors();
+    };
+
     const loadProfessors = async () => {
       if (session.value?.profId) {
         professor1.value = await professorStore.fetchProfessorById(
@@ -232,6 +290,8 @@ export default defineComponent({
           ? "Professeur supprimé"
           : "Professeur 1";
       }
+      selectedProf1.value = session.value?.profId ? String(session.value.profId) : "";
+
       if (session.value?.profId2) {
         professor2.value = await professorStore.fetchProfessorById(
           session.value.profId2,
@@ -246,6 +306,7 @@ export default defineComponent({
           ? "Professeur supprimé"
           : "Professeur 2";
       }
+      selectedProf2.value = session.value?.profId2 ? String(session.value.profId2) : "";
     };
 
     const loadSessionData = async () => {
@@ -341,8 +402,32 @@ export default defineComponent({
       }
     };
 
+    const updateSessionProfessor = async (slot) => {
+      if (!session.value?.id) return;
+
+      const selectedValue = slot === 1 ? selectedProf1.value : selectedProf2.value;
+      const professorId = selectedValue ? Number(selectedValue) : null;
+
+      savingProfessorSlot.value = slot;
+      const ok = await sessionStore.setSessionProfessor(
+        slot,
+        session.value.id,
+        professorId,
+      );
+      savingProfessorSlot.value = 0;
+
+      if (!ok) {
+        alert(sessionStore.error || "Impossible de modifier le professeur de la session.");
+        return;
+      }
+
+      await loadSessionData();
+      await loadProfessors();
+    };
+
     onMounted(async () => {
       await loadSessionData();
+      await loadProfessorOptions();
       await loadProfessors();
     });
     // Recharge les professeurs si la session change (ex: navigation)
@@ -362,9 +447,14 @@ export default defineComponent({
       formatTime,
       handleSignatureSaved,
       exportToPDF,
+      updateSessionProfessor,
       route,
       professor1,
       professor2,
+      allProfessors,
+      selectedProf1,
+      selectedProf2,
+      savingProfessorSlot,
       professor1Label,
       professor2Label,
     };
@@ -518,6 +608,45 @@ export default defineComponent({
   font-weight: 700;
   color: #1a1a2e;
   margin: 0 0 12px 0;
+}
+
+.prof-edit-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.prof-edit-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.prof-edit-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #415367;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.prof-edit-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.prof-select {
+  flex: 1;
+  border: 1px solid #d2d9e3;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  color: #1a1a2e;
+  background: #fff;
 }
 
 .prof-cards {
@@ -718,6 +847,10 @@ tbody tr:last-child td {
 @media (max-width: 480px) {
   .info-row {
     grid-template-columns: 1fr;
+  }
+
+  .prof-edit-controls {
+    flex-direction: column;
   }
 
   .prof-cards {
