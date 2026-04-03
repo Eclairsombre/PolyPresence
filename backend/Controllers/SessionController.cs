@@ -1129,14 +1129,14 @@ namespace backend.Controllers
             {
                 session.ProfId = professorId;
                 session.ProfSignature = null;
-                session.ProfSignatureToken = null;
+                session.ProfSignatureToken = Guid.NewGuid().ToString();
                 session.IsMailSent = false;
             }
             else
             {
                 session.ProfId2 = professorId;
                 session.ProfSignature2 = null;
-                session.ProfSignatureToken2 = null;
+                session.ProfSignatureToken2 = Guid.NewGuid().ToString();
                 session.IsMailSent2 = false;
             }
 
