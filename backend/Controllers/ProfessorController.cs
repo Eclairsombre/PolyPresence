@@ -10,12 +10,10 @@ namespace backend.Controllers
     public class ProfessorController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<ProfessorController> _logger;
 
-        public ProfessorController(ApplicationDbContext context, ILogger<ProfessorController> logger)
+        public ProfessorController(ApplicationDbContext context)
         {
             _context = context;
-            _logger = logger;
         }
 
         [HttpGet]
@@ -34,6 +32,40 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
             }
             return Ok(professor);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateProfessor([FromBody] CreateProfessorModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model?.Name) || string.IsNullOrWhiteSpace(model.Firstname))
+            {
+                return BadRequest(new { error = true, message = "Nom et prénom requis." });
+            }
+
+            var name = model.Name.Trim();
+            var firstname = model.Firstname.Trim();
+            var email = (model.Email ?? string.Empty).Trim();
+
+            var existing = await _context.Professors.FirstOrDefaultAsync(
+                p => p.Name == name && p.Firstname == firstname
+            );
+
+            if (existing != null)
+            {
+                return Conflict(new { error = true, message = "Ce professeur existe déjà." });
+            }
+
+            var newProfessor = new Professor
+            {
+                Name = name,
+                Firstname = firstname,
+                Email = email
+            };
+
+            _context.Professors.Add(newProfessor);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetProfessorById), new { id = newProfessor.Id }, newProfessor);
         }
 
         [HttpPut("{id}/email")]
@@ -78,6 +110,13 @@ namespace backend.Controllers
 
         public class UpdateEmailModel
         {
+            public string Email { get; set; } = string.Empty;
+        }
+
+        public class CreateProfessorModel
+        {
+            public string Name { get; set; } = string.Empty;
+            public string Firstname { get; set; } = string.Empty;
             public string Email { get; set; } = string.Empty;
         }
     }

@@ -12,6 +12,35 @@
       </div>
     </div>
 
+    <div class="create-card">
+      <h2>Ajouter un professeur</h2>
+      <form class="create-form" @submit.prevent="addProfessor">
+        <input
+          v-model.trim="newProfessor.firstname"
+          type="text"
+          class="inline-input"
+          placeholder="Prénom"
+          required
+        />
+        <input
+          v-model.trim="newProfessor.name"
+          type="text"
+          class="inline-input"
+          placeholder="Nom"
+          required
+        />
+        <input
+          v-model.trim="newProfessor.email"
+          type="email"
+          class="inline-input"
+          placeholder="Email (optionnel)"
+        />
+        <button class="btn btn-primary" type="submit" :disabled="isCreating">
+          {{ isCreating ? "Ajout..." : "Ajouter" }}
+        </button>
+      </form>
+    </div>
+
     <div v-if="professors.length" class="table-card">
       <table>
         <thead>
@@ -75,15 +104,25 @@ import { useProfessorStore } from "../../stores/professorStore";
 
 const professorStore = useProfessorStore();
 const professors = ref([]);
+const isCreating = ref(false);
+const newProfessor = ref({
+  firstname: "",
+  name: "",
+  email: "",
+});
 
 onMounted(async () => {
+  await refreshProfessors();
+});
+
+async function refreshProfessors() {
   await professorStore.fetchProfessors();
   professors.value = professorStore.professors;
   professorStore.professors.forEach((p) => {
     p.editing = false;
     p.newEmail = p.email;
   });
-});
+}
 
 function enableEdit(prof) {
   prof.editing = true;
@@ -107,6 +146,33 @@ async function saveEmail(prof) {
   } else {
     alert("Erreur lors de la mise à jour de l'email");
   }
+}
+
+async function addProfessor() {
+  if (!newProfessor.value.firstname || !newProfessor.value.name) {
+    alert("Le prénom et le nom sont obligatoires.");
+    return;
+  }
+
+  isCreating.value = true;
+  const created = await professorStore.createProfessor({
+    firstname: newProfessor.value.firstname,
+    name: newProfessor.value.name,
+    email: newProfessor.value.email,
+  });
+  isCreating.value = false;
+
+  if (!created) {
+    alert(professorStore.error || "Erreur lors de l'ajout du professeur");
+    return;
+  }
+
+  newProfessor.value = {
+    firstname: "",
+    name: "",
+    email: "",
+  };
+  await refreshProfessors();
 }
 </script>
 
@@ -132,6 +198,27 @@ async function saveEmail(prof) {
   color: #6c757d;
   font-size: 0.92rem;
   margin: 0;
+}
+
+.create-card {
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.create-card h2 {
+  font-size: 1rem;
+  margin: 0 0 12px;
+  color: #1a1a2e;
+}
+
+.create-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr auto;
+  gap: 10px;
+  align-items: center;
 }
 
 /* Table Card */
@@ -243,12 +330,17 @@ tbody tr:last-child td {
 }
 
 .btn-primary {
-  background: #3498db;
+  background: #1f78c8;
   color: #fff;
 }
 
 .btn-primary:hover {
-  background: #2980b9;
+  background: #1766aa;
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .btn-ghost {
@@ -278,6 +370,10 @@ tbody tr:last-child td {
 }
 
 @media (max-width: 600px) {
+  .create-form {
+    grid-template-columns: 1fr;
+  }
+
   .col-actions {
     width: auto;
   }

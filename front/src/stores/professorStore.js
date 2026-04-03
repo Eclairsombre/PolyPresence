@@ -46,7 +46,10 @@ export const useProfessorStore = defineStore("professor", {
         this.professors.push(res.data);
         return res.data;
       } catch (err) {
-        this.error = err.message || "Erreur lors de la création du professeur";
+        this.error =
+          err.response?.data?.message ||
+          err.message ||
+          "Erreur lors de la création du professeur";
         return null;
       } finally {
         this.loading = false;
