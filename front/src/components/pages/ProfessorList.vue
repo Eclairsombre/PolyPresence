@@ -77,6 +77,13 @@
                 >
                   ✏️
                 </button>
+                <button
+                  class="btn-icon btn-delete"
+                  @click="removeProfessor(prof)"
+                  title="Supprimer le professeur"
+                >
+                  🗑️
+                </button>
               </template>
               <template v-else>
                 <button class="btn btn-sm btn-primary" @click="saveEmail(prof)">
@@ -172,6 +179,23 @@ async function addProfessor() {
     name: "",
     email: "",
   };
+  await refreshProfessors();
+}
+
+async function removeProfessor(prof) {
+  const confirmed = window.confirm(
+    `Supprimer ${prof.firstname} ${prof.name} ? Les sessions associées seront désaffectées.`,
+  );
+  if (!confirmed) return;
+
+  const ok = await professorStore.deleteProfessor(prof.id);
+  if (!ok) {
+    alert(
+      professorStore.error || "Erreur lors de la suppression du professeur",
+    );
+    return;
+  }
+
   await refreshProfessors();
 }
 </script>
@@ -313,6 +337,10 @@ tbody tr:last-child td {
 
 .btn-edit:hover {
   background: #eef6ff;
+}
+
+.btn-delete:hover {
+  background: #fff1f1;
 }
 
 .btn {

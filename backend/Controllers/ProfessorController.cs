@@ -34,6 +34,39 @@ namespace backend.Controllers
             return Ok(professor);
         }
 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProfessor(int id)
+        {
+            var professor = await _context.Professors.FindAsync(id);
+            if (professor == null)
+            {
+                return NotFound(new { error = true, message = "Professeur non trouvé." });
+            }
+
+            var professorId = id.ToString();
+            var sessions = await _context.Sessions
+                .Where(s => s.ProfId == professorId || s.ProfId2 == professorId)
+                .ToListAsync();
+
+            foreach (var session in sessions)
+            {
+                if (session.ProfId == professorId)
+                {
+                    session.ProfId = null;
+                }
+
+                if (session.ProfId2 == professorId)
+                {
+                    session.ProfId2 = null;
+                }
+            }
+
+            _context.Professors.Remove(professor);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Professeur supprimé avec succès." });
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateProfessor([FromBody] CreateProfessorModel model)
         {

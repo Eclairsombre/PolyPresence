@@ -71,20 +71,23 @@
         v-if="
           session &&
           ((professor1 && (professor1.firstname || professor1.name)) ||
-            (professor2 && (professor2.firstname || professor2.name)))
+            session.profSignature ||
+            (professor2 && (professor2.firstname || professor2.name)) ||
+            session.profSignature2)
         "
       >
         <h2 class="section-label">Encadrement pédagogique</h2>
         <div class="prof-cards">
           <div
             class="prof-card"
-            v-if="professor1 && (professor1.firstname || professor1.name)"
+            v-if="
+              (professor1 && (professor1.firstname || professor1.name)) ||
+              session.profSignature
+            "
           >
             <div class="prof-identity">
-              <span class="prof-name"
-                >{{ professor1.firstname }} {{ professor1.name }}</span
-              >
-              <span v-if="professor1.email" class="prof-email">{{
+              <span class="prof-name">{{ professor1Label }}</span>
+              <span v-if="professor1 && professor1.email" class="prof-email">{{
                 professor1.email
               }}</span>
             </div>
@@ -101,13 +104,14 @@
           </div>
           <div
             class="prof-card"
-            v-if="professor2 && (professor2.firstname || professor2.name)"
+            v-if="
+              (professor2 && (professor2.firstname || professor2.name)) ||
+              session.profSignature2
+            "
           >
             <div class="prof-identity">
-              <span class="prof-name"
-                >{{ professor2.firstname }} {{ professor2.name }}</span
-              >
-              <span v-if="professor2.email" class="prof-email">{{
+              <span class="prof-name">{{ professor2Label }}</span>
+              <span v-if="professor2 && professor2.email" class="prof-email">{{
                 professor2.email
               }}</span>
             </div>
@@ -211,20 +215,36 @@ export default defineComponent({
     const professorStore = useProfessorStore();
     const professor1 = ref(null);
     const professor2 = ref(null);
+    const professor1Label = ref("Professeur 1");
+    const professor2Label = ref("Professeur 2");
     const loadProfessors = async () => {
       if (session.value?.profId) {
         professor1.value = await professorStore.fetchProfessorById(
           session.value.profId,
         );
+        professor1Label.value =
+          professor1.value?.firstname || professor1.value?.name
+            ? `${professor1.value.firstname || ""} ${professor1.value.name || ""}`.trim()
+            : "Professeur supprimé";
       } else {
         professor1.value = null;
+        professor1Label.value = session.value?.profSignature
+          ? "Professeur supprimé"
+          : "Professeur 1";
       }
       if (session.value?.profId2) {
         professor2.value = await professorStore.fetchProfessorById(
           session.value.profId2,
         );
+        professor2Label.value =
+          professor2.value?.firstname || professor2.value?.name
+            ? `${professor2.value.firstname || ""} ${professor2.value.name || ""}`.trim()
+            : "Professeur supprimé";
       } else {
         professor2.value = null;
+        professor2Label.value = session.value?.profSignature2
+          ? "Professeur supprimé"
+          : "Professeur 2";
       }
     };
 
@@ -345,6 +365,8 @@ export default defineComponent({
       route,
       professor1,
       professor2,
+      professor1Label,
+      professor2Label,
     };
   },
 });
@@ -420,12 +442,12 @@ export default defineComponent({
 }
 
 .btn-primary {
-  background: #3498db;
+  background: #1f78c8;
   color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #2980b9;
+  background: #1766aa;
   box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
 }
 
@@ -465,7 +487,7 @@ export default defineComponent({
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6c757d;
+  color: #415367;
   background: #f8f9fb;
   border-bottom: 1px solid #f0f0f5;
 }
@@ -576,7 +598,7 @@ thead th {
   text-align: left;
   font-size: 0.75rem;
   font-weight: 700;
-  color: #6c757d;
+  color: #415367;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid #e0e4ea;
@@ -641,13 +663,13 @@ tbody tr:last-child td {
 }
 
 .badge-present {
-  background: #eafaf1;
-  color: #27ae60;
+  background: #dff3e8;
+  color: #1f6f43;
 }
 
 .badge-absent {
-  background: #fdf0ef;
-  color: #e74c3c;
+  background: #fde2e0;
+  color: #b9372a;
 }
 
 .cell-sig {

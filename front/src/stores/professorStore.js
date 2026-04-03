@@ -91,5 +91,22 @@ export const useProfessorStore = defineStore("professor", {
         this.loading = false;
       }
     },
+    async deleteProfessor(id) {
+      this.loading = true;
+      this.error = null;
+      try {
+        await apiClient.delete(`${API_URL}/professor/${id}`);
+        this.professors = this.professors.filter((prof) => prof.id !== id);
+        return true;
+      } catch (err) {
+        this.error =
+          err.response?.data?.message ||
+          err.message ||
+          "Erreur lors de la suppression du professeur";
+        return false;
+      } finally {
+        this.loading = false;
+      }
+    },
   },
 });
