@@ -169,7 +169,7 @@ export const useIcsLinkStore = defineStore("icsLink", {
         const res = await axios.get(`${API_URL}/Session/auto-import-status`);
         this.autoImportEnabled = res.data.enabled;
       } catch (e) {
-        console.error(
+        console.debug(
           "Erreur lors de la récupération du statut de l'import automatique",
           e,
         );

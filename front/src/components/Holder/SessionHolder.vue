@@ -417,7 +417,7 @@ const saveProfEmail = async () => {
     error.value =
       e.response?.data?.message ||
       "Erreur lors de la modification de l'email du professeur.";
-    console.error("Erreur:", e);
+    console.debug("Erreur:", e);
   }
   profEmailEditMode.value = false;
 };
@@ -433,7 +433,7 @@ const resendProfMail = async () => {
     mailSentMessage.value = "Mail renvoyé au professeur.";
   } catch (e) {
     mailSentMessage.value = "Erreur lors de l'envoi du mail.";
-    console.error("Erreur:", e);
+    console.debug("Erreur:", e);
   }
 };
 const onProfMailPopupSave = async (newEmail) => {
@@ -458,7 +458,7 @@ const saveProf2Email = async () => {
     error.value =
       e.response?.data?.message ||
       "Erreur lors de la modification de l'email du professeur 2.";
-    console.error("Erreur:", e);
+    console.debug("Erreur:", e);
   }
   prof2EmailEditMode.value = false;
 };
@@ -476,7 +476,7 @@ const resendProf2Mail = async () => {
     mailSentMessage.value = "Mail renvoyé au professeur 2.";
   } catch (e) {
     mailSentMessage.value = "Erreur lors de l'envoi du mail au professeur 2.";
-    console.error("Erreur:", e);
+    console.debug("Erreur:", e);
   }
 };
 

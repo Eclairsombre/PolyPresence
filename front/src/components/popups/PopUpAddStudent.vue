@@ -173,7 +173,7 @@ export default {
           try {
             await studentsStore.makeAdmin(student.value.studentNumber);
           } catch (adminError) {
-            console.error(
+            console.debug(
               "Erreur lors de la promotion en administrateur:",
               adminError,
             );
@@ -192,7 +192,7 @@ export default {
           emit("close");
         }, 1000);
       } catch (error) {
-        console.error("Erreur complète lors de l'ajout:", error);
+        console.debug("Erreur complète lors de l'ajout:", error);
         errorMessage.value =
           error.message ||
           "Une erreur est survenue lors de l'ajout de l'étudiant";

@@ -83,7 +83,7 @@ const loadSignature = async () => {
       signatureData.value = response.signature;
     }
   } catch (err) {
-    console.error("Erreur lors du chargement de la signature:", err);
+    console.debug("Erreur lors du chargement de la signature:", err);
     error.value = "Impossible de charger votre signature. Veuillez réessayer.";
   } finally {
     loading.value = false;

@@ -95,7 +95,7 @@ export default defineComponent({
 
         emit("signatureSaved");
       } catch (err) {
-        console.error("Erreur lors de la sauvegarde de la signature:", err);
+        console.debug("Erreur lors de la sauvegarde de la signature:", err);
         alert(
           "Une erreur est survenue lors de la sauvegarde de votre signature.",
         );

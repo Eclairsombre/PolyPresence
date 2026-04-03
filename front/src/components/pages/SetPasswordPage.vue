@@ -151,7 +151,7 @@ const submitPassword = async () => {
       "Mot de passe défini avec succès. Vous pouvez maintenant vous connecter.";
     setTimeout(() => router.push("/login"), 2000);
   } catch (error) {
-    console.error("Erreur lors de la réinitialisation du mot de passe:", error);
+    console.debug("Erreur lors de la réinitialisation du mot de passe:", error);
 
     if (
       error?.message?.includes("token") ||

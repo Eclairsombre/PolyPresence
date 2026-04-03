@@ -93,7 +93,9 @@
                 @click="updateSessionProfessor(1)"
                 :disabled="savingProfessorSlot === 1"
               >
-                {{ savingProfessorSlot === 1 ? "Enregistrement..." : "Appliquer" }}
+                {{
+                  savingProfessorSlot === 1 ? "Enregistrement..." : "Appliquer"
+                }}
               </button>
             </div>
           </div>
@@ -121,7 +123,9 @@
                 @click="updateSessionProfessor(2)"
                 :disabled="savingProfessorSlot === 2"
               >
-                {{ savingProfessorSlot === 2 ? "Enregistrement..." : "Appliquer" }}
+                {{
+                  savingProfessorSlot === 2 ? "Enregistrement..." : "Appliquer"
+                }}
               </button>
             </div>
           </div>
@@ -290,7 +294,9 @@ export default defineComponent({
           ? "Professeur supprimé"
           : "Professeur 1";
       }
-      selectedProf1.value = session.value?.profId ? String(session.value.profId) : "";
+      selectedProf1.value = session.value?.profId
+        ? String(session.value.profId)
+        : "";
 
       if (session.value?.profId2) {
         professor2.value = await professorStore.fetchProfessorById(
@@ -306,7 +312,9 @@ export default defineComponent({
           ? "Professeur supprimé"
           : "Professeur 2";
       }
-      selectedProf2.value = session.value?.profId2 ? String(session.value.profId2) : "";
+      selectedProf2.value = session.value?.profId2
+        ? String(session.value.profId2)
+        : "";
     };
 
     const loadSessionData = async () => {
@@ -327,7 +335,7 @@ export default defineComponent({
           }))
           .sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
-        console.error("Erreur lors du chargement des données:", err);
+        console.debug("Erreur lors du chargement des données:", err);
         error.value = "Impossible de charger les données de présence.";
       } finally {
         loading.value = false;
@@ -342,7 +350,7 @@ export default defineComponent({
       try {
         const studentData = await studentsStore.getStudentById(studentId);
         if (!studentData) {
-          console.error("Impossible de trouver l'étudiant");
+          console.debug("Impossible de trouver l'étudiant");
           return;
         }
 
@@ -359,7 +367,7 @@ export default defineComponent({
           students.value[studentIndex].signature = signatureData;
         }
       } catch (err) {
-        console.error("Erreur lors de la sauvegarde de la signature:", err);
+        console.debug("Erreur lors de la sauvegarde de la signature:", err);
       }
     };
     const goBack = () => {
@@ -405,7 +413,8 @@ export default defineComponent({
     const updateSessionProfessor = async (slot) => {
       if (!session.value?.id) return;
 
-      const selectedValue = slot === 1 ? selectedProf1.value : selectedProf2.value;
+      const selectedValue =
+        slot === 1 ? selectedProf1.value : selectedProf2.value;
       const professorId = selectedValue ? Number(selectedValue) : null;
 
       savingProfessorSlot.value = slot;
@@ -417,7 +426,10 @@ export default defineComponent({
       savingProfessorSlot.value = 0;
 
       if (!ok) {
-        alert(sessionStore.error || "Impossible de modifier le professeur de la session.");
+        alert(
+          sessionStore.error ||
+            "Impossible de modifier le professeur de la session.",
+        );
         return;
       }
 

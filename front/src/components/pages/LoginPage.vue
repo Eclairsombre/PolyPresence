@@ -96,7 +96,7 @@ const loginWithCredentials = async () => {
       await authStore.loginWithCredentials(username.value, password.value);
       router.push("/");
     } catch (error) {
-      console.error("Erreur lors de la connexion:", error);
+      console.debug("Erreur lors de la connexion:", error);
       errorMessage.value =
         error?.message || "Une erreur est survenue lors de la connexion.";
     }

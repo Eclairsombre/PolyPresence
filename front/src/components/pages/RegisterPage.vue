@@ -189,7 +189,7 @@ const fetchAllStudents = async () => {
   } catch (error) {
     loadingError.value =
       "Erreur lors du chargement des étudiants. Veuillez réessayer plus tard.";
-    console.error("Erreur lors de la récupération des étudiants:", error);
+    console.debug("Erreur lors de la récupération des étudiants:", error);
     throw error;
   }
 };

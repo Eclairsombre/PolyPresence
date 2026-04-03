@@ -21,7 +21,7 @@ export const useStudentsStore = defineStore("students", {
       const authStore = useAuthStore();
 
       if (!authStore.user?.isAdmin) {
-        console.error(
+        console.debug(
           "Seuls les administrateurs peuvent effectuer cette action",
         );
         throw new Error("Non autorisé : action réservée aux administrateurs");
@@ -31,7 +31,7 @@ export const useStudentsStore = defineStore("students", {
         const adminToken = await authStore.getAdminToken();
 
         if (!adminToken) {
-          console.error("Token d'authentification manquant");
+          console.debug("Token d'authentification manquant");
           authStore.logout();
           throw new Error("Session expirée, veuillez vous reconnecter");
         }
@@ -44,7 +44,7 @@ export const useStudentsStore = defineStore("students", {
 
         return config;
       } catch (error) {
-        console.error("Erreur lors de la récupération du token admin:", error);
+        console.debug("Erreur lors de la récupération du token admin:", error);
         throw new Error("Échec de l'authentification administrateur");
       }
     },
@@ -59,7 +59,7 @@ export const useStudentsStore = defineStore("students", {
         const authStore = useAuthStore();
 
         if (!authStore.user || !authStore.user.studentId) {
-          console.error("Vous devez être connecté pour ajouter un étudiant");
+          console.debug("Vous devez être connecté pour ajouter un étudiant");
           throw new Error(
             "Non autorisé : vous devez être connecté pour ajouter un étudiant",
           );
@@ -78,16 +78,16 @@ export const useStudentsStore = defineStore("students", {
         return response.data;
       } catch (error) {
         if (error.response?.status === 409) {
-          console.error("L'étudiant existe déjà.");
+          console.debug("L'étudiant existe déjà.");
           return false;
         }
         if (error.response?.status === 401) {
-          console.error(
+          console.debug(
             "Non autorisé : seuls les administrateurs peuvent ajouter des étudiants.",
           );
           return false;
         }
-        console.error("Erreur lors de l'ajout de l'étudiant:", error);
+        console.debug("Erreur lors de l'ajout de l'étudiant:", error);
         throw error;
       }
     },
@@ -148,7 +148,7 @@ export const useStudentsStore = defineStore("students", {
           return [];
         }
 
-        console.error(
+        console.debug(
           `Erreur lors de la récupération des étudiants de ${year}:`,
           error,
         );
@@ -177,14 +177,14 @@ export const useStudentsStore = defineStore("students", {
         }
         return false;
       } catch (error) {
-        console.error("Erreur lors de la suppression de l'étudiant:", error);
+        console.debug("Erreur lors de la suppression de l'étudiant:", error);
 
         if (axios.isAxiosError(error) && error.response?.status === 404) {
           return true;
         }
 
         if (axios.isAxiosError(error) && error.response?.status === 400) {
-          console.error("Détails de l'erreur 400:", error.response.data);
+          console.debug("Détails de l'erreur 400:", error.response.data);
         }
 
         return false;
@@ -213,7 +213,7 @@ export const useStudentsStore = defineStore("students", {
             isDelegate: student.isDelegate ?? false,
           };
         } else {
-          console.error(
+          console.debug(
             "Erreur lors de la récupération de l'étudiant:",
             response.statusText,
           );
@@ -223,7 +223,7 @@ export const useStudentsStore = defineStore("students", {
         if (error.response && error.response.status === 404) {
           console.log(`Étudiant avec le numéro ${studentNumber} non trouvé.`);
         } else {
-          console.error("Erreur lors de la récupération de l'étudiant:", error);
+          console.debug("Erreur lors de la récupération de l'étudiant:", error);
         }
         return null;
       }
@@ -239,7 +239,7 @@ export const useStudentsStore = defineStore("students", {
         const response = await axios.get(`${API_URL}/User/${id}`);
         return response.data;
       } catch (error) {
-        console.error("Erreur lors de la récupération de l'étudiant:", error);
+        console.debug("Erreur lors de la récupération de l'étudiant:", error);
         return null;
       }
     },
@@ -288,7 +288,7 @@ export const useStudentsStore = defineStore("students", {
         }
         return response.data;
       } catch (error) {
-        console.error("Erreur lors de la modification de l'étudiant:", error);
+        console.debug("Erreur lors de la modification de l'étudiant:", error);
         throw error;
       }
     },
@@ -305,7 +305,7 @@ export const useStudentsStore = defineStore("students", {
         );
         return response.data.havePassword;
       } catch (error) {
-        console.error("Erreur lors de la récupération du mot de passe:", error);
+        console.debug("Erreur lors de la récupération du mot de passe:", error);
         throw error;
       }
     },
@@ -325,10 +325,10 @@ export const useStudentsStore = defineStore("students", {
         const response = await axios.post(url, {}, config);
         return response.data;
       } catch (error) {
-        console.error("Erreur lors de la promotion de l'étudiant:", error);
+        console.debug("Erreur lors de la promotion de l'étudiant:", error);
         if (error.response) {
-          console.error("Statut:", error.response.status);
-          console.error("Détails de l'erreur:", error.response.data);
+          console.debug("Statut:", error.response.status);
+          console.debug("Détails de l'erreur:", error.response.data);
         }
         throw error;
       }

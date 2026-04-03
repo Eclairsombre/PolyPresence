@@ -95,7 +95,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || "Erreur lors de la récupération des sessions";
-        console.error("Erreur lors du chargement des sessions:", error);
+        console.debug("Erreur lors du chargement des sessions:", error);
         return null;
       } finally {
         this.loading = false;
@@ -126,7 +126,7 @@ export const useSessionStore = defineStore("session", {
         this.error =
           error.message ||
           `Erreur lors de la récupération des sessions pour l'année ${year}`;
-        console.error(
+        console.debug(
           `Erreur lors du chargement des sessions pour l'année ${year}:`,
           error,
         );
@@ -162,7 +162,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || "Erreur lors de la création de la session";
-        console.error("Erreur lors de la création de la session:", error);
+        console.debug("Erreur lors de la création de la session:", error);
         return null;
       } finally {
         this.loading = false;
@@ -185,7 +185,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || `Erreur lors de la récupération de la session ${id}`;
-        console.error(`Erreur lors du chargement de la session ${id}:`, error);
+        console.debug(`Erreur lors du chargement de la session ${id}:`, error);
         return null;
       } finally {
         this.loading = false;
@@ -217,7 +217,7 @@ export const useSessionStore = defineStore("session", {
         this.error =
           error.message ||
           `Erreur lors de la mise à jour de la session ${sessionData.id}`;
-        console.error(
+        console.debug(
           `Erreur lors de la mise à jour de la session ${sessionData.id}:`,
           error,
         );
@@ -245,7 +245,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || `Erreur lors de la suppression de la session ${id}`;
-        console.error(
+        console.debug(
           `Erreur lors de la suppression de la session ${id}:`,
           error,
         );
@@ -264,7 +264,7 @@ export const useSessionStore = defineStore("session", {
     async addStudentsToSessionByNumber(sessionId, students) {
       try {
         if (!Array.isArray(students) || students.length === 0) {
-          console.error(
+          console.debug(
             "Aucun étudiant à ajouter ou format de données invalide",
           );
           return;
@@ -282,7 +282,7 @@ export const useSessionStore = defineStore("session", {
 
         for (const student of students) {
           if (!student || !student.studentNumber) {
-            console.error("Objet étudiant invalide:", student);
+            console.debug("Objet étudiant invalide:", student);
             continue;
           }
 
@@ -293,7 +293,7 @@ export const useSessionStore = defineStore("session", {
                 `${API_URL}/User/search/${studentNumber}`,
               );
               if (!studentExists.data || !studentExists.data.exists) {
-                console.error(`L'étudiant ${studentNumber} n'existe pas`);
+                console.debug(`L'étudiant ${studentNumber} n'existe pas`);
                 results.failed.push({
                   studentNumber,
                   error: "Étudiant non trouvé",
@@ -302,14 +302,14 @@ export const useSessionStore = defineStore("session", {
               }
             } catch (error) {
               if (error.response && error.response.status === 404) {
-                console.error(`L'étudiant ${studentNumber} n'existe pas`);
+                console.debug(`L'étudiant ${studentNumber} n'existe pas`);
                 results.failed.push({
                   studentNumber,
                   error: "Étudiant non trouvé",
                 });
                 continue;
               } else {
-                console.error(
+                console.debug(
                   `Erreur lors de la vérification de l'étudiant ${studentNumber}:`,
                   error,
                 );
@@ -330,7 +330,7 @@ export const useSessionStore = defineStore("session", {
               studentNumber,
               error: err.response?.data?.message || err.message,
             });
-            console.error(
+            console.debug(
               `Erreur lors de l'ajout de l'étudiant ${studentNumber}:`,
               err,
             );
@@ -338,7 +338,7 @@ export const useSessionStore = defineStore("session", {
         }
         return results;
       } catch (error) {
-        console.error(`Erreur globale lors de l'ajout des étudiants:`, error);
+        console.debug(`Erreur globale lors de l'ajout des étudiants:`, error);
         throw error;
       }
     },
@@ -367,7 +367,7 @@ export const useSessionStore = defineStore("session", {
         this.error =
           error.message ||
           "Erreur lors de la récupération de la session actuelle";
-        console.error(
+        console.debug(
           "Erreur lors du chargement de la session actuelle:",
           error,
         );
@@ -398,7 +398,7 @@ export const useSessionStore = defineStore("session", {
           error.response?.data?.message ||
           error.message ||
           "Erreur lors de la validation de la présence";
-        console.error("Erreur lors de la validation de la présence:", error);
+        console.debug("Erreur lors de la validation de la présence:", error);
         throw error;
       } finally {
         this.loading = false;
@@ -423,7 +423,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || "Erreur lors de la récupération de la présence";
-        console.error("Erreur lors de la récupération de la présence:", error);
+        console.debug("Erreur lors de la récupération de la présence:", error);
         return null;
       } finally {
         this.loading = false;
@@ -448,7 +448,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || "Erreur lors de l'enregistrement de la signature";
-        console.error(
+        console.debug(
           "Erreur lors de l'enregistrement de la signature:",
           error,
         );
@@ -475,7 +475,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || "Erreur lors de la récupération de la signature";
-        console.error("Erreur lors de la récupération de la signature:", error);
+        console.debug("Erreur lors de la récupération de la signature:", error);
         return null;
       } finally {
         this.loading = false;
@@ -509,7 +509,7 @@ export const useSessionStore = defineStore("session", {
         this.error =
           error.message ||
           `Erreur lors de la récupération des données d'export`;
-        console.error(
+        console.debug(
           `Erreur lors de la récupération des données d'export:`,
           error,
         );
@@ -541,7 +541,7 @@ export const useSessionStore = defineStore("session", {
         return this.sessions;
       } catch (error) {
         this.error = error.message || "Erreur lors du filtrage des sessions";
-        console.error("Erreur lors du filtrage des sessions:", error);
+        console.debug("Erreur lors du filtrage des sessions:", error);
         return [];
       } finally {
         this.loading = false;
@@ -683,7 +683,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || "Erreur lors du changement de statut de présence.";
-        console.error(
+        console.debug(
           "Erreur lors du changement de statut de présence:",
           error,
         );
@@ -720,7 +720,7 @@ export const useSessionStore = defineStore("session", {
       } catch (error) {
         this.error =
           error.message || "Erreur lors de la mise à jour du commentaire.";
-        console.error("Erreur lors de la mise à jour du commentaire:", error);
+        console.debug("Erreur lors de la mise à jour du commentaire:", error);
         return false;
       }
     },

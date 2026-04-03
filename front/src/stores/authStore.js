@@ -43,7 +43,7 @@ class TokenManager {
       const currentTime = Date.now();
       return expiryTime - currentTime < 900000;
     } catch (error) {
-      console.error(
+      console.debug(
         "Erreur lors de la vérification de l'expiration du token:",
         error,
       );
@@ -63,7 +63,7 @@ class TokenManager {
         isAdmin: payload.role === "Admin",
       };
     } catch (error) {
-      console.error(
+      console.debug(
         "Erreur lors de l'extraction des informations du token:",
         error,
       );
@@ -137,7 +137,7 @@ axios.interceptors.request.use(
             }
           }
         } catch (error) {
-          console.error("Erreur lors du refresh du token:", error);
+          console.debug("Erreur lors du refresh du token:", error);
           TokenManager.clearTokens();
           window.location.href = "/login";
           processQueue(error);
@@ -164,7 +164,7 @@ axios.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error("Erreur Axios:", error);
+    console.debug("Erreur Axios:", error);
 
     if (error.response) {
       if (error.response.status === 401) {
@@ -282,11 +282,11 @@ export const useAuthStore = defineStore("auth", {
               },
             )
             .catch((error) => {
-              console.error("Erreur lors de la déconnexion:", error);
+              console.debug("Erreur lors de la déconnexion:", error);
             });
         }
       } catch (error) {
-        console.error("Erreur lors de la déconnexion:", error);
+        console.debug("Erreur lors de la déconnexion:", error);
       } finally {
         this.user = null;
         TokenManager.clearTokens();
@@ -317,7 +317,7 @@ export const useAuthStore = defineStore("auth", {
 
         // If token is valid but we don't have user info in state, initialize() will try to fetch it from backend
       } catch (error) {
-        console.error("Erreur lors de l'extraction des infos du token:", error);
+        console.debug("Erreur lors de l'extraction des infos du token:", error);
         this.user = null;
         TokenManager.clearTokens();
       }
@@ -342,7 +342,7 @@ export const useAuthStore = defineStore("auth", {
           this.user.existsInDb = false;
           return { exists: false };
         } else {
-          console.error(
+          console.debug(
             "Erreur lors de la vérification de l'utilisateur:",
             error,
           );
@@ -371,7 +371,7 @@ export const useAuthStore = defineStore("auth", {
         this.user.isAdmin = response.data.isAdmin;
         return this.user.isAdmin;
       } catch (error) {
-        console.error(
+        console.debug(
           "Erreur lors de la vérification des droits d'administrateur:",
           error,
         );
@@ -509,10 +509,10 @@ export const useAuthStore = defineStore("auth", {
         });
         return response.data;
       } catch (error) {
-        console.error("Erreur de réinitialisation de mot de passe:", error);
-        console.error("URL de la requête:", `${API_URL}/User/reset-password`);
-        console.error("Status de l'erreur:", error.response?.status);
-        console.error("Message d'erreur:", error.response?.data);
+        console.debug("Erreur de réinitialisation de mot de passe:", error);
+        console.debug("URL de la requête:", `${API_URL}/User/reset-password`);
+        console.debug("Status de l'erreur:", error.response?.status);
+        console.debug("Message d'erreur:", error.response?.data);
 
         if (error.response) {
           if (error.response.status === 401) {
@@ -560,7 +560,7 @@ export const useAuthStore = defineStore("auth", {
         );
 
         if (!response.data || !response.data.token) {
-          console.error("Format de réponse invalide:", response.data);
+          console.debug("Format de réponse invalide:", response.data);
           throw new Error("Impossible d'obtenir un token administrateur");
         }
 
@@ -568,11 +568,11 @@ export const useAuthStore = defineStore("auth", {
 
         return adminTokenValue;
       } catch (error) {
-        console.error("Erreur lors de la génération du token admin:", error);
+        console.debug("Erreur lors de la génération du token admin:", error);
 
         if (error.response) {
-          console.error("Statut de la réponse:", error.response.status);
-          console.error("Données de la réponse:", error.response.data);
+          console.debug("Statut de la réponse:", error.response.status);
+          console.debug("Données de la réponse:", error.response.data);
 
           if (error.response.data && error.response.data.message) {
             throw new Error(

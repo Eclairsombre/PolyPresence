@@ -37,9 +37,9 @@ export const requiresAdmin = async (to, from, next) => {
         return;
       }
     } catch (error) {
-      console.error(
+      console.debug(
         "Erreur lors de la vérification des droits d'administrateur:",
-        error
+        error,
       );
       next({ name: "unauthorized" });
       return;

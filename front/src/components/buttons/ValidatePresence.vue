@@ -71,7 +71,7 @@ const validatePresence = async () => {
     );
     emit("presenceValidated");
   } catch (error) {
-    console.error("Erreur lors de la validation de la présence:", error);
+    console.debug("Erreur lors de la validation de la présence:", error);
     if (error.response && error.response.data && error.response.data.message) {
       alert(error.response.data.message);
     } else {

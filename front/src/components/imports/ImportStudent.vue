@@ -59,7 +59,7 @@ const handleDelete = async () => {
         );
       })
       .catch((error) => {
-        console.error(
+        console.debug(
           `Error deleting student ${student.name} ${student.firstname}:`,
           error,
         );
@@ -70,7 +70,7 @@ const handleDelete = async () => {
 
 const handleFileUpload = async (event: Event) => {
   if (props.year !== "ADMIN" && !normalizedSpecializationId()) {
-    console.error("Aucune filière sélectionnée pour l'import.");
+    console.debug("Aucune filière sélectionnée pour l'import.");
     return;
   }
 
@@ -91,7 +91,7 @@ const handleFileUpload = async (event: Event) => {
         );
         const addPromises = rows.slice(1).map((row) => {
           if (row.length < 4) {
-            console.error("Row does not contain enough data:", row);
+            console.debug("Row does not contain enough data:", row);
             return Promise.resolve();
           }
           const student: Student = {
@@ -112,7 +112,7 @@ const handleFileUpload = async (event: Event) => {
               );
             })
             .catch((error) => {
-              console.error(
+              console.debug(
                 `Error adding student ${student.name} ${student.firstname}:`,
                 error,
               );

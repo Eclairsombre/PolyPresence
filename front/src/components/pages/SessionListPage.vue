@@ -277,7 +277,7 @@ export default defineComponent({
           students.value = response;
         })
         .catch((error) => {
-          console.error("Erreur lors du chargement des étudiants:", error);
+          console.debug("Erreur lors du chargement des étudiants:", error);
         })
         .finally(() => {
           studentLoading.value = false;
@@ -322,7 +322,7 @@ export default defineComponent({
               students.value,
             );
           } catch (error) {
-            console.error(
+            console.debug(
               "Erreur lors de l'ajout des étudiants à la session:",
               error,
             );
@@ -346,7 +346,7 @@ export default defineComponent({
 
         loadSessions();
       } catch (error) {
-        console.error("Erreur lors de la création de la session:", error);
+        console.debug("Erreur lors de la création de la session:", error);
       }
     };
 
