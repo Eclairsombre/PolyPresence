@@ -136,6 +136,73 @@ using (var scope = app.Services.CreateScope())
         db.Users.Add(adminUser);
         db.SaveChanges();
     }
+
+    static async Task SyncIdentitySequenceAsync(ApplicationDbContext dbContext, string tableName)
+    {
+        var sql = tableName switch
+        {
+            "Sessions" => """
+                SELECT setval(
+                    pg_get_serial_sequence('"Sessions"', 'Id'),
+                    COALESCE((SELECT MAX("Id") FROM "Sessions"), 0) + 1,
+                    false
+                );
+                """,
+            "Users" => """
+                SELECT setval(
+                    pg_get_serial_sequence('"Users"', 'Id'),
+                    COALESCE((SELECT MAX("Id") FROM "Users"), 0) + 1,
+                    false
+                );
+                """,
+            "Attendances" => """
+                SELECT setval(
+                    pg_get_serial_sequence('"Attendances"', 'Id'),
+                    COALESCE((SELECT MAX("Id") FROM "Attendances"), 0) + 1,
+                    false
+                );
+                """,
+            "IcsLinks" => """
+                SELECT setval(
+                    pg_get_serial_sequence('"IcsLinks"', 'Id'),
+                    COALESCE((SELECT MAX("Id") FROM "IcsLinks"), 0) + 1,
+                    false
+                );
+                """,
+            "Professors" => """
+                SELECT setval(
+                    pg_get_serial_sequence('"Professors"', 'Id'),
+                    COALESCE((SELECT MAX("Id") FROM "Professors"), 0) + 1,
+                    false
+                );
+                """,
+            "Specializations" => """
+                SELECT setval(
+                    pg_get_serial_sequence('"Specializations"', 'Id'),
+                    COALESCE((SELECT MAX("Id") FROM "Specializations"), 0) + 1,
+                    false
+                );
+                """,
+            "SessionSentToUsers" => """
+                SELECT setval(
+                    pg_get_serial_sequence('"SessionSentToUsers"', 'Id'),
+                    COALESCE((SELECT MAX("Id") FROM "SessionSentToUsers"), 0) + 1,
+                    false
+                );
+                """,
+            _ => throw new ArgumentOutOfRangeException(nameof(tableName), tableName, "Table non prise en charge pour la synchronisation de séquence.")
+        };
+
+        await dbContext.Database.ExecuteSqlRawAsync(sql);
+    }
+
+    await SyncIdentitySequenceAsync(db, "Sessions");
+    await SyncIdentitySequenceAsync(db, "Users");
+    await SyncIdentitySequenceAsync(db, "Attendances");
+    await SyncIdentitySequenceAsync(db, "IcsLinks");
+    await SyncIdentitySequenceAsync(db, "Professors");
+    await SyncIdentitySequenceAsync(db, "Specializations");
+    await SyncIdentitySequenceAsync(db, "SessionSentToUsers");
 }
 
 
