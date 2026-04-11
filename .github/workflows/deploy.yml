@@ -5,7 +5,28 @@ on:
     branches: [ "main", "dev" ]
 
 jobs:
+  tests:
+    name: Run Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore PolytechPresence.sln
+
+      - name: Run unit tests
+        run: dotnet test backend.Tests/backend.Tests.csproj --configuration Release --no-restore --verbosity normal
+
   build-and-deploy:
+    name: Build and Deploy Containers
+    needs: tests
+    if: ${{ needs.tests.result == 'success' }}
     runs-on: [ "self-hosted" ]
     steps:
       - name: Build and start containers
