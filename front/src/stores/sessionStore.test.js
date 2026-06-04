@@ -141,6 +141,29 @@ describe("sessionStore", () => {
     expect(store.sessions.some((s) => s.id === 3)).toBe(true);
   });
 
+  it("createSession normalise les heures en DateTime ISO", async () => {
+    const created = { id: 8, year: "3A", name: "Algo" };
+    apiClient.post.mockResolvedValue({ data: created });
+
+    const store = useSessionStore();
+
+    await store.createSession({
+      year: "3A",
+      name: "Algo",
+      date: "2026-06-04",
+      startTime: "08:30",
+      endTime: "10:00",
+    });
+
+    expect(apiClient.post).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        startTime: "2026-06-04T08:30:00",
+        endTime: "2026-06-04T10:00:00",
+      }),
+    );
+  });
+
   it("createSession ne push pas si annee non presente", async () => {
     const created = { id: 5, year: "5A", name: "Reseau" };
     apiClient.post.mockResolvedValue({ data: created });

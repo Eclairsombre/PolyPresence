@@ -3,6 +3,32 @@ import apiClient from "../api/axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
+const buildSessionPayload = (sessionData) => {
+  const datePart = typeof sessionData.date === "string" ? sessionData.date.slice(0, 10) : "";
+
+  const normalizeTime = (value) => {
+    if (typeof value !== "string" || value.includes("T") || !datePart) {
+      return value;
+    }
+
+    if (/^\d{2}:\d{2}$/.test(value)) {
+      return `${datePart}T${value}:00`;
+    }
+
+    if (/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+      return `${datePart}T${value}`;
+    }
+
+    return value;
+  };
+
+  return {
+    ...sessionData,
+    startTime: normalizeTime(sessionData.startTime),
+    endTime: normalizeTime(sessionData.endTime),
+  };
+};
+
 /**
  * Store for managing sessions (classes/courses) and student attendance
  */
@@ -146,9 +172,10 @@ export const useSessionStore = defineStore("session", {
       this.error = null;
 
       try {
+        const payload = buildSessionPayload(sessionData);
         const response = await apiClient.post(
           `${API_URL}/Session`,
-          sessionData,
+          payload,
         );
 
         if (
