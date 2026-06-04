@@ -260,6 +260,33 @@ public class ImportControllerTests
     }
 
     [Fact]
+    public void ApplyBusinessRules_ShouldMergeConsecutiveSessions_WhenGapIsLessThanFifteenMinutes()
+    {
+        using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = BuildController(db);
+
+        var importedType = typeof(ImportController).GetNestedType("ImportedSession", BindingFlags.NonPublic)!;
+        var listType = typeof(List<>).MakeGenericType(importedType);
+        var sessions = Activator.CreateInstance(listType)!;
+
+        var s1 = CreateImported(importedType, DateTime.Today, TimeSpan.FromHours(8), TimeSpan.FromHours(10), "Algo", "A1", "11", "", "3A", "");
+        var s2 = CreateImported(importedType, DateTime.Today, TimeSpan.FromHours(10).Add(TimeSpan.FromMinutes(10)), TimeSpan.FromHours(12), "Algo", "A1", "11", "", "3A", "");
+
+        listType.GetMethod("Add")!.Invoke(sessions, new[] { s1 });
+        listType.GetMethod("Add")!.Invoke(sessions, new[] { s2 });
+
+        var apply = typeof(ImportController).GetMethod("ApplyBusinessRules", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var result = apply.Invoke(controller, new[] { sessions })!;
+
+        var count = (int)listType.GetProperty("Count")!.GetValue(result)!;
+        count.Should().Be(1);
+
+        var merged = listType.GetProperty("Item")!.GetValue(result, new object[] { 0 })!;
+        importedType.GetProperty("End")!.GetValue(merged).Should().Be(TimeSpan.FromHours(12));
+        importedType.GetProperty("IsMerged")!.GetValue(merged).Should().Be(true);
+    }
+
+    [Fact]
     public async Task SyncWithDatabase_ShouldCreateSessionAndAttendances_WhenNewSessionImported()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();

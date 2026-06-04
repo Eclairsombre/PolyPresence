@@ -306,12 +306,12 @@ namespace backend.Controllers
             {
                 var next = sessions[i];
 
-                // Critères : Même prof, même salle, même nom, écart de 15 min exactement
+                // Critères : Même prof, même salle, même nom, écart de 15 min ou moins
                 bool sameProf = current.ProfId == next.ProfId && current.ProfId2 == next.ProfId2;
                 bool sameRoom = current.Room == next.Room;
                 bool sameName = current.Name == next.Name;
 
-                bool consecutive = next.Start == current.End.Add(TimeSpan.FromMinutes(15));
+                bool consecutive = next.Start <= current.End.Add(TimeSpan.FromMinutes(15));
 
                 if (sameProf && sameRoom && sameName && consecutive)
                 {
