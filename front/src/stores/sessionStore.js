@@ -4,7 +4,8 @@ import apiClient from "../api/axios";
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const buildSessionPayload = (sessionData) => {
-  const datePart = typeof sessionData.date === "string" ? sessionData.date.slice(0, 10) : "";
+  const datePart =
+    typeof sessionData.date === "string" ? sessionData.date.slice(0, 10) : "";
 
   const normalizeTime = (value) => {
     if (typeof value !== "string" || value.includes("T") || !datePart) {
@@ -173,10 +174,7 @@ export const useSessionStore = defineStore("session", {
 
       try {
         const payload = buildSessionPayload(sessionData);
-        const response = await apiClient.post(
-          `${API_URL}/Session`,
-          payload,
-        );
+        const response = await apiClient.post(`${API_URL}/Session`, payload);
 
         if (
           this.sessions.some((s) => s.year === sessionData.year) ||

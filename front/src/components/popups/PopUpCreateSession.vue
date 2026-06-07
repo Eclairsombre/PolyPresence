@@ -54,6 +54,22 @@
         </div>
         <div class="form-row">
           <div class="form-group">
+            <label for="session-specialization">Filière :</label>
+            <select
+              id="session-specialization"
+              v-model="form.specializationId"
+              required
+              class="form-control"
+            >
+              <option value="">Sélectionner une filière</option>
+              <option v-for="s in specializations" :key="s.id" :value="s.id">
+                {{ s.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label for="session-start">Heure de début:</label>
             <input
               type="time"
@@ -156,6 +172,7 @@ import { ref, reactive, watch, onMounted } from 'vue';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useStudentsStore } from '../../stores/studentsStore';
 import { useProfessorStore } from '../../stores/professorStore';
+import { useSpecializationStore } from '../../stores/specializationStore';
 
 const emit = defineEmits(['close', 'sessionCreated']);
 const props = defineProps({
@@ -165,11 +182,13 @@ const props = defineProps({
 const sessionStore = useSessionStore();
 const studentsStore = useStudentsStore();
 const professorStore = useProfessorStore();
+const specializationStore = useSpecializationStore();
 const loading = ref(false);
 const studentLoading = ref(false);
 const students = ref([]);
 
 const professors = ref([]);
+const specializations = ref([]);
 const newProf1 = reactive({ name: '', firstname: '', email: '' });
 const newProf2 = reactive({ name: '', firstname: '', email: '' });
 
@@ -181,12 +200,17 @@ const form = reactive({
   endTime: '',
   year: '',
   profId: '',
-  profId2: ''
+  profId2: '',
+  specializationId: ''
 });
 
 onMounted(async () => {
-  await professorStore.fetchProfessors();
+  await Promise.all([
+    professorStore.fetchProfessors(),
+    specializationStore.fetchSpecializations()
+  ]);
   professors.value = professorStore.professors;
+  specializations.value = specializationStore.specializations;
 });
 
 async function addNewProfessor(num) {
@@ -227,7 +251,7 @@ const loadStudentsByYear = async () => {
 };
 
 async function handleSubmit() {
-  if (!form.date || !form.startTime || !form.endTime || !form.year || !form.name || !form.room || !form.profId) {
+  if (!form.date || !form.startTime || !form.endTime || !form.year || !form.name || !form.room || !form.profId || !form.specializationId) {
     return;
   }
   loading.value = true;
@@ -244,7 +268,8 @@ async function handleSubmit() {
     year: form.year,
     validationCode,
     profId: String(form.profId),
-    profId2: form.profId2 ? String(form.profId2) : null
+    profId2: form.profId2 ? String(form.profId2) : null,
+    specializationId: form.specializationId
   };
   try {
     const createdSession = await sessionStore.createSession(sessionData);
