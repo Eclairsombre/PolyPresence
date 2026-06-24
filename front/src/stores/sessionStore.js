@@ -690,6 +690,46 @@ export const useSessionStore = defineStore("session", {
     },
 
     /**
+     * Récupère les sessions du jour du professeur connecté (sa "page statique").
+     * @returns {Promise<Array>} Liste des sessions avec leur token de signature.
+     */
+    async getMyProfessorSessions() {
+      this.loading = true;
+      this.error = null;
+      try {
+        const response = await apiClient.get(
+          `${API_URL}/Session/my-prof-sessions`,
+        );
+        return response.data.$values || response.data || [];
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors de la récupération de vos sessions.";
+        return [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * Met à jour la préférence de notification du professeur connecté.
+     * @param {string} mode - "Email" ou "Account"
+     * @returns {Promise<boolean>} true si la mise à jour a réussi
+     */
+    async updateNotificationMode(mode) {
+      this.error = null;
+      try {
+        await apiClient.put(`${API_URL}/User/notification-mode`, { mode });
+        return true;
+      } catch (error) {
+        this.error =
+          error.response?.data?.message ||
+          error.message ||
+          "Erreur lors de la mise à jour de la préférence.";
+        return false;
+      }
+    },
+
+    /**
      * Changes attendance status for a student in a session
      * @param {number} sessionId - Session ID
      * @param {string} studentNumber - Student ID number

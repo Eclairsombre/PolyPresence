@@ -6,7 +6,7 @@
       </div>
       <div class="popup-body">
         <div class="popup-warning">
-          <span class="warning-icon">⚠️</span>
+          <AppIcon name="warning" :size="18" class="warning-icon" />
           <span>
             Ne défloutez le code que s'il y a un problème avec l'envoi du mail, un problème avec le professeur, ou si la session est du travail personnel.
           </span>
@@ -21,6 +21,7 @@
 </template>
 
 <script setup>
+import AppIcon from "../AppIcon.vue";
 </script>
 
 <style scoped>

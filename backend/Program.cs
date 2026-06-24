@@ -169,13 +169,6 @@ using (var scope = app.Services.CreateScope())
                     false
                 );
                 """,
-            "Professors" => """
-                SELECT setval(
-                    pg_get_serial_sequence('"Professors"', 'Id'),
-                    COALESCE((SELECT MAX("Id") FROM "Professors"), 0) + 1,
-                    false
-                );
-                """,
             "Specializations" => """
                 SELECT setval(
                     pg_get_serial_sequence('"Specializations"', 'Id'),
@@ -200,7 +193,6 @@ using (var scope = app.Services.CreateScope())
     await SyncIdentitySequenceAsync(db, "Users");
     await SyncIdentitySequenceAsync(db, "Attendances");
     await SyncIdentitySequenceAsync(db, "IcsLinks");
-    await SyncIdentitySequenceAsync(db, "Professors");
     await SyncIdentitySequenceAsync(db, "Specializations");
     await SyncIdentitySequenceAsync(db, "SessionSentToUsers");
 }

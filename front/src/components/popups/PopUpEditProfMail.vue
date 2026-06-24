@@ -6,7 +6,7 @@
       </div>
       <div class="popup-body">
         <div class="popup-warning">
-          <span class="warning-icon">⚠️</span>
+          <AppIcon name="warning" :size="18" class="warning-icon" />
           <span>
             N'utilisez cette option que si l'email du professeur était mal
             renseigné.<br />
@@ -36,6 +36,7 @@
 
 <script setup>
 import { ref, watch } from "vue";
+import AppIcon from "../AppIcon.vue";
 const props = defineProps({
   value: String,
 });

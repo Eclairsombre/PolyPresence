@@ -13,6 +13,28 @@ export const requiresAuth = (to, from, next) => {
   }
 };
 
+export const requiresProfessor = (to, from, next) => {
+  const authStore = useAuthStore();
+
+  if (!authStore.isAuthenticated()) {
+    next({
+      name: "unauthorized",
+      query: { message: "Veuillez vous connecter pour accéder à cette page." },
+    });
+    return;
+  }
+
+  if (!authStore.user?.isProfessor) {
+    next({
+      name: "unauthorized",
+      query: { message: "Cet espace est réservé aux professeurs." },
+    });
+    return;
+  }
+
+  next();
+};
+
 export const requiresAdmin = async (to, from, next) => {
   const authStore = useAuthStore();
 

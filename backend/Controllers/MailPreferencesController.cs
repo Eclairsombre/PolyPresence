@@ -73,8 +73,8 @@ namespace backend.Controllers
         */
         private byte[] GenerateSessionPdf(Session session, List<(User User, int Status, string comment)> attendances)
         {
-            var professor1 = _context.Professors.FirstOrDefault(p => p.Id.ToString() == session.ProfId);
-            var professor2 = _context.Professors.FirstOrDefault(p => p.Id.ToString() == session.ProfId2);
+            var professor1 = _context.Users.FirstOrDefault(p => p.IsProfessor && p.Id.ToString() == session.ProfId);
+            var professor2 = _context.Users.FirstOrDefault(p => p.IsProfessor && p.Id.ToString() == session.ProfId2);
             try
             {
                 // Activer le débogage QuestPDF pour avoir plus d'informations en cas d'erreur

@@ -13,7 +13,10 @@
       </div>
       <nav class="app-nav">
         <router-link to="/" class="nav-link">Accueil</router-link>
-        <router-link to="/signature" v-if="user && !isAdmin" class="nav-link"
+        <router-link
+          to="/signature"
+          v-if="user && !isAdmin && !user.isProfessor"
+          class="nav-link"
           >Ma signature</router-link
         >
         <div v-if="isAdmin" class="admin-menu" ref="adminMenuRef">

@@ -106,7 +106,7 @@
                   @click="openEditPopup(student)"
                   title="Modifier"
                 >
-                  ✏️
+                  <AppIcon name="pencil" />
                 </button>
                 <button
                   class="btn-icon btn-delete"
@@ -114,7 +114,7 @@
                   :disabled="isCurrentUser(student)"
                   title="Supprimer"
                 >
-                  🗑️
+                  <AppIcon name="trash" />
                 </button>
               </div>
             </td>
@@ -160,6 +160,7 @@ import { useStudentsStore } from "../../stores/studentsStore.js";
 import { useAuthStore } from "../../stores/authStore.js";
 import { useSpecializationStore } from "../../stores/specializationStore.js";
 import { onMounted, ref, computed } from "vue";
+import AppIcon from "../AppIcon.vue";
 import PopUpImportStudent from "../popups/PopUpImportStudent.vue";
 import PopUpAddStudent from "../popups/PopUpAddStudent.vue";
 import AddStudentButton from "../buttons/AddStudentButton.vue";

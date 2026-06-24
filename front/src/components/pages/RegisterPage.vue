@@ -1,462 +1,593 @@
 <template>
-  <div class="register-page">
-    <div class="register-card">
-      <div class="card-header">
-        <div class="brand-icon">
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+  <div class="reg-page">
+    <div class="reg-card">
+      <!-- Progress stepper -->
+      <div class="stepper">
+        <div v-for="(st, i) in steps" :key="i" class="step">
+          <div
+            class="step-bar"
+            :style="{ background: st.active || st.done ? '#3498db' : '#e6e9ee' }"
+          ></div>
+          <div
+            class="step-label"
+            :style="{ color: st.active ? '#1a1a2e' : st.done ? '#6c8aa8' : '#b3bac3' }"
           >
-            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="8.5" cy="7" r="4" />
-            <line x1="20" y1="8" x2="20" y2="14" />
-            <line x1="23" y1="11" x2="17" y2="11" />
-          </svg>
-        </div>
-        <h1>Créer un compte</h1>
-        <p class="card-subtitle">
-          Sélectionnez votre filière et votre nom pour recevoir un lien
-          d'inscription
-        </p>
-      </div>
-
-      <div v-if="loading" class="card-body">
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <p>Chargement des données...</p>
+            {{ st.label }}
+          </div>
         </div>
       </div>
 
-      <div v-else-if="loadingError" class="card-body">
-        <div class="feedback feedback-error">
-          {{ loadingError }}
+      <div class="card-body">
+        <!-- STEP 1 — EMAIL -->
+        <div v-if="step === 'email'">
+          <h1 class="title">Créez votre compte</h1>
+          <p class="subtitle">
+            Entrez votre adresse <strong>universitaire</strong>. Votre filière
+            est déjà rattachée à votre compte.
+          </p>
+
+          <div class="field">
+            <label>Adresse e-mail</label>
+            <input
+              v-model.trim="email"
+              type="email"
+              placeholder="prenom.nom@etu.univ-lyon1.fr"
+              autocomplete="email"
+              :class="{ 'input-error': !!emailError }"
+              @input="emailError = ''"
+              @keyup.enter="submitEmail"
+            />
+          </div>
+
+          <Transition name="fade">
+            <div v-if="emailError" class="alert-error">{{ emailError }}</div>
+          </Transition>
+
           <button
-            class="link-btn"
-            @click="retryLoading"
-            style="margin-top: 8px"
+            class="btn-primary"
+            :disabled="!emailValid || sending"
+            @click="submitEmail"
           >
-            Réessayer
+            {{ sending ? "Envoi…" : "Continuer" }}
+          </button>
+
+          <div class="card-foot">
+            <span>Déjà un compte ? </span>
+            <a href="#" @click.prevent="goToLogin">Se connecter</a>
+          </div>
+        </div>
+
+        <!-- STEP 2 — OTP -->
+        <div v-else-if="step === 'verify'">
+          <button class="back-btn" @click="step = 'email'"><AppIcon name="arrow-left" :size="14" /> Retour</button>
+          <h1 class="title">Vérifiez votre e-mail</h1>
+          <p class="subtitle">
+            Un code à 6 chiffres a été envoyé à <strong>{{ email }}</strong>. Il
+            confirme que l'adresse est bien la vôtre.
+          </p>
+
+          <div class="otp-row">
+            <input
+              v-for="(d, i) in otp"
+              :key="i"
+              :ref="(el) => (otpRefs[i] = el)"
+              v-model="otp[i]"
+              inputmode="numeric"
+              maxlength="1"
+              class="otp-cell"
+              :class="{ 'otp-filled': !!otp[i] }"
+              @input="onOtpInput(i, $event)"
+              @keydown="onOtpKeydown(i, $event)"
+              @paste="onOtpPaste"
+            />
+          </div>
+
+          <Transition name="fade">
+            <div v-if="otpError" class="alert-error mt">{{ otpError }}</div>
+          </Transition>
+
+          <div class="resend">
+            Pas reçu ?
+            <a href="#" @click.prevent="resendCode">Renvoyer le code</a>
+            <span v-if="resendMsg" class="resend-ok"> · {{ resendMsg }}</span>
+          </div>
+
+          <button
+            class="btn-primary"
+            :disabled="!otpComplete || verifying"
+            @click="verifyOtp"
+          >
+            {{ verifying ? "Vérification…" : "Vérifier" }}
           </button>
         </div>
-      </div>
 
-      <form v-else @submit.prevent="sendRegisterMail" class="register-form">
-        <div class="form-field">
-          <label for="spec-select">Filière</label>
-          <select v-model="selectedSpecializationId" id="spec-select">
-            <option value="">Toutes les filières</option>
-            <option
-              v-for="spec in specializations"
-              :key="spec.id"
-              :value="spec.id"
-            >
-              {{ spec.name }} ({{ spec.code }})
-            </option>
-          </select>
-        </div>
-
-        <div class="form-field">
-          <label for="year-select">Année</label>
-          <select v-model="selectedYear" id="year-select">
-            <option value="ADMIN">Admin</option>
-            <option value="3A">3A</option>
-            <option value="4A">4A</option>
-            <option value="5A">5A</option>
-          </select>
-        </div>
-
-        <div class="form-field">
-          <label for="student-select">Votre nom</label>
-          <select v-model="selectedStudentNumber" id="student-select">
-            <option value="" disabled>Choisir un étudiant…</option>
-            <option
-              v-for="student in studentsByYear[selectedYear]"
-              :key="student.studentNumber"
-              :value="student.studentNumber"
-            >
-              {{ student.name }} {{ student.firstname }}
-            </option>
-          </select>
-          <p
-            v-if="studentsByYear[selectedYear].length === 0"
-            class="field-hint"
-          >
-            Aucun étudiant disponible pour cette année ou tous ont déjà un
-            compte.
+        <!-- STEP 3 — PASSWORD -->
+        <div v-else-if="step === 'secure'">
+          <button class="back-btn" @click="step = 'verify'"><AppIcon name="arrow-left" :size="14" /> Retour</button>
+          <h1 class="title">Choisissez un mot de passe</h1>
+          <p class="subtitle">
+            Dernière étape. Il vous servira à vous connecter à PolyPresence.
           </p>
+
+          <div class="field">
+            <label>Mot de passe</label>
+            <input
+              v-model="password"
+              type="password"
+              placeholder="Au moins 8 caractères"
+              autocomplete="new-password"
+            />
+            <div v-if="password.length" class="strength">
+              <div class="strength-track">
+                <div
+                  class="strength-fill"
+                  :style="{ width: strength.pct, background: strength.color }"
+                ></div>
+              </div>
+              <span class="strength-label" :style="{ color: strength.color }">{{
+                strength.label
+              }}</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Confirmer le mot de passe</label>
+            <input
+              v-model="confirm"
+              type="password"
+              placeholder="Retapez votre mot de passe"
+              autocomplete="new-password"
+              :class="{ 'input-error': confirmMismatch }"
+              @keyup.enter="finish"
+            />
+            <span v-if="confirmMismatch" class="mismatch"
+              >Les mots de passe ne correspondent pas.</span
+            >
+          </div>
+
+          <Transition name="fade">
+            <div v-if="secureError" class="alert-error mt">{{ secureError }}</div>
+          </Transition>
+
+          <button
+            class="btn-primary"
+            :disabled="!canFinish || finishing"
+            @click="finish"
+          >
+            {{ finishing ? "Création…" : "Créer mon compte" }}
+          </button>
         </div>
-
-        <Transition name="fade">
-          <div v-if="errorMessage" class="feedback feedback-error">
-            {{ errorMessage }}
-          </div>
-        </Transition>
-        <Transition name="fade">
-          <div v-if="successMessage" class="feedback feedback-success">
-            {{ successMessage }}
-          </div>
-        </Transition>
-
-        <button
-          type="submit"
-          class="btn btn-primary"
-          :disabled="!selectedStudentNumber || sending"
-        >
-          {{ sending ? "Envoi en cours..." : "Recevoir le lien de création" }}
-        </button>
-      </form>
-
-      <div class="card-footer">
-        <button @click="goToLogin" class="btn btn-outline">
-          Déjà un compte ? Se connecter
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, computed, nextTick } from "vue";
+import AppIcon from "../AppIcon.vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
-import { useStudentsStore } from "../../stores/studentsStore.js";
-import { useSpecializationStore } from "../../stores/specializationStore.js";
+import { useAuthStore } from "../../stores/authStore";
 
-const studentsByYear = ref({ ADMIN: [], "3A": [], "4A": [], "5A": [] });
-const studentsStore = useStudentsStore();
-const specializationStore = useSpecializationStore();
-const specializations = computed(
-  () => specializationStore.activeSpecializations,
-);
-const selectedSpecializationId = ref("");
-const selectedYear = ref("3A");
-const selectedStudentNumber = ref("");
-const errorMessage = ref("");
-const successMessage = ref("");
-const sending = ref(false);
-const loading = ref(true);
-const loadingError = ref("");
-const router = useRouter();
 const API_URL = import.meta.env.VITE_API_URL || "/api";
+const router = useRouter();
+const authStore = useAuthStore();
 
-const fetchAllStudents = async () => {
-  errorMessage.value = "";
-  loadingError.value = "";
+const step = ref("email");
+const email = ref("");
+const emailError = ref("");
+const sending = ref(false);
 
-  try {
-    for (const year of ["ADMIN", "3A", "4A", "5A"]) {
-      const specId = selectedSpecializationId.value || undefined;
-      const students = await studentsStore.fetchStudents(year, specId);
-      const tempStudents = [];
+const otp = ref(["", "", "", "", "", ""]);
+const otpRefs = ref([]);
+const otpError = ref("");
+const verifying = ref(false);
+const resendMsg = ref("");
 
-      if (students && students.length > 0) {
-        for (const student of students) {
-          try {
-            try {
-              const hasPassword = await studentsStore.havePasword(
-                student.studentNumber,
-              );
-              if (hasPassword !== true) {
-                tempStudents.push(student);
-              }
-            } catch (err) {
-              console.warn(
-                `Erreur lors de la vérification du mot de passe pour ${student.studentNumber}, on l'ajoute par défaut:`,
-                err,
-              );
-              tempStudents.push(student);
-            }
-          } catch (err) {
-            console.warn(
-              `Erreur lors de la vérification du mot de passe pour ${student.studentNumber}:`,
-              err,
-            );
-          }
-        }
-      }
+const setupToken = ref("");
+const password = ref("");
+const confirm = ref("");
+const secureError = ref("");
+const finishing = ref(false);
 
-      studentsByYear.value[year] = tempStudents.sort((a, b) =>
-        a.name.localeCompare(b.name),
-      );
-    }
-    loadingError.value = "";
-  } catch (error) {
-    loadingError.value =
-      "Erreur lors du chargement des étudiants. Veuillez réessayer plus tard.";
-    console.debug("Erreur lors de la récupération des étudiants:", error);
-    throw error;
-  }
-};
+// --- Email validity (le rôle réel est déterminé au login via IsProfessor) ---
+const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value));
 
-const goToLogin = () => {
-  router.push("/login");
-};
-
-const retryLoading = async () => {
-  loading.value = true;
-  loadingError.value = "";
-  await fetchAllStudents();
-};
-
-onMounted(async () => {
-  try {
-    loading.value = true;
-    await specializationStore.fetchSpecializations();
-    await fetchAllStudents();
-  } finally {
-    loading.value = false;
-  }
+// --- Stepper ---
+const steps = computed(() => {
+  const order = ["email", "verify", "secure"];
+  const labels = ["Identité", "Vérification", "Sécurité"];
+  const cur = order.indexOf(step.value);
+  return order.map((k, i) => ({
+    label: labels[i],
+    done: i < cur,
+    active: i === cur,
+  }));
 });
 
-watch(selectedSpecializationId, async () => {
-  loading.value = true;
-  await fetchAllStudents();
-  loading.value = false;
-});
+// --- OTP ---
+const otpComplete = computed(() => otp.value.every((d) => d !== ""));
 
-const sendRegisterMail = async () => {
-  errorMessage.value = "";
-  successMessage.value = "";
+function onOtpInput(i, e) {
+  const ch = (e.target.value || "").replace(/\D/g, "").slice(-1);
+  otp.value[i] = ch;
+  otpError.value = "";
+  if (ch && i < 5) otpRefs.value[i + 1]?.focus();
+}
+function onOtpKeydown(i, e) {
+  if (e.key === "Backspace" && !otp.value[i] && i > 0) {
+    otpRefs.value[i - 1]?.focus();
+  }
+}
+function onOtpPaste(e) {
+  const digits = (e.clipboardData?.getData("text") || "")
+    .replace(/\D/g, "")
+    .slice(0, 6);
+  if (!digits) return;
+  e.preventDefault();
+  for (let i = 0; i < 6; i++) otp.value[i] = digits[i] || "";
+  const next = Math.min(digits.length, 5);
+  nextTick(() => otpRefs.value[next]?.focus());
+}
+
+// --- Password strength ---
+const strength = computed(() => {
+  const pw = password.value;
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (pw.length >= 12) s++;
+  if (/[0-9]/.test(pw) && /[a-z]/.test(pw)) s++;
+  if (/[A-Z]/.test(pw) && /[^A-Za-z0-9]/.test(pw)) s++;
+  s = Math.min(s, 4);
+  const map = [
+    { label: "Faible", color: "#c0392b", pct: "25%" },
+    { label: "Faible", color: "#c0392b", pct: "25%" },
+    { label: "Moyen", color: "#d98a1e", pct: "55%" },
+    { label: "Fort", color: "#2f9e44", pct: "80%" },
+    { label: "Excellent", color: "#2f9e44", pct: "100%" },
+  ];
+  return map[s];
+});
+const confirmMismatch = computed(
+  () => confirm.value.length > 0 && confirm.value !== password.value,
+);
+const canFinish = computed(
+  () => password.value.length >= 8 && confirm.value === password.value,
+);
+
+// --- Actions ---
+async function submitEmail() {
+  if (!emailValid.value || sending.value) return;
+  emailError.value = "";
   sending.value = true;
   try {
-    await axios.post(`${API_URL}/User/send-register-link`, {
-      studentNumber: selectedStudentNumber.value,
+    await axios.post(`${API_URL}/User/register/request-code`, {
+      email: email.value,
     });
-    successMessage.value =
-      "Un mail vous a été envoyé avec un lien pour créer votre mot de passe.";
+    otp.value = ["", "", "", "", "", ""];
+    otpError.value = "";
+    step.value = "verify";
+    nextTick(() => otpRefs.value[0]?.focus());
   } catch (error) {
-    if (error?.response?.data?.message?.includes("mot de passe existe déjà")) {
-      errorMessage.value =
-        "Vous avez déjà un compte. Veuillez utiliser la page de connexion.";
-    } else if (error?.response?.data?.message?.includes("déjà été envoyé")) {
-      errorMessage.value =
-        "Un mail a déjà été envoyé récemment. Merci de vérifier votre boîte mail ou de patienter avant une nouvelle demande.";
-    } else {
-      errorMessage.value =
-        error?.response?.data?.message || "Erreur lors de l’envoi du mail.";
-    }
+    emailError.value =
+      error?.response?.data?.message ||
+      "Impossible d'envoyer le code. Réessayez plus tard.";
   } finally {
     sending.value = false;
   }
-};
-</script>
-
-<style scoped>
-.register-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 80vh;
 }
 
-.register-card {
-  background: #fff;
-  border: 1px solid #e0e4ea;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  width: 100%;
-  max-width: 460px;
-  overflow: hidden;
-}
-
-.card-header {
-  padding: 32px 32px 0;
-  text-align: center;
-}
-
-.brand-icon {
-  width: 52px;
-  height: 52px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-  color: #fff;
-}
-
-.card-header h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin: 0 0 6px;
-}
-
-.card-subtitle {
-  color: #6c757d;
-  font-size: 0.9rem;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.card-body {
-  padding: 28px 32px;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 0;
-  color: #6c757d;
-}
-
-.spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid #e0e4ea;
-  border-top-color: #1a1a2e;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+async function resendCode() {
+  resendMsg.value = "";
+  try {
+    await axios.post(`${API_URL}/User/register/request-code`, {
+      email: email.value,
+    });
+    resendMsg.value = "Nouveau code envoyé";
+  } catch (error) {
+    otpError.value =
+      error?.response?.data?.message || "Erreur lors de l'envoi du code.";
   }
 }
 
-.register-form {
-  padding: 28px 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+async function verifyOtp() {
+  if (!otpComplete.value || verifying.value) return;
+  otpError.value = "";
+  verifying.value = true;
+  try {
+    const res = await axios.post(`${API_URL}/User/register/verify-code`, {
+      email: email.value,
+      code: otp.value.join(""),
+    });
+    setupToken.value = res.data.setupToken ?? res.data.SetupToken;
+    step.value = "secure";
+  } catch (error) {
+    otpError.value =
+      error?.response?.data?.message || "Code invalide ou expiré.";
+  } finally {
+    verifying.value = false;
+  }
 }
 
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+async function finish() {
+  if (!canFinish.value || finishing.value) return;
+  secureError.value = "";
+  finishing.value = true;
+  try {
+    await axios.post(`${API_URL}/User/set-password`, {
+      token: setupToken.value,
+      password: password.value,
+    });
+    // Connexion automatique puis redirection directe : le rôle réel vient
+    // du compte (IsProfessor).
+    const user = await authStore.loginWithCredentials(
+      email.value,
+      password.value,
+    );
+    router.push(user?.isProfessor ? "/professor/dashboard" : "/");
+  } catch (error) {
+    secureError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Erreur lors de la création du compte.";
+  } finally {
+    finishing.value = false;
+  }
 }
 
-.form-field label {
-  font-size: 0.82rem;
+function goToLogin() {
+  router.push("/login");
+}
+</script>
+
+<style scoped>
+.reg-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 20px 40px;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: #1a1a2e;
+}
+
+/* Card */
+.reg-card {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 18px;
+  box-shadow: 0 10px 40px rgba(20, 28, 48, 0.1);
+  overflow: hidden;
+}
+
+/* Stepper */
+.stepper {
+  display: flex;
+  gap: 7px;
+  padding: 22px 30px 0;
+}
+.step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.step-bar {
+  height: 4px;
+  border-radius: 99px;
+  transition: background 0.3s;
+}
+.step-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.card-body {
+  padding: 26px 30px 30px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.subtitle {
+  color: #6c757d;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 22px;
+}
+.subtitle strong {
+  color: #495057;
+}
+
+/* Fields */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+.field label {
+  font-size: 12px;
   font-weight: 600;
   color: #495057;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
-
-.form-field select,
-.form-field input {
+.field input {
   width: 100%;
-  padding: 11px 14px;
-  border: 1px solid #d1d5db;
+  padding: 13px 14px;
+  border: 1.5px solid #d1d5db;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: 15px;
+  font-family: inherit;
   color: #1a1a2e;
   background: #fff;
+  outline: none;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
-  outline: none;
   box-sizing: border-box;
 }
-
-.form-field select:focus,
-.form-field input:focus {
+.field input:focus {
   border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.12);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.14);
+}
+.field input.input-error {
+  border-color: #f2a5a5;
 }
 
-.field-hint {
-  font-size: 0.82rem;
-  color: #6c757d;
-  margin: 2px 0 0;
-  padding: 8px 12px;
-  background: #f8f9fb;
-  border-radius: 6px;
-  border-left: 3px solid #3498db;
-}
-
-.feedback {
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.9rem;
+/* Alerts */
+.alert-error {
+  padding: 10px 13px;
+  border-radius: 9px;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  color: #c0392b;
+  font-size: 13px;
   font-weight: 500;
 }
-
-.feedback-error {
-  background: #fff5f5;
-  color: #c0392b;
-  border: 1px solid #fecaca;
+.alert-error.mt {
+  margin-top: 12px;
 }
 
-.feedback-success {
-  background: #f0fdf4;
-  color: #166534;
-  border: 1px solid #bbf7d0;
-}
-
-.btn {
-  padding: 11px 20px;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-  width: 100%;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
+/* Buttons */
 .btn-primary {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  margin-top: 22px;
+  width: 100%;
+  padding: 13px 20px;
+  border: none;
+  border-radius: 11px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
   color: #fff;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  box-shadow: 0 6px 18px rgba(26, 26, 46, 0.22);
+  transition:
+    transform 0.15s,
+    box-shadow 0.2s;
 }
-
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 4px 16px rgba(26, 26, 46, 0.25);
   transform: translateY(-1px);
 }
-
-.btn-outline {
-  background: transparent;
-  color: #1a1a2e;
-  border: 1px solid #d1d5db;
+.btn-primary:disabled {
+  background: #c7ccd4;
+  box-shadow: none;
+  cursor: not-allowed;
 }
-
-.btn-outline:hover {
-  background: #f8f9fb;
-  border-color: #adb5bd;
-}
-
-.card-footer {
-  padding: 0 32px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.link-btn {
-  background: none;
+.back-btn {
   border: none;
-  color: #3498db;
-  font-size: 0.9rem;
+  background: none;
+  color: #6c757d;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  padding: 4px;
+  padding: 0;
+  margin-bottom: 14px;
+  font-family: inherit;
 }
 
-.link-btn:hover {
-  color: #2980b9;
-  text-decoration: underline;
+.card-foot {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #eef0f4;
+  text-align: center;
+  font-size: 13px;
+  color: #6c757d;
+}
+.card-foot a {
+  color: #3498db;
+  font-weight: 600;
+  text-decoration: none;
 }
 
+/* OTP */
+.otp-row {
+  display: flex;
+  gap: 9px;
+  justify-content: space-between;
+}
+.otp-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  border: 1.5px solid #dde1e7;
+  border-radius: 11px;
+  color: #1a1a2e;
+  background: #fbfcfd;
+  outline: none;
+  font-family: inherit;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  min-width: 0;
+}
+.otp-cell.otp-filled {
+  border-color: #3498db;
+}
+.otp-cell:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.14);
+  background: #fff;
+}
+.resend {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #6c757d;
+}
+.resend a {
+  color: #3498db;
+  font-weight: 600;
+  text-decoration: none;
+}
+.resend-ok {
+  color: #2f9e44;
+  font-weight: 600;
+}
+
+/* Strength */
+.strength {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 3px;
+}
+.strength-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 99px;
+  background: #eef0f4;
+  overflow: hidden;
+}
+.strength-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition:
+    width 0.25s,
+    background 0.25s;
+}
+.strength-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  min-width: 54px;
+  text-align: right;
+}
+.mismatch {
+  font-size: 12px;
+  color: #c0392b;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* Transitions */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s;
@@ -466,18 +597,15 @@ const sendRegisterMail = async () => {
   opacity: 0;
 }
 
-@media (max-width: 480px) {
-  .register-card {
-    border-radius: 0;
-    border: none;
-    box-shadow: none;
+@media (max-width: 520px) {
+  .reg-card {
+    border-radius: 14px;
   }
-  .card-header,
-  .register-form,
-  .card-footer,
   .card-body {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: 22px 20px 26px;
+  }
+  .stepper {
+    padding: 20px 20px 0;
   }
 }
 </style>

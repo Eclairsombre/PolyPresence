@@ -6,7 +6,7 @@
       </div>
       <div class="popup-body">
         <div class="popup-warning">
-          <span class="warning-icon">⚠️</span>
+          <AppIcon name="warning" :size="18" class="warning-icon" />
           <span>
             N'utilisez cette option que si l'email du professeur était mal
             renseigné.<br />
@@ -27,7 +27,9 @@
   </div>
 </template>
 
-<script setup></script>
+<script setup>
+import AppIcon from "../AppIcon.vue";
+</script>
 
 <style scoped>
 .popup-overlay {

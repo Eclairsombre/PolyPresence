@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { requiresAdmin, requiresAuth } from "./middleware";
+import { requiresAdmin, requiresAuth, requiresProfessor } from "./middleware";
 
 const routes = [
   {
@@ -59,6 +59,12 @@ const routes = [
     component: () => import("../components/pages/ProfSignaturePage.vue"),
   },
   {
+    path: "/professor/dashboard",
+    name: "ProfessorDashboard",
+    component: () => import("../components/pages/ProfessorDashboardPage.vue"),
+    beforeEnter: requiresProfessor,
+  },
+  {
     path: "/:pathMatch(.*)*",
     name: "catch-all",
     component: () => import("../components/pages/errorPages/NotFoundPage.vue"),
@@ -112,6 +118,15 @@ router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   await authStore.initialize();
 
+  // Les professeurs n'ont pas d'accueil étudiant : "/" redirige vers leur espace.
+  if (
+    to.name === "home" &&
+    authStore.isAuthenticated() &&
+    authStore.user?.isProfessor
+  ) {
+    return next({ name: "ProfessorDashboard" });
+  }
+
   const publicPages = [
     "login",
     "register",
@@ -135,6 +150,15 @@ router.beforeEach(async (to, from, next) => {
       name: "unauthorized",
       query: { message: "Veuillez vous connecter pour accéder à cette page." },
     });
+  }
+
+  // Les professeurs n'ont pas de numéro étudiant : on évite la vérification
+  // d'existence (basée sur le numéro étudiant) et on les confine à leur espace.
+  if (authStore.user?.isProfessor) {
+    if (to.path.startsWith("/professor")) {
+      return next();
+    }
+    return next({ name: "ProfessorDashboard" });
   }
 
   const userExists = await authStore.checkIfUserExists();

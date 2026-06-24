@@ -130,22 +130,22 @@ namespace backend.Controllers
                 // Extraction des professeurs depuis la description
                 var (p1, f1, p2, f2) = ExtractProfessors(component.Description);
 
-                var professor1 = await _context.Professors
-                    .FirstOrDefaultAsync(p => p.Name.ToLower() == p1.ToLower() && p.Firstname.ToLower() == f1.ToLower());
+                var professor1 = await _context.Users
+                    .FirstOrDefaultAsync(p => p.IsProfessor && p.Name.ToLower() == p1.ToLower() && p.Firstname.ToLower() == f1.ToLower());
 
-                var professor2 = await _context.Professors
-                    .FirstOrDefaultAsync(p => p.Name.ToLower() == p2.ToLower() && p.Firstname.ToLower() == f2.ToLower());
+                var professor2 = await _context.Users
+                    .FirstOrDefaultAsync(p => p.IsProfessor && p.Name.ToLower() == p2.ToLower() && p.Firstname.ToLower() == f2.ToLower());
 
                 if (professor1 == null && !string.IsNullOrEmpty(p1))
                 {
-                    professor1 = new Professor { Name = p1, Firstname = f1, Email = "" };
-                    _context.Professors.Add(professor1);
+                    professor1 = new User { Name = p1, Firstname = f1, Email = "", Year = "PROF", IsProfessor = true };
+                    _context.Users.Add(professor1);
                     await _context.SaveChangesAsync();
                 }
                 if (professor2 == null && !string.IsNullOrEmpty(p2))
                 {
-                    professor2 = new Professor { Name = p2, Firstname = f2, Email = "" };
-                    _context.Professors.Add(professor2);
+                    professor2 = new User { Name = p2, Firstname = f2, Email = "", Year = "PROF", IsProfessor = true };
+                    _context.Users.Add(professor2);
                     await _context.SaveChangesAsync();
                 }
 

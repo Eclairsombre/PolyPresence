@@ -37,6 +37,8 @@ namespace backend.Models
         public string Year { get; set; } = string.Empty;
         public bool IsAdmin { get; set; }
         public bool IsDelegate { get; set; }
+        public bool IsProfessor { get; set; }
+        public string NotificationMode { get; set; } = "Email";
     }
 
     public class PasswordResetRequest

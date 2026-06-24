@@ -428,6 +428,8 @@ export const useAuthStore = defineStore("auth", {
           email: userFromResponse.email,
           isAdmin: userFromResponse.isAdmin,
           isDelegate: userFromResponse.isDelegate,
+          isProfessor: userFromResponse.isProfessor,
+          notificationMode: userFromResponse.notificationMode,
           year: userFromResponse.year,
         };
 

@@ -33,6 +33,8 @@ namespace backend.Middleware
                 "/api/User/year",
                 "/api/User/have-password",
                 "/api/User/send-register-link",
+                "/api/User/set-password",
+                "/api/User/register",
                 "/api/session/prof-signature"
             };
 

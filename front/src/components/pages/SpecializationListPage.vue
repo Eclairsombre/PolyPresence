@@ -99,7 +99,7 @@
                   @click="editSpecialization(spec)"
                   title="Modifier"
                 >
-                  ✏️
+                  <AppIcon name="pencil" />
                 </button>
                 <button
                   class="btn-icon"
@@ -107,7 +107,7 @@
                   @click="toggleActive(spec)"
                   :title="spec.isActive ? 'Désactiver' : 'Réactiver'"
                 >
-                  {{ spec.isActive ? "⏸" : "▶" }}
+                  <AppIcon :name="spec.isActive ? 'pause' : 'play'" />
                 </button>
               </div>
             </td>
@@ -128,6 +128,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
+import AppIcon from "../AppIcon.vue";
 import { useSpecializationStore } from "../../stores/specializationStore.js";
 
 const specializationStore = useSpecializationStore();

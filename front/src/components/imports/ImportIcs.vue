@@ -95,14 +95,14 @@
                     class="btn-icon btn-edit"
                     title="Modifier"
                   >
-                    ✏️
+                    <AppIcon name="pencil" />
                   </button>
                   <button
                     @click="deleteLink(link.id)"
                     class="btn-icon btn-delete"
                     title="Supprimer"
                   >
-                    🗑️
+                    <AppIcon name="trash" />
                   </button>
                   <button
                     @click="reimportLink(link)"
@@ -110,7 +110,7 @@
                     :disabled="loading"
                     title="Ré-importer"
                   >
-                    🔄
+                    <AppIcon name="refresh" />
                   </button>
                 </div>
               </td>
@@ -212,6 +212,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
+import AppIcon from "../AppIcon.vue";
 import { useIcsLinkStore } from "../../stores/icsLinkStore.js";
 import { useSpecializationStore } from "../../stores/specializationStore.js";
 

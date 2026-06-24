@@ -47,6 +47,7 @@
           <tr>
             <th>Nom</th>
             <th>Email</th>
+            <th>Compte</th>
             <th class="col-actions">Actions</th>
           </tr>
         </thead>
@@ -68,6 +69,12 @@
                 @keyup.enter="saveEmail(prof)"
               />
             </td>
+            <td class="cell-account">
+              <span v-if="prof.hasAccount" class="badge badge-account"
+                ><AppIcon name="check" :size="12" /> Actif</span
+              >
+              <span v-else class="badge badge-noaccount">Aucun</span>
+            </td>
             <td class="col-actions">
               <template v-if="!prof.editing">
                 <button
@@ -75,14 +82,14 @@
                   @click="enableEdit(prof)"
                   title="Modifier l'email"
                 >
-                  ✏️
+                  <AppIcon name="pencil" />
                 </button>
                 <button
                   class="btn-icon btn-delete"
                   @click="removeProfessor(prof)"
                   title="Supprimer le professeur"
                 >
-                  🗑️
+                  <AppIcon name="trash" />
                 </button>
               </template>
               <template v-else>
@@ -107,6 +114,7 @@
 
 <script setup>
 import { onMounted, ref } from "vue";
+import AppIcon from "../AppIcon.vue";
 import { useProfessorStore } from "../../stores/professorStore";
 
 const professorStore = useProfessorStore();
@@ -337,6 +345,25 @@ tbody tr:last-child td {
 
 .btn-edit:hover {
   background: #eef6ff;
+}
+
+.badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.badge-account {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-noaccount {
+  background: #f0f2f5;
+  color: #6c757d;
 }
 
 .btn-delete:hover {

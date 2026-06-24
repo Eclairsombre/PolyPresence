@@ -3,6 +3,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace backend.Models
 {
+    /// <summary>Valeurs possibles pour <see cref="User.NotificationMode"/>.</summary>
+    public static class UserNotificationMode
+    {
+        public const string Email = "Email";
+        public const string Account = "Account";
+    }
+
     public class User
     {
         public int Id { get; set; }
@@ -14,6 +21,18 @@ namespace backend.Models
         public string Signature { get; set; } = string.Empty;
         public bool IsAdmin { get; set; } = false;
         public bool IsDelegate { get; set; } = false;
+
+        /// <summary>
+        /// Indique que cet utilisateur est un professeur (issu de la fusion de
+        /// l'ancienne entité Professor). Les sessions le référencent via ProfId/ProfId2.
+        /// </summary>
+        public bool IsProfessor { get; set; } = false;
+
+        /// <summary>
+        /// Préférence de notification du professeur lorsqu'une feuille est prête à
+        /// signer : "Email" (défaut, reçoit un mail) ou "Account" (consulte son espace).
+        /// </summary>
+        public string NotificationMode { get; set; } = "Email";
 
         public string? PasswordHash { get; set; }
         public string? RegisterToken { get; set; }

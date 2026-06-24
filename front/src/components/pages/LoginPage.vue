@@ -31,7 +31,7 @@
             v-model="username"
             id="username"
             type="text"
-            placeholder="p1234567 ou prenom.nom"
+            placeholder="N° étudiant ou email (professeurs)"
             autocomplete="username"
           />
         </div>
@@ -93,8 +93,12 @@ const loginWithCredentials = async () => {
   errorMessage.value = "";
   if (username.value && password.value) {
     try {
-      await authStore.loginWithCredentials(username.value, password.value);
-      router.push("/");
+      const user = await authStore.loginWithCredentials(
+        username.value,
+        password.value,
+      );
+      // Les professeurs sont dirigés vers leur espace dédié.
+      router.push(user?.isProfessor ? "/professor/dashboard" : "/");
     } catch (error) {
       console.debug("Erreur lors de la connexion:", error);
       errorMessage.value =

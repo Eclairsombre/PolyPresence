@@ -21,7 +21,7 @@
 
     <!-- Error -->
     <div v-else-if="error && !session" class="state-card state-error">
-      <div class="empty-icon">⚠️</div>
+      <AppIcon name="warning" :size="34" class="empty-icon" />
       <p>{{ error }}</p>
     </div>
 
@@ -133,7 +133,7 @@
                 <template v-if="submittedFirstname && submittedName">
                   {{ submittedFirstname[0] }}{{ submittedName[0] }}
                 </template>
-                <template v-else>✓</template>
+                <template v-else><AppIcon name="check" :size="18" /></template>
               </div>
               <div>
                 <div class="sig-recap-name">
@@ -194,7 +194,7 @@
             </div>
 
             <button type="submit" class="btn btn-primary btn-full">
-              ✓ Valider la signature
+              <AppIcon name="check" /> Valider la signature
             </button>
           </form>
         </div>
@@ -213,7 +213,7 @@
               class="btn btn-ghost btn-sm"
               :disabled="attendancesLoading"
             >
-              <span :class="{ spinning: attendancesLoading }">↻</span>
+              <AppIcon name="refresh" :class="{ spinning: attendancesLoading }" />
               Rafraîchir
             </button>
           </div>
@@ -227,7 +227,7 @@
             v-else-if="attendances.length === 0"
             class="state-card state-card--inline"
           >
-            <div class="empty-icon">📋</div>
+            <AppIcon name="clipboard" :size="34" class="empty-icon" />
             <p>Aucune présence enregistrée pour cette session.</p>
           </div>
 
@@ -330,13 +330,13 @@
                           class="btn btn-primary btn-sm"
                           @click="saveComment(attendance.item1.studentNumber)"
                         >
-                          ✓
+                          <AppIcon name="check" />
                         </button>
                         <button
                           class="btn btn-ghost btn-sm"
                           @click="cancelCommentEdit"
                         >
-                          ✕
+                          <AppIcon name="close" />
                         </button>
                       </div>
                     </div>
@@ -358,7 +358,7 @@
                         "
                         title="Modifier le commentaire"
                       >
-                        ✎
+                        <AppIcon name="pencil" :size="15" />
                       </button>
                     </div>
                   </td>
@@ -375,6 +375,7 @@
 <script setup>
 import { ref, onMounted, nextTick, computed, watch } from "vue";
 import { useRoute } from "vue-router";
+import AppIcon from "../AppIcon.vue";
 import SignatureCreator from "../signature/SignatureCreator.vue";
 import PopUpProfSignatureWarning from "../popups/PopUpProfSignatureWarning.vue";
 import { useProfSignatureStore } from "../../stores/profSignatureStore";

@@ -57,10 +57,20 @@ namespace backend.Controllers
                 {
                     try
                     {
-                        await SendProfSignatureMail(session, 1);
-                        session.IsMailSent = true;
-                        await _context.SaveChangesAsync();
-                        _logger.LogInformation($"Mail envoyé automatiquement au professeur 1 pour la session {session.Id}.");
+                        if (await ProfessorUsesAccountMode(session.ProfId))
+                        {
+                            // Le professeur consulte ses cours depuis son espace : pas de mail.
+                            session.IsMailSent = true;
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Professeur 1 en mode 'Account' pour la session {session.Id} : aucun mail envoyé.");
+                        }
+                        else
+                        {
+                            await SendProfSignatureMail(session, 1);
+                            session.IsMailSent = true;
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Mail envoyé automatiquement au professeur 1 pour la session {session.Id}.");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -72,10 +82,19 @@ namespace backend.Controllers
                 {
                     try
                     {
-                        await SendProfSignatureMail(session, 2);
-                        session.IsMailSent2 = true;
-                        await _context.SaveChangesAsync();
-                        _logger.LogInformation($"Mail envoyé automatiquement au professeur 2 pour la session {session.Id}.");
+                        if (await ProfessorUsesAccountMode(session.ProfId2))
+                        {
+                            session.IsMailSent2 = true;
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Professeur 2 en mode 'Account' pour la session {session.Id} : aucun mail envoyé.");
+                        }
+                        else
+                        {
+                            await SendProfSignatureMail(session, 2);
+                            session.IsMailSent2 = true;
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Mail envoyé automatiquement au professeur 2 pour la session {session.Id}.");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -347,6 +366,66 @@ namespace backend.Controllers
                 SpecializationName = s.Specialization?.Name,
                 SpecializationCode = s.Specialization?.Code
             }).ToList();
+        }
+
+        /**
+         * GetMyProfessorSessions
+         *
+         * Renvoie les sessions du jour pour lesquelles le professeur connecté est
+         * assigné (slot 1 ou 2), avec le token de signature correspondant et l'état
+         * de signature. Sert de "page statique" du cours en cours pour le professeur.
+         */
+        [HttpGet("my-prof-sessions")]
+        [Authorize]
+        public async Task<IActionResult> GetMyProfessorSessions()
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null || currentUser.IsDeleted)
+                return NotFound(new { message = "Utilisateur connecté introuvable." });
+
+            if (!currentUser.IsProfessor)
+                return Forbid();
+
+            var profId = currentUser.Id.ToString();
+            var today = DateTime.Now.Date;
+            var now = DateTime.Now;
+
+            var sessions = await _context.Sessions
+                .Include(s => s.Specialization)
+                .Where(s => s.Date == today && (s.ProfId == profId || s.ProfId2 == profId))
+                .ToListAsync();
+
+            var result = sessions
+                .Select(s =>
+                {
+                    var isMainProf = s.ProfId == profId;
+                    return new
+                    {
+                        sessionId = s.Id,
+                        date = s.Date,
+                        startTime = s.StartTime,
+                        endTime = s.EndTime,
+                        year = s.Year,
+                        name = s.Name,
+                        room = s.Room,
+                        specializationName = s.Specialization != null ? s.Specialization.Name : null,
+                        validationCode = s.ValidationCode,
+                        signatureToken = isMainProf ? s.ProfSignatureToken : s.ProfSignatureToken2,
+                        isMainProfessor = isMainProf,
+                        alreadySigned = isMainProf
+                            ? !string.IsNullOrEmpty(s.ProfSignature)
+                            : !string.IsNullOrEmpty(s.ProfSignature2),
+                        isCurrent = s.StartTime <= now && now <= s.EndTime,
+                        isPast = s.EndTime < now
+                    };
+                })
+                .OrderBy(s => s.startTime)
+                .ToList();
+
+            return Ok(result);
         }
 
         /**
@@ -1044,7 +1123,7 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Session non trouvée." });
             if (!int.TryParse(session.ProfId, out int profId))
                 return NotFound(new { error = true, message = "Professeur non trouvé (ID invalide)." });
-            var professor = await _context.Professors.FindAsync(profId);
+            var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == profId && u.IsProfessor);
             if (professor == null)
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
             professor.Email = model.ProfEmail;
@@ -1067,7 +1146,7 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Session non trouvée." });
             if (!int.TryParse(session.ProfId2, out int profId2))
                 return NotFound(new { error = true, message = "Professeur 2 non trouvé (ID invalide)." });
-            var professor2 = await _context.Professors.FindAsync(profId2);
+            var professor2 = await _context.Users.FirstOrDefaultAsync(u => u.Id == profId2 && u.IsProfessor);
             if (professor2 == null)
                 return NotFound(new { error = true, message = "Professeur 2 non trouvé." });
             professor2.Email = model.ProfEmail;
@@ -1117,7 +1196,7 @@ namespace backend.Controllers
                 return Ok(new { message = "Professeur retiré du créneau." });
             }
 
-            var professor = await _context.Professors.FindAsync(model.ProfessorId.Value);
+            var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == model.ProfessorId.Value && u.IsProfessor);
             if (professor == null)
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
 
@@ -1187,6 +1266,17 @@ namespace backend.Controllers
             await SendProfSignatureMail(session, 1);
         }
 
+        /// <summary>
+        /// Indique si le professeur (identifié par son Id sous forme de chaîne) a choisi
+        /// de consulter ses cours depuis son espace connecté plutôt que de recevoir un mail.
+        /// </summary>
+        private async Task<bool> ProfessorUsesAccountMode(string? profId)
+        {
+            if (!int.TryParse(profId, out var id)) return false;
+            var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsProfessor);
+            return professor != null && professor.NotificationMode == UserNotificationMode.Account;
+        }
+
         /**
          * SendProfSignatureMail
          *
@@ -1203,7 +1293,7 @@ namespace backend.Controllers
             if (professorNumber == 1)
             {
                 var profIdInt = int.TryParse(session.ProfId, out var id1) ? id1 : 0;
-                var professor = await _context.Professors.FindAsync(profIdInt);
+                var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == profIdInt && u.IsProfessor);
                 profEmail = professor?.Email;
                 profSignatureToken = session.ProfSignatureToken;
                 profName = $"{professor?.Firstname} {professor?.Name}";
@@ -1211,7 +1301,7 @@ namespace backend.Controllers
             else if (professorNumber == 2)
             {
                 var profId2Int = int.TryParse(session.ProfId2, out var id2) ? id2 : 0;
-                var professor2 = await _context.Professors.FindAsync(profId2Int);
+                var professor2 = await _context.Users.FirstOrDefaultAsync(u => u.Id == profId2Int && u.IsProfessor);
                 profEmail = professor2?.Email;
                 profSignatureToken = session.ProfSignatureToken2;
                 profName = $"{professor2?.Firstname} {professor2?.Name}";

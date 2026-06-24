@@ -6,6 +6,7 @@ using backend.Services;
 using System.Net.Mail;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using System.Security.Cryptography;
 
 namespace backend.Controllers
 {
@@ -138,10 +139,46 @@ namespace backend.Controllers
                 Email = user.Email,
                 Year = user.Year,
                 IsAdmin = user.IsAdmin,
-                IsDelegate = user.IsDelegate
+                IsDelegate = user.IsDelegate,
+                IsProfessor = user.IsProfessor,
+                NotificationMode = user.NotificationMode
             };
 
             return Ok(dto);
+        }
+
+        /**
+         * UpdateNotificationMode
+         *
+         * Met à jour la préférence de notification du professeur connecté :
+         * "Email" (reçoit un mail) ou "Account" (consulte son espace).
+         */
+        [HttpPut("notification-mode")]
+        [Authorize]
+        public async Task<IActionResult> UpdateNotificationMode([FromBody] NotificationModeRequest request)
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+                return Unauthorized(new { message = "Identification utilisateur incorrecte." });
+
+            var user = await _context.Users.FindAsync(currentUserId);
+            if (user == null || user.IsDeleted)
+                return NotFound(new { message = "Utilisateur introuvable." });
+
+            if (!user.IsProfessor)
+                return Forbid();
+
+            var mode = (request?.Mode ?? string.Empty).Trim();
+            if (mode != UserNotificationMode.Email && mode != UserNotificationMode.Account)
+                return BadRequest(new { error = true, message = "Mode invalide. Valeurs autorisées : Email, Account." });
+
+            user.NotificationMode = mode;
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Préférence enregistrée.", notificationMode = user.NotificationMode });
+        }
+
+        public class NotificationModeRequest
+        {
+            public string Mode { get; set; } = string.Empty;
         }
 
         /**
@@ -376,11 +413,13 @@ namespace backend.Controllers
         [HttpPost("send-register-link")]
         public async Task<IActionResult> SendRegisterLink([FromBody] RegisterLinkRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber && !u.IsDeleted);
+            var registerIdentifier = request.StudentNumber.Trim();
+            var user = await _context.Users.FirstOrDefaultAsync(
+                u => (u.StudentNumber == registerIdentifier || (u.Email != "" && u.Email == registerIdentifier)) && !u.IsDeleted);
             if (user == null)
-                return NotFound(new { message = "Étudiant introuvable." });
+                return NotFound(new { message = "Utilisateur introuvable." });
             if (string.IsNullOrEmpty(user.Email))
-                return BadRequest(new { message = "Aucune adresse mail renseignée pour cet étudiant." });
+                return BadRequest(new { message = "Aucune adresse mail renseignée pour cet utilisateur." });
             if (!string.IsNullOrEmpty(user.PasswordHash))
                 return BadRequest(new { message = "Un mot de passe existe déjà pour cet utilisateur. Veuillez utiliser la page de connexion." });
             if (user.RegisterTokenExpiration < DateTime.UtcNow)
@@ -456,6 +495,96 @@ namespace backend.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "Mot de passe défini avec succès." });
         }
+
+        /**
+         * RequestRegisterCode
+         *
+         * Étape 1 de l'inscription : envoie un code de vérification à 6 chiffres à
+         * l'adresse universitaire d'un compte pré-créé (étudiant ou professeur) qui
+         * n'a pas encore de mot de passe.
+         */
+        [HttpPost("register/request-code")]
+        public async Task<IActionResult> RequestRegisterCode([FromBody] RequestCodeRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request?.Email))
+                return BadRequest(new { message = "Adresse e-mail requise." });
+
+            var email = request.Email.Trim();
+
+            if (!_rateLimitService.IsPasswordResetAllowed($"otp-req:{email.ToLowerInvariant()}"))
+                return StatusCode(429, new { message = "Trop de demandes de code. Veuillez patienter avant de réessayer." });
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted);
+            if (user == null)
+                return NotFound(new { message = "Aucun compte n'est associé à cette adresse universitaire. Contactez l'administration." });
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+                return BadRequest(new { message = "Un compte existe déjà pour cette adresse. Veuillez vous connecter." });
+
+            var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+            user.RegisterToken = code;
+            user.RegisterTokenExpiration = DateTime.UtcNow.AddMinutes(15);
+            user.RegisterMailSent = true;
+            await _context.SaveChangesAsync();
+
+            var body = $@"<html><body>Bonjour {user.Firstname},<br><br>
+Votre code de vérification PolyPresence est :<br><br>
+<div style='font-size:28px;font-weight:700;letter-spacing:6px;color:#1a1a2e'>{code}</div><br>
+Ce code expire dans 15 minutes.<br><br>
+Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.<br><br>
+Cordialement,<br>L'équipe PolyPresence</body></html>";
+
+            try
+            {
+                await SendEmailAsync(user.Email, "Votre code de vérification PolyPresence", body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de l'envoi du code OTP à {Email}", user.Email);
+                return StatusCode(500, new { message = "Erreur lors de l'envoi du code." });
+            }
+
+            _logger.LogInformation("Code OTP d'inscription envoyé à {Email}", user.Email);
+            return Ok(new { message = "Code envoyé." });
+        }
+
+        /**
+         * VerifyRegisterCode
+         *
+         * Étape 2 de l'inscription : vérifie le code à 6 chiffres et renvoie un jeton
+         * de configuration à usage unique permettant de définir le mot de passe.
+         */
+        [HttpPost("register/verify-code")]
+        public async Task<IActionResult> VerifyRegisterCode([FromBody] VerifyCodeRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request?.Email) || string.IsNullOrWhiteSpace(request.Code))
+                return BadRequest(new { message = "E-mail et code requis." });
+
+            var email = request.Email.Trim();
+            var code = request.Code.Trim();
+
+            // Limite les tentatives pour empêcher le brute-force d'un code à 6 chiffres.
+            if (!_rateLimitService.IsLoginAttemptAllowed($"otp-verify:{email.ToLowerInvariant()}"))
+                return StatusCode(429, new { message = "Trop de tentatives. Veuillez patienter avant de réessayer." });
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted);
+            if (user == null || string.IsNullOrEmpty(user.RegisterToken)
+                || user.RegisterTokenExpiration <= DateTime.UtcNow
+                || user.RegisterToken != code)
+            {
+                _logger.LogWarning("Échec de vérification du code OTP pour {Email}", email);
+                return BadRequest(new { message = "Code invalide ou expiré." });
+            }
+
+            // Succès : on remplace le code par un jeton de configuration (réutilisé par set-password).
+            _rateLimitService.ResetLoginAttempts($"otp-verify:{email.ToLowerInvariant()}");
+            var setupToken = Guid.NewGuid().ToString();
+            user.RegisterToken = setupToken;
+            user.RegisterTokenExpiration = DateTime.UtcNow.AddMinutes(15);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { setupToken });
+        }
+
         /**
          * SetPasswordRequest
          *
@@ -465,6 +594,17 @@ namespace backend.Controllers
         {
             public required string Token { get; set; }
             public required string Password { get; set; }
+        }
+
+        public class RequestCodeRequest
+        {
+            public string Email { get; set; } = string.Empty;
+        }
+
+        public class VerifyCodeRequest
+        {
+            public string Email { get; set; } = string.Empty;
+            public string Code { get; set; } = string.Empty;
         }
 
         /**
@@ -507,7 +647,11 @@ namespace backend.Controllers
 
             try
             {
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+                // Connexion par numéro étudiant OU par email (les professeurs n'ont pas
+                // de numéro étudiant et se connectent avec leur adresse mail).
+                var identifier = request.StudentNumber.Trim();
+                var user = await _context.Users.FirstOrDefaultAsync(
+                    u => u.StudentNumber == identifier || (u.Email != "" && u.Email == identifier));
 
                 if (user == null || string.IsNullOrEmpty(user.PasswordHash) || user.IsDeleted)
                 {
@@ -545,7 +689,9 @@ namespace backend.Controllers
                     Email = user.Email,
                     Year = user.Year,
                     IsAdmin = user.IsAdmin,
-                    IsDelegate = user.IsDelegate
+                    IsDelegate = user.IsDelegate,
+                    IsProfessor = user.IsProfessor,
+                    NotificationMode = user.NotificationMode
                 };
 
                 var userInfoJson = System.Text.Json.JsonSerializer.Serialize(userInfo);
@@ -667,7 +813,9 @@ namespace backend.Controllers
                     Email = user.Email,
                     Year = user.Year,
                     IsAdmin = user.IsAdmin,
-                    IsDelegate = user.IsDelegate
+                    IsDelegate = user.IsDelegate,
+                    IsProfessor = user.IsProfessor,
+                    NotificationMode = user.NotificationMode
                 };
 
                 var userInfoJson = System.Text.Json.JsonSerializer.Serialize(userInfo);
@@ -698,7 +846,9 @@ namespace backend.Controllers
                         Email = user.Email,
                         Year = user.Year,
                         IsAdmin = user.IsAdmin,
-                        IsDelegate = user.IsDelegate
+                        IsDelegate = user.IsDelegate,
+                        IsProfessor = user.IsProfessor,
+                        NotificationMode = user.NotificationMode
                     }
                 });
             }

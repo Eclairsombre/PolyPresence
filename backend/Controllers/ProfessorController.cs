@@ -5,6 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers
 {
+    /// <summary>
+    /// CRUD des professeurs. Depuis la fusion Professor/User, un professeur est un
+    /// <see cref="User"/> portant le flag <c>IsProfessor</c>. Ce contrôleur reste une
+    /// vue dédiée (mêmes routes /api/professor) afin de ne pas impacter le frontend.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class ProfessorController : ControllerBase
@@ -16,28 +21,43 @@ namespace backend.Controllers
             _context = context;
         }
 
+        // Projection exposée au frontend (mêmes champs qu'avant : id, name, firstname, email).
+        private static object ToDto(User u) => new
+        {
+            id = u.Id,
+            name = u.Name,
+            firstname = u.Firstname,
+            email = u.Email,
+            notificationMode = u.NotificationMode,
+            hasAccount = !string.IsNullOrEmpty(u.PasswordHash)
+        };
+
         [HttpGet]
         public IActionResult GetProfessors()
         {
-            var professors = _context.Professors.ToList();
+            var professors = _context.Users
+                .Where(u => u.IsProfessor && !u.IsDeleted)
+                .ToList()
+                .Select(ToDto)
+                .ToList();
             return Ok(professors);
         }
 
         [HttpGet("{id}")]
         public IActionResult GetProfessorById(int id)
         {
-            var professor = _context.Professors.Find(id);
+            var professor = _context.Users.FirstOrDefault(u => u.Id == id && u.IsProfessor && !u.IsDeleted);
             if (professor == null)
             {
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
             }
-            return Ok(professor);
+            return Ok(ToDto(professor));
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProfessor(int id)
         {
-            var professor = await _context.Professors.FindAsync(id);
+            var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsProfessor);
             if (professor == null)
             {
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
@@ -61,7 +81,7 @@ namespace backend.Controllers
                 }
             }
 
-            _context.Professors.Remove(professor);
+            _context.Users.Remove(professor);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Professeur supprimé avec succès." });
@@ -79,8 +99,8 @@ namespace backend.Controllers
             var firstname = model.Firstname.Trim();
             var email = (model.Email ?? string.Empty).Trim();
 
-            var existing = await _context.Professors.FirstOrDefaultAsync(
-                p => p.Name == name && p.Firstname == firstname
+            var existing = await _context.Users.FirstOrDefaultAsync(
+                u => u.IsProfessor && !u.IsDeleted && u.Name == name && u.Firstname == firstname
             );
 
             if (existing != null)
@@ -88,23 +108,25 @@ namespace backend.Controllers
                 return Conflict(new { error = true, message = "Ce professeur existe déjà." });
             }
 
-            var newProfessor = new Professor
+            var newProfessor = new User
             {
                 Name = name,
                 Firstname = firstname,
-                Email = email
+                Email = email,
+                Year = "PROF",
+                IsProfessor = true
             };
 
-            _context.Professors.Add(newProfessor);
+            _context.Users.Add(newProfessor);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetProfessorById), new { id = newProfessor.Id }, newProfessor);
+            return CreatedAtAction(nameof(GetProfessorById), new { id = newProfessor.Id }, ToDto(newProfessor));
         }
 
         [HttpPut("{id}/email")]
         public async Task<IActionResult> UpdateProfessorEmail(int id, [FromBody] UpdateEmailModel model)
         {
-            var professor = await _context.Professors.FindAsync(id);
+            var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsProfessor);
             if (professor == null)
             {
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
@@ -113,30 +135,36 @@ namespace backend.Controllers
             {
                 return BadRequest(new { error = true, message = "Email invalide." });
             }
-            professor.Email = model.Email;
+            professor.Email = model.Email.Trim();
             await _context.SaveChangesAsync();
             return Ok(new { message = "Email du professeur mis à jour avec succès." });
         }
 
         [HttpPost("find-or-create")]
-        public async Task<IActionResult> FindOrCreateProfessor([FromBody] Professor input)
+        public async Task<IActionResult> FindOrCreateProfessor([FromBody] CreateProfessorModel input)
         {
-            if (string.IsNullOrWhiteSpace(input.Name) || string.IsNullOrWhiteSpace(input.Firstname))
+            if (string.IsNullOrWhiteSpace(input?.Name) || string.IsNullOrWhiteSpace(input.Firstname))
                 return BadRequest("Nom et prénom requis");
 
-            var existing = await _context.Professors.FirstOrDefaultAsync(p => p.Name == input.Name && p.Firstname == input.Firstname);
+            var name = input.Name.Trim();
+            var firstname = input.Firstname.Trim();
+
+            var existing = await _context.Users.FirstOrDefaultAsync(
+                u => u.IsProfessor && !u.IsDeleted && u.Name == name && u.Firstname == firstname);
             if (existing != null)
             {
                 return Ok(new { id = existing.Id });
             }
 
-            var newProf = new Professor
+            var newProf = new User
             {
-                Name = input.Name,
-                Firstname = input.Firstname,
-                Email = input.Email
+                Name = name,
+                Firstname = firstname,
+                Email = (input.Email ?? string.Empty).Trim(),
+                Year = "PROF",
+                IsProfessor = true
             };
-            _context.Professors.Add(newProf);
+            _context.Users.Add(newProf);
             await _context.SaveChangesAsync();
             return Ok(new { id = newProf.Id });
         }

@@ -217,7 +217,7 @@ public class SessionControllerEndpointsTests
     public async Task SetProfEmail_ShouldUpdateProfessorEmail_WhenValid()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        db.Professors.Add(new Professor { Id = 7, Name = "Prof", Firstname = "One", Email = "old@prof.fr" });
+        db.Users.Add(new User { Id = 7, Name = "Prof", Firstname = "One", Email = "old@prof.fr", Year = "PROF", IsProfessor = true });
         db.Sessions.Add(new Session
         {
             Id = 1,
@@ -237,7 +237,7 @@ public class SessionControllerEndpointsTests
         var result = await controller.SetProfEmail(1, new SessionController.SetProfEmailModel { ProfEmail = "new@prof.fr" });
 
         result.Should().BeOfType<OkObjectResult>();
-        (await db.Professors.FindAsync(7))!.Email.Should().Be("new@prof.fr");
+        (await db.Users.FindAsync(7))!.Email.Should().Be("new@prof.fr");
     }
 
     [Fact]
@@ -411,7 +411,7 @@ public class SessionControllerEndpointsTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User { Id = 20, StudentNumber = "DEL", Name = "D", Firstname = "E", Email = "d@e.fr", Year = "3A", IsDelegate = true });
-        db.Professors.Add(new Professor { Id = 21, Name = "Prof", Firstname = "One", Email = "p1@test.fr" });
+        db.Users.Add(new User { Id = 21, Name = "Prof", Firstname = "One", Email = "p1@test.fr", Year = "PROF", IsProfessor = true });
         db.Sessions.Add(new Session { Id = 205, Year = "3A", Name = "Cours", Room = "A1", Date = DateTime.Today, StartTime = DateTime.Now, EndTime = DateTime.Now.AddHours(1), ValidationCode = "A" });
         await db.SaveChangesAsync();
 
@@ -654,9 +654,9 @@ public class SessionControllerEndpointsTests
     public async Task CheckAndSendSessionMails_ShouldMarkBothFlags_WhenSessionsAreDue()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        db.Professors.AddRange(
-            new Professor { Id = 101, Name = "P1", Firstname = "One", Email = "" },
-            new Professor { Id = 102, Name = "P2", Firstname = "Two", Email = "" });
+        db.Users.AddRange(
+            new User { Id = 101, Name = "P1", Firstname = "One", Email = "", Year = "PROF", IsProfessor = true },
+            new User { Id = 102, Name = "P2", Firstname = "Two", Email = "", Year = "PROF", IsProfessor = true });
         db.Sessions.Add(new Session
         {
             Id = 1000,
@@ -739,7 +739,7 @@ public class SessionControllerEndpointsTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User { Id = 302, StudentNumber = "DEL302", Name = "D", Firstname = "E", Email = "d@e.fr", Year = "3A", IsDelegate = true });
-        db.Professors.Add(new Professor { Id = 3021, Name = "P", Firstname = "One", Email = "p@x.fr" });
+        db.Users.Add(new User { Id = 3021, Name = "P", Firstname = "One", Email = "p@x.fr", Year = "PROF", IsProfessor = true });
         db.Sessions.Add(new Session
         {
             Id = 3020,
@@ -779,7 +779,7 @@ public class SessionControllerEndpointsTests
     public async Task ResendProfMail_ShouldReturnOk_WhenProfessorIdSet()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        db.Professors.Add(new Professor { Id = 401, Name = "P", Firstname = "One", Email = "" });
+        db.Users.Add(new User { Id = 401, Name = "P", Firstname = "One", Email = "", Year = "PROF", IsProfessor = true });
         db.Sessions.Add(new Session
         {
             Id = 4010,
@@ -805,7 +805,7 @@ public class SessionControllerEndpointsTests
     public async Task ResendProf2Mail_ShouldReturnOk_WhenProfessor2IdSet()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        db.Professors.Add(new Professor { Id = 402, Name = "P", Firstname = "Two", Email = "" });
+        db.Users.Add(new User { Id = 402, Name = "P", Firstname = "Two", Email = "", Year = "PROF", IsProfessor = true });
         db.Sessions.Add(new Session
         {
             Id = 4020,
