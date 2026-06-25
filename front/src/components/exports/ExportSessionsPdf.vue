@@ -3,7 +3,7 @@
     <button
       @click="exportSessionsToPDF"
       class="export-button"
-      :disabled="exporting || !sessions || sessions.length === 0"
+      :disabled="exporting || (!loader && (!sessions || sessions.length === 0))"
     >
       <span v-if="exporting">
         <div class="spinner"></div>
@@ -29,7 +29,13 @@ import { useMailPreferencesStore } from "../../stores/mailPreferencesStore.js";
 const props = defineProps({
   sessions: {
     type: Array,
-    required: true,
+    default: () => [],
+  },
+  // Optionnel : fonction async renvoyant la liste complète à exporter
+  // (toutes les sessions correspondant aux filtres, au-delà de la page courante).
+  loader: {
+    type: Function,
+    default: null,
   },
   selectedYear: {
     type: String,
@@ -59,27 +65,32 @@ const createPdfFileName = (session) => {
 
 const exportSessionsToPDF = async () => {
   if (exporting.value) return;
-  if (!props.sessions || props.sessions.length === 0) {
-    exportMessage.value = "Aucune session à exporter";
-    exportError.value = true;
-    setTimeout(() => {
-      exportMessage.value = "";
-      exportError.value = false;
-    }, 3000);
-    return;
-  }
 
   exporting.value = true;
   exportMessage.value = "Préparation de l'export...";
   exportError.value = false;
 
   try {
+    // Liste à exporter : soit fournie via le loader (toutes les sessions filtrées),
+    // soit la prop `sessions`.
+    const list = props.loader ? await props.loader() : props.sessions;
+
+    if (!list || list.length === 0) {
+      exportMessage.value = "Aucune session à exporter";
+      exportError.value = true;
+      setTimeout(() => {
+        exportMessage.value = "";
+        exportError.value = false;
+      }, 3000);
+      return;
+    }
+
     const zip = new JSZip();
 
-    for (let i = 0; i < props.sessions.length; i++) {
-      const session = props.sessions[i];
+    for (let i = 0; i < list.length; i++) {
+      const session = list[i];
 
-      exportMessage.value = `Export en cours... (${i + 1}/${props.sessions.length})`;
+      exportMessage.value = `Export en cours... (${i + 1}/${list.length})`;
 
       const pdfBlob = await mailStore.getPdfBlob(session);
 
@@ -95,9 +106,9 @@ const exportSessionsToPDF = async () => {
     saveAs(zipContent, zipFileName);
 
     exportMessage.value =
-      props.sessions.length === 1
+      list.length === 1
         ? "Session exportée avec succès!"
-        : `${props.sessions.length} sessions exportées avec succès!`;
+        : `${list.length} sessions exportées avec succès!`;
   } catch (error) {
     console.debug("Erreur lors de l'export des sessions:", error);
     exportMessage.value =

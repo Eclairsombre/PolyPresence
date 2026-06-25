@@ -12,7 +12,10 @@
         <button @click="showCreateSessionModal = true" class="btn btn-success">
           + Créer une session
         </button>
-        <ExportSessionsPdf :sessions="sessions" :selectedYear="selectedYear" />
+        <ExportSessionsPdf
+          :loader="loadAllForExport"
+          :selectedYear="selectedYear"
+        />
       </div>
     </div>
 
@@ -21,7 +24,7 @@
       <div class="filters-row">
         <div class="filter-item">
           <label>Filière</label>
-          <select v-model="selectedSpecializationId" @change="loadSessions">
+          <select v-model="selectedSpecializationId" @change="onFilterChange">
             <option value="">Toutes</option>
             <option
               v-for="spec in specializations"
@@ -158,6 +161,32 @@
       </div>
     </div>
 
+    <!-- Pagination -->
+    <div v-if="pagination.total > 0" class="pagination-bar">
+      <span class="pagination-info">
+        {{ pagination.total }} session{{ pagination.total > 1 ? "s" : "" }} ·
+        page {{ pagination.page }} / {{ pagination.totalPages }}
+      </span>
+      <div class="pagination-controls">
+        <button
+          class="btn btn-ghost btn-sm"
+          :disabled="pagination.page <= 1 || sessionStore.loading"
+          @click="goToPage(pagination.page - 1)"
+        >
+          Précédent
+        </button>
+        <button
+          class="btn btn-ghost btn-sm"
+          :disabled="
+            pagination.page >= pagination.totalPages || sessionStore.loading
+          "
+          @click="goToPage(pagination.page + 1)"
+        >
+          Suivant
+        </button>
+      </div>
+    </div>
+
     <PopUpSignSession
       v-if="showEditSessionModal"
       :session="selectedSession"
@@ -221,21 +250,11 @@ export default defineComponent({
       profEmail: "",
     });
 
-    const sessions = computed(() => {
-      let filtered = sessionStore.sessions.slice();
-      if (selectedSpecializationId.value) {
-        filtered = filtered.filter(
-          (s) => s.specializationId == selectedSpecializationId.value,
-        );
-      }
-      return filtered.sort((a, b) => {
-        const dateComparison = new Date(a.date) - new Date(b.date);
-        if (dateComparison !== 0) {
-          return dateComparison;
-        }
-        return a.startTime.localeCompare(b.startTime);
-      });
-    });
+    // Le filtrage, le tri et la pagination sont désormais faits côté serveur.
+    const sessions = computed(() => sessionStore.sessions);
+    const page = ref(1);
+    const pageSize = ref(20);
+    const pagination = computed(() => sessionStore.sessionsPagination);
 
     const loadSessions = async () => {
       isFiltering.value = true;
@@ -246,23 +265,48 @@ export default defineComponent({
           endDate: filters.endDate || undefined,
         },
       });
-      await sessionStore.fetchSessionsByFilters({
-        year: selectedYear.value,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
+      await sessionStore.fetchSessionsPaged({
+        year: selectedYear.value || undefined,
+        specializationId: selectedSpecializationId.value || undefined,
+        from: filters.startDate || undefined,
+        to: filters.endDate || undefined,
+        page: page.value,
+        pageSize: pageSize.value,
       });
       isFiltering.value = false;
     };
 
+    // Tout changement de filtre repart à la page 1.
     const applyFilters = async () => {
+      page.value = 1;
+      await loadSessions();
+    };
+    const onFilterChange = async () => {
+      page.value = 1;
+      await loadSessions();
+    };
+    const goToPage = async (p) => {
+      if (p < 1 || p > pagination.value.totalPages) return;
+      page.value = p;
       await loadSessions();
     };
     const clearFilters = () => {
       filters.startDate = new Date().toISOString().split("T")[0];
       filters.endDate = "";
       selectedYear.value = "";
+      selectedSpecializationId.value = "";
+      page.value = 1;
       loadSessions();
     };
+
+    // Export : récupère toutes les sessions correspondant aux filtres (toutes pages).
+    const loadAllForExport = () =>
+      sessionStore.fetchSessionsForExport({
+        year: selectedYear.value || undefined,
+        specializationId: selectedSpecializationId.value || undefined,
+        from: filters.startDate || undefined,
+        to: filters.endDate || undefined,
+      });
 
     const loadStudentsByYear = async () => {
       if (!newSession.year) {
@@ -413,7 +457,13 @@ export default defineComponent({
       showSuccessMessage,
       filters,
       applyFilters,
+      onFilterChange,
       clearFilters,
+      page,
+      pageSize,
+      pagination,
+      goToPage,
+      loadAllForExport,
       isFiltering,
       showCreateSessionModal,
       handleSessionCreated,
@@ -651,6 +701,28 @@ export default defineComponent({
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 18px;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+}
+.pagination-info {
+  font-size: 0.88rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+.pagination-controls {
+  display: flex;
+  gap: 8px;
 }
 
 .session-card {

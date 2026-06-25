@@ -107,19 +107,49 @@ namespace backend.Controllers
         /**
          * GetAllSessions
          *
-         * This method retrieves all sessions from the database.
-         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
+         * Récupère les sessions avec filtres serveur (année, filière, plage de dates)
+         * et pagination optionnelle. Le code de validation n'est inclus que pour les
+         * délégués/administrateurs.
+         *
+         * - Si `page` est fourni : renvoie une enveloppe paginée { items, total, page, pageSize, totalPages }.
+         * - Sinon : renvoie le tableau filtré (rétrocompatibilité avec les anciens appels).
          */
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetSessions()
+        public async Task<ActionResult<object>> GetSessions(
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            [FromQuery] string? year,
+            [FromQuery] int? specializationId,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to)
         {
-            var sessions = await _context.Sessions
+            var query = _context.Sessions
+                .AsNoTracking()
                 .Include(s => s.Specialization)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(year))
+                query = query.Where(s => s.Year == year);
+
+            if (specializationId.HasValue)
+                query = query.Where(s => s.SpecializationId == specializationId.Value);
+
+            if (from.HasValue)
+            {
+                var fromDate = DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Unspecified);
+                query = query.Where(s => s.Date >= fromDate);
+            }
+            if (to.HasValue)
+            {
+                var toDate = DateTime.SpecifyKind(to.Value.Date, DateTimeKind.Unspecified);
+                query = query.Where(s => s.Date <= toDate);
+            }
+
+            // Tri serveur (remplace le tri client).
+            query = query.OrderBy(s => s.Date).ThenBy(s => s.StartTime);
 
             var isAdmin = false;
             var isDelegate = false;
-
             if (User.Identity?.IsAuthenticated == true &&
                 int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
             {
@@ -131,59 +161,59 @@ namespace backend.Controllers
                 }
             }
 
-            if (!isAdmin && !isDelegate)
-            {
-                var sessionsWithoutCode = sessions.Select(s => new
-                {
-                    s.Id,
-                    s.Date,
-                    s.StartTime,
-                    s.EndTime,
-                    s.Year,
-                    s.Name,
-                    s.Room,
-                    s.ProfId,
-                    s.ProfSignature,
-                    s.ProfSignatureToken,
-                    s.ProfId2,
-                    s.ProfSignature2,
-                    s.ProfSignatureToken2,
-                    s.IsSent,
-                    s.IsMailSent,
-                    s.IsMailSent2,
-                    s.SpecializationId,
-                    SpecializationName = s.Specialization?.Name,
-                    SpecializationCode = s.Specialization?.Code
-                }).ToList();
+            var total = await query.CountAsync();
 
-                return sessionsWithoutCode;
+            List<Session> sessions;
+            int currentPage = 1;
+            int size = total == 0 ? 1 : total;
+            if (page.HasValue)
+            {
+                currentPage = page.Value < 1 ? 1 : page.Value;
+                size = pageSize.GetValueOrDefault(20);
+                if (size < 1) size = 20;
+                if (size > 500) size = 500; // garde-fou
+                sessions = await query.Skip((currentPage - 1) * size).Take(size).ToListAsync();
+            }
+            else
+            {
+                sessions = await query.ToListAsync();
             }
 
-            return sessions.Select(s => new
+            object Project(Session s) => isAdmin || isDelegate
+                ? new
+                {
+                    s.Id, s.Date, s.StartTime, s.EndTime, s.Year, s.Name, s.Room,
+                    s.ValidationCode, s.ProfId, s.ProfSignature, s.ProfSignatureToken,
+                    s.ProfId2, s.ProfSignature2, s.ProfSignatureToken2, s.TargetGroup,
+                    s.IsSent, s.IsMailSent, s.IsMailSent2, s.IsMerged, s.SpecializationId,
+                    SpecializationName = s.Specialization?.Name,
+                    SpecializationCode = s.Specialization?.Code
+                }
+                : new
+                {
+                    s.Id, s.Date, s.StartTime, s.EndTime, s.Year, s.Name, s.Room,
+                    s.ProfId, s.ProfSignature, s.ProfSignatureToken,
+                    s.ProfId2, s.ProfSignature2, s.ProfSignatureToken2,
+                    s.IsSent, s.IsMailSent, s.IsMailSent2, s.SpecializationId,
+                    SpecializationName = s.Specialization?.Name,
+                    SpecializationCode = s.Specialization?.Code
+                };
+
+            var items = sessions.Select(Project).ToList();
+
+            if (page.HasValue)
             {
-                s.Id,
-                s.Date,
-                s.StartTime,
-                s.EndTime,
-                s.Year,
-                s.Name,
-                s.Room,
-                s.ValidationCode,
-                s.ProfId,
-                s.ProfSignature,
-                s.ProfSignatureToken,
-                s.ProfId2,
-                s.ProfSignature2,
-                s.ProfSignatureToken2,
-                s.TargetGroup,
-                s.IsSent,
-                s.IsMailSent,
-                s.IsMailSent2,
-                s.IsMerged,
-                s.SpecializationId,
-                SpecializationName = s.Specialization?.Name,
-                SpecializationCode = s.Specialization?.Code
-            }).ToList();
+                return Ok(new
+                {
+                    items,
+                    total,
+                    page = currentPage,
+                    pageSize = size,
+                    totalPages = (int)Math.Ceiling(total / (double)size)
+                });
+            }
+
+            return Ok(items);
         }
 
         /**

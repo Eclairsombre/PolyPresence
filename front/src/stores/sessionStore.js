@@ -41,6 +41,7 @@ export const useSessionStore = defineStore("session", {
     error: null,
     availableYears: ["3A", "4A", "5A"],
     selectedSpecialization: null,
+    sessionsPagination: { page: 1, pageSize: 20, total: 0, totalPages: 1 },
   }),
 
   getters: {
@@ -127,6 +128,64 @@ export const useSessionStore = defineStore("session", {
       } finally {
         this.loading = false;
       }
+    },
+
+    /**
+     * Récupère une page de sessions filtrées côté serveur.
+     * Met à jour this.sessions et this.sessionsPagination.
+     * @param {Object} opts - { year, specializationId, from, to, page, pageSize }
+     */
+    async fetchSessionsPaged({
+      year,
+      specializationId,
+      from,
+      to,
+      page = 1,
+      pageSize = 20,
+    } = {}) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const params = { page, pageSize };
+        if (year) params.year = year;
+        if (specializationId) params.specializationId = specializationId;
+        if (from) params.from = from;
+        if (to) params.to = to;
+
+        const response = await apiClient.get(`${API_URL}/Session`, { params });
+        const data = response.data || {};
+        const items = data.items?.$values ?? data.items ?? [];
+        this.sessions = items;
+        this.sessionsPagination = {
+          page: data.page ?? page,
+          pageSize: data.pageSize ?? pageSize,
+          total: data.total ?? items.length,
+          totalPages: data.totalPages ?? 1,
+        };
+        return this.sessions;
+      } catch (error) {
+        this.error =
+          error.message || "Erreur lors de la récupération des sessions";
+        this.sessions = [];
+        return [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * Récupère TOUTES les sessions correspondant aux filtres (sans pagination),
+     * utilisé pour l'export PDF.
+     * @param {Object} opts - { year, specializationId, from, to }
+     */
+    async fetchSessionsForExport({ year, specializationId, from, to } = {}) {
+      const params = {};
+      if (year) params.year = year;
+      if (specializationId) params.specializationId = specializationId;
+      if (from) params.from = from;
+      if (to) params.to = to;
+      const response = await apiClient.get(`${API_URL}/Session`, { params });
+      return response.data?.$values ?? response.data ?? [];
     },
 
     /**
