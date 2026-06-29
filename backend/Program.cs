@@ -87,12 +87,20 @@ builder.Services.AddSingleton<AdminTokenService>();
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ICookieEncryptionService, CookieEncryptionService>();
 
-// Enregistrement du DbContext avec PostgreSQL
+// Enregistrement du DbContext avec PostgreSQL.
+// EnableRetryOnFailure : réessaie automatiquement les échecs transitoires
+// (micro-coupures réseau/DB) au lieu de renvoyer un 500 immédiat.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsql => npgsql.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null)));
 
 // Services d'arrière-plan
 builder.Services.AddHostedService<RateLimitCleanupService>();
+builder.Services.AddHostedService<EmailDispatcherService>();
 
 builder.Services.AddControllers();
 

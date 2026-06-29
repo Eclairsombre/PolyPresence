@@ -442,36 +442,7 @@ namespace backend.Controllers
                        $"Si vous n'avez pas demandé ce mail, veuillez ignorer ce message.<br><br>" +
                        $"Cordialement,<br>L'équipe PolytechPresence</body></html>";
 
-            try
-            {
-                var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtpbv.univ-lyon1.fr";
-                var smtpPortStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
-                if (!int.TryParse(smtpPortStr, out var smtpPort)) smtpPort = 587;
-                var smtpClient = new SmtpClient(smtpHost, smtpPort)
-                {
-                    EnableSsl = true,
-                    Credentials = new System.Net.NetworkCredential(
-                        Environment.GetEnvironmentVariable("SMTP_USERNAME"),
-                        Environment.GetEnvironmentVariable("SMTP_PASSWORD")
-                    )
-                };
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
-                    Subject = "Création de votre mot de passe PolytechPresence",
-                    Body = body,
-                    IsBodyHtml = true
-                };
-                mailMessage.To.Add(user.Email);
-
-                mailMessage.Headers.Add("X-Priority", "1");
-
-                await smtpClient.SendMailAsync(mailMessage);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Erreur lors de l'envoi du mail : {ex.Message}");
-            }
+            await SendEmailAsync(user.Email, "Création de votre mot de passe PolytechPresence", body);
             return Ok(new { message = "Mail envoyé." });
         }
 
@@ -1081,42 +1052,21 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
             }
         }
 
+        /// <summary>
+        /// Met un email en file d'attente (table OutboxEmails). L'envoi SMTP réel est
+        /// effectué de façon asynchrone par EmailDispatcherService (avec retry/backoff).
+        /// </summary>
         private async Task SendEmailAsync(string toEmail, string subject, string body)
         {
-            try
+            _context.OutboxEmails.Add(new OutboxEmail
             {
-                var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtpbv.univ-lyon1.fr";
-                var smtpPortStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
-                if (!int.TryParse(smtpPortStr, out var smtpPort)) smtpPort = 587;
-
-                var smtpClient = new SmtpClient(smtpHost, smtpPort)
-                {
-                    EnableSsl = true,
-                    Credentials = new System.Net.NetworkCredential(
-                        Environment.GetEnvironmentVariable("SMTP_USERNAME"),
-                        Environment.GetEnvironmentVariable("SMTP_PASSWORD")
-                    )
-                };
-
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") ?? throw new InvalidOperationException("SMTP_FROM_EMAIL environment variable is not set")),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-
-                mailMessage.To.Add(toEmail);
-                mailMessage.Headers.Add("X-Priority", "1");
-
-                await smtpClient.SendMailAsync(mailMessage);
-                _logger.LogInformation("Email sent successfully to: {Email}", toEmail);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending email to: {Email}", toEmail);
-                throw; // Re-throw pour que l'appelant puisse gérer l'erreur
-            }
+                ToEmail = toEmail,
+                Subject = subject,
+                Body = body,
+                IsHtml = true,
+            });
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Email mis en file pour: {Email}", toEmail);
         }
 
         /**

@@ -18,6 +18,7 @@ namespace backend.Data
         public DbSet<SessionSentToUser> SessionSentToUsers { get; set; }
         public DbSet<IcsLink> IcsLinks { get; set; }
         public DbSet<Specialization> Specializations { get; set; } = null!;
+        public DbSet<OutboxEmail> OutboxEmails { get; set; } = null!;
 
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -64,6 +65,10 @@ namespace backend.Data
             modelBuilder.Entity<IcsLink>()
                 .HasIndex(l => new { l.SpecializationId, l.Year })
                 .IsUnique();
+
+            // Index pour la requête de poll du worker d'envoi d'emails.
+            modelBuilder.Entity<OutboxEmail>()
+                .HasIndex(e => new { e.Status, e.NextAttemptAt });
 
         }
     }

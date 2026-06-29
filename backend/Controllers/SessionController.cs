@@ -1265,6 +1265,7 @@ namespace backend.Controllers
             if (session == null || string.IsNullOrEmpty(session.ProfId))
                 return NotFound(new { error = true, message = "Session ou email du professeur 1 non trouvé." });
             await SendProfSignatureMail(session, 1);
+            await _context.SaveChangesAsync();
             return Ok(new { message = "Mail renvoyé au professeur 1." });
         }
 
@@ -1280,6 +1281,7 @@ namespace backend.Controllers
             if (session == null || string.IsNullOrEmpty(session.ProfId2))
                 return NotFound(new { error = true, message = "Session ou email du professeur 2 non trouvé." });
             await SendProfSignatureMail(session, 2);
+            await _context.SaveChangesAsync();
             return Ok(new { message = "Mail renvoyé au professeur 2." });
         }
 
@@ -1360,40 +1362,15 @@ Informations de la session :
 
 Cordialement";
 
-            try
+            // Mise en file : l'envoi SMTP réel est fait par EmailDispatcherService.
+            // La persistance de cette ligne est assurée par le SaveChanges de l'appelant.
+            _context.OutboxEmails.Add(new OutboxEmail
             {
-                var smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtpbv.univ-lyon1.fr";
-                var smtpPortStr = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
-                if (!int.TryParse(smtpPortStr, out var smtpPort)) smtpPort = 587;
-                var smtpClient = new SmtpClient(smtpHost, smtpPort)
-                {
-                    EnableSsl = true,
-                    Credentials = new NetworkCredential(
-                        Environment.GetEnvironmentVariable("SMTP_USERNAME"),
-                        Environment.GetEnvironmentVariable("SMTP_PASSWORD")
-                    )
-                };
-
-                var fromEmail = Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL");
-                if (string.IsNullOrWhiteSpace(fromEmail))
-                    throw new Exception("L'adresse email d'expéditeur (SMTP_FROM_EMAIL) n'est pas définie dans les variables d'environnement.");
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(fromEmail),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = false,
-                };
-                mailMessage.To.Add(profEmail);
-                mailMessage.Headers.Add("X-Priority", "1");
-
-                await smtpClient.SendMailAsync(mailMessage);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Erreur lors de l'envoi du mail au prof : {ex.Message}");
-                throw;
-            }
+                ToEmail = profEmail,
+                Subject = subject,
+                Body = body,
+                IsHtml = false,
+            });
         }
 
         /**
