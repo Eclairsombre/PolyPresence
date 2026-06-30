@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace backend.Migrations
 {
     /// <inheritdoc />
-    public partial class AddOutboxEmails : Migration
+    public partial class AddUserLoginIndexes : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -35,6 +35,18 @@ namespace backend.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Users_Email",
+                table: "Users",
+                column: "Email",
+                unique: true,
+                filter: "\"Email\" <> ''");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_StudentNumber",
+                table: "Users",
+                column: "StudentNumber");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OutboxEmails_Status_NextAttemptAt",
                 table: "OutboxEmails",
                 columns: new[] { "Status", "NextAttemptAt" });
@@ -45,6 +57,14 @@ namespace backend.Migrations
         {
             migrationBuilder.DropTable(
                 name: "OutboxEmails");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Users_Email",
+                table: "Users");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Users_StudentNumber",
+                table: "Users");
         }
     }
 }

@@ -355,9 +355,15 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasFilter("\"Email\" <> ''");
+
                     b.HasIndex("MailPreferencesId");
 
                     b.HasIndex("SpecializationId");
+
+                    b.HasIndex("StudentNumber");
 
                     b.ToTable("Users");
                 });

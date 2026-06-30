@@ -70,6 +70,20 @@ namespace backend.Data
             modelBuilder.Entity<OutboxEmail>()
                 .HasIndex(e => new { e.Status, e.NextAttemptAt });
 
+            // Index de connexion : le login recherche par StudentNumber OU Email.
+            // Sans index, c'est un scan séquentiel de Users à chaque connexion.
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.StudentNumber);
+
+            // Unicité partielle de l'email (le login par email suppose l'unicité) :
+            // on exclut uniquement les emails vides (profs importés sans email).
+            // Le filtre se limite à `Email <> ''` pour que la requête de login
+            // (qui contient `Email <> '' AND Email = @id`) puisse utiliser cet index.
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique()
+                .HasFilter("\"Email\" <> ''");
+
         }
     }
 }

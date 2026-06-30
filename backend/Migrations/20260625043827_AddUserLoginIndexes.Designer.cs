@@ -13,8 +13,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260625041233_AddOutboxEmails")]
-    partial class AddOutboxEmails
+    [Migration("20260625043827_AddUserLoginIndexes")]
+    partial class AddUserLoginIndexes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -358,9 +358,15 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasFilter("\"Email\" <> ''");
+
                     b.HasIndex("MailPreferencesId");
 
                     b.HasIndex("SpecializationId");
+
+                    b.HasIndex("StudentNumber");
 
                     b.ToTable("Users");
                 });
