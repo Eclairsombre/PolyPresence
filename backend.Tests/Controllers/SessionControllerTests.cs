@@ -70,8 +70,10 @@ public class SessionControllerTests
 
         var result = await controller.GetSessions();
 
-        result.Value.Should().NotBeNull();
-        var payload = Serialize(result.Value!.First());
+        var ok = result.Result as OkObjectResult;
+        ok.Should().NotBeNull();
+        var items = (ok!.Value as IEnumerable<object>)!;
+        var payload = Serialize(items.First());
         payload.Should().NotContain("ValidationCode");
     }
 
@@ -99,8 +101,10 @@ public class SessionControllerTests
 
         var result = await controller.GetSessions();
 
-        result.Value.Should().NotBeNull();
-        var payload = Serialize(result.Value!.First());
+        var ok = result.Result as OkObjectResult;
+        ok.Should().NotBeNull();
+        var items = (ok!.Value as IEnumerable<object>)!;
+        var payload = Serialize(items.First());
         payload.Should().Contain("ValidationCode");
     }
 

@@ -373,7 +373,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import AppIcon from "../AppIcon.vue";
 import SignatureCreator from "../signature/SignatureCreator.vue";
@@ -384,6 +384,7 @@ import { useProfessorStore } from "../../stores/professorStore";
 
 const route = useRoute();
 const token = route.params.token;
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const profName = ref("");
 const profFirstname = ref("");
@@ -527,6 +528,33 @@ function loadFromStorage() {
   }
 }
 
+// --- SSE : mise à jour automatique de la liste des présences ---
+let attendancesStream = null;
+
+function startAttendancesStream() {
+  if (!session.value?.id || attendancesStream) return;
+  const url = `${API_URL}/Session/${session.value.id}/attendances/stream`;
+  attendancesStream = new EventSource(url);
+  attendancesStream.onmessage = (e) => {
+    // On n'écrase pas une mise à jour optimistique locale en cours.
+    if (pendingStudents.value.size > 0 || bulkLoading.value) return;
+    let incoming;
+    try {
+      incoming = JSON.parse(e.data);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(incoming)) return;
+    attendances.value = incoming.sort((a, b) =>
+      a.item1.name.localeCompare(b.item1.name),
+    );
+  };
+  // EventSource se reconnecte automatiquement en cas de coupure réseau.
+  attendancesStream.onerror = () => {
+    console.debug("Flux SSE présences interrompu, reconnexion automatique…");
+  };
+}
+
 onMounted(async () => {
   const data = await profSignatureStore.fetchSessionByProfSignatureToken(token);
   if (data) {
@@ -558,6 +586,7 @@ onMounted(async () => {
 
     loading.value = false;
     await loadAttendances();
+    startAttendancesStream();
     await nextTick();
     setTimeout(() => {
       if (signaturePad.value?.forceCanvasReset)
@@ -567,6 +596,14 @@ onMounted(async () => {
     error.value = profSignatureStore.error;
     loading.value = false;
   }
+});
+
+onUnmounted(() => {
+  if (attendancesStream) {
+    attendancesStream.close();
+    attendancesStream = null;
+  }
+  clearTimeout(toastTimer);
 });
 
 // Signature

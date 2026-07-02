@@ -6,6 +6,7 @@ using System.Net.Mail;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
 using Ical.Net.CalendarComponents;
 using Ical.Net.Proxies;
 
@@ -22,11 +23,13 @@ namespace backend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SessionController> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
         {
             _context = context;
             _logger = logger;
+            _scopeFactory = serviceScopeFactory;
         }
 
 
@@ -116,12 +119,12 @@ namespace backend.Controllers
          */
         [HttpGet]
         public async Task<ActionResult<object>> GetSessions(
-            [FromQuery] int? page,
-            [FromQuery] int? pageSize,
-            [FromQuery] string? year,
-            [FromQuery] int? specializationId,
-            [FromQuery] DateTime? from,
-            [FromQuery] DateTime? to)
+            [FromQuery] int? page = null,
+            [FromQuery] int? pageSize = null,
+            [FromQuery] string? year = null,
+            [FromQuery] int? specializationId = null,
+            [FromQuery] DateTime? from = null,
+            [FromQuery] DateTime? to = null)
         {
             var query = _context.Sessions
                 .AsNoTracking()
@@ -1013,6 +1016,76 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Aucun étudiant trouvé pour cette session." });
             }
             return Ok(result);
+        }
+
+        /**
+         * StreamSessionAttendances (SSE)
+         *
+         * Flux Server-Sent Events qui pousse la liste des présences d'une session
+         * dès qu'elle change (un étudiant émarge, le prof bascule un statut, etc.).
+         * Utilisé par la page de signature professeur pour une mise à jour automatique.
+         * Accès public via le lien tokenisé (route en "/attendances/" laissée passer par le middleware).
+         */
+        [HttpGet("{sessionId}/attendances/stream")]
+        public async Task StreamSessionAttendances(int sessionId, CancellationToken cancellationToken)
+        {
+            Response.Headers["Content-Type"] = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no"; // évite le buffering par nginx
+
+            var jsonOptions = new System.Text.Json.JsonSerializerOptions();
+            string? lastJson = null;
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    string json;
+                    // Scope/DbContext frais à chaque itération : la connexion SSE est longue,
+                    // on ne garde pas un DbContext vivant pendant toute sa durée.
+                    using (var scope = _scopeFactory.CreateScope())
+                    {
+                        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                        var data = await db.Attendances
+                            .AsNoTracking()
+                            .Where(a => a.SessionId == sessionId)
+                            .Include(a => a.User)
+                            .OrderBy(a => a.User.Name).ThenBy(a => a.User.Firstname)
+                            .Select(a => new
+                            {
+                                item1 = new
+                                {
+                                    id = a.User.Id,
+                                    name = a.User.Name,
+                                    firstname = a.User.Firstname,
+                                    studentNumber = a.User.StudentNumber,
+                                    comment = a.Comment
+                                },
+                                item2 = (int)a.Status
+                            })
+                            .ToListAsync(cancellationToken);
+                        json = System.Text.Json.JsonSerializer.Serialize(data, jsonOptions);
+                    }
+
+                    if (json != lastJson)
+                    {
+                        lastJson = json;
+                        await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+                    }
+                    else
+                    {
+                        // Commentaire SSE = heartbeat, garde la connexion ouverte.
+                        await Response.WriteAsync(": ping\n\n", cancellationToken);
+                    }
+                    await Response.Body.FlushAsync(cancellationToken);
+
+                    await Task.Delay(2000, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Client déconnecté : fin normale du flux.
+            }
         }
 
         /**

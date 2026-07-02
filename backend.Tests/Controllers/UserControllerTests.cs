@@ -850,7 +850,7 @@ public class UserControllerTests
     }
 
     [Fact]
-    public async Task ForgotPassword_ShouldReturn500_WhenSendEmailFails()
+    public async Task ForgotPassword_ShouldEnqueueEmail_AndReturnOk()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User
@@ -868,17 +868,12 @@ public class UserControllerTests
         rateMock.Setup(r => r.IsPasswordResetAllowed("S60")).Returns(true);
         var controller = BuildController(db, rateLimitMock: rateMock);
 
-        var oldFrom = Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL");
-        try
-        {
-            Environment.SetEnvironmentVariable("SMTP_FROM_EMAIL", null);
-            var result = await controller.ForgotPassword(new ForgotPasswordRequest { StudentNumber = "S60" });
-            result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(500);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("SMTP_FROM_EMAIL", oldFrom);
-        }
+        // L'envoi est désormais asynchrone (file outbox) : la requête met l'email
+        // en file et renvoie OK ; l'envoi SMTP réel est géré par le worker.
+        var result = await controller.ForgotPassword(new ForgotPasswordRequest { StudentNumber = "S60" });
+
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "u@fail.fr");
     }
 
     [Fact]
