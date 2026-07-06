@@ -1,5 +1,6 @@
 using backend.Controllers;
 using backend.Models;
+using backend.Services;
 using backend.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,9 @@ using System.Reflection;
 
 namespace backend.Tests.Controllers;
 
+// Note : la logique pure de parsing/normalisation/fusion est testée dans
+// backend.Tests.Services.IcsImportHelperTests. Ici on couvre le contrôleur :
+// endpoints et synchronisation base de données.
 public class ImportControllerTests
 {
     private static ImportController BuildController(backend.Data.ApplicationDbContext db)
@@ -26,11 +30,7 @@ public class ImportControllerTests
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         var controller = BuildController(db);
 
-        var result = await controller.ImportIcs(new ImportController.ImportIcsModel
-        {
-            IcsUrl = "",
-            Year = ""
-        });
+        var result = await controller.ImportIcs(new ImportController.ImportIcsModel { IcsUrl = "", Year = "" });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -101,192 +101,6 @@ public class ImportControllerTests
     }
 
     [Fact]
-    public void ParseName_ShouldSplitNameAndFirstname()
-    {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var method = typeof(ImportController).GetMethod("ParseName", BindingFlags.NonPublic | BindingFlags.Instance);
-        method.Should().NotBeNull();
-
-        var args = new object[] { "DOE John", "", "" };
-        method!.Invoke(controller, args);
-
-        args[1].Should().Be("DOE");
-        args[2].Should().Be("John");
-    }
-
-    [Fact]
-    public void ExtractTargetGroup_ShouldReturnSingleGroup_WhenOneGroupDetected()
-    {
-        var method = typeof(ImportController).GetMethod("ExtractTargetGroup", BindingFlags.NonPublic | BindingFlags.Static);
-        method.Should().NotBeNull();
-
-        var description = "3A-1 Apprentissage Informatique\nSalle A1";
-        var result = method!.Invoke(null, new object[] { description });
-
-        result.Should().Be("3A-1");
-    }
-
-    [Fact]
-    public void ExtractTargetGroup_ShouldReturnEmpty_WhenMultipleGroupsDetected()
-    {
-        var method = typeof(ImportController).GetMethod("ExtractTargetGroup", BindingFlags.NonPublic | BindingFlags.Static);
-        method.Should().NotBeNull();
-
-        var description = "3A-1 Apprentissage Informatique\n3A-2 Apprentissage Informatique";
-        var result = method!.Invoke(null, new object[] { description });
-
-        result.Should().Be("");
-    }
-
-    [Fact]
-    public void CombineStrings_ShouldDeduplicateAndMergeValues()
-    {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var method = typeof(ImportController).GetMethod("CombineStrings", BindingFlags.NonPublic | BindingFlags.Instance);
-        method.Should().NotBeNull();
-
-        var result = method!.Invoke(controller, new object[] { "TP / CM", "CM / TD" });
-
-        result.Should().Be("TP / CM / TD");
-    }
-
-    [Fact]
-    public void CombineStrings_ShouldReturnNonEmpty_WhenOneSideEmpty()
-    {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var method = typeof(ImportController).GetMethod("CombineStrings", BindingFlags.NonPublic | BindingFlags.Instance);
-        method.Should().NotBeNull();
-
-        method!.Invoke(controller, new object[] { "", "TD" }).Should().Be("TD");
-        method.Invoke(controller, new object[] { "CM", "" }).Should().Be("CM");
-    }
-
-    [Fact]
-    public void ApplyBusinessRules_ShouldMergeOverlappingSessions()
-    {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var importedType = typeof(ImportController).GetNestedType("ImportedSession", BindingFlags.NonPublic);
-        importedType.Should().NotBeNull();
-
-        var listType = typeof(List<>).MakeGenericType(importedType!);
-        var sessions = Activator.CreateInstance(listType)!;
-
-        object s1 = Activator.CreateInstance(importedType!)!;
-        importedType!.GetProperty("Date")!.SetValue(s1, DateTime.Today);
-        importedType.GetProperty("Start")!.SetValue(s1, TimeSpan.FromHours(8));
-        importedType.GetProperty("End")!.SetValue(s1, TimeSpan.FromHours(10));
-        importedType.GetProperty("Name")!.SetValue(s1, "Math");
-        importedType.GetProperty("Room")!.SetValue(s1, "A1");
-        importedType.GetProperty("ProfId")!.SetValue(s1, "1");
-        importedType.GetProperty("ProfId2")!.SetValue(s1, "");
-
-        object s2 = Activator.CreateInstance(importedType)!;
-        importedType.GetProperty("Date")!.SetValue(s2, DateTime.Today);
-        importedType.GetProperty("Start")!.SetValue(s2, TimeSpan.FromHours(9));
-        importedType.GetProperty("End")!.SetValue(s2, TimeSpan.FromHours(11));
-        importedType.GetProperty("Name")!.SetValue(s2, "Physique");
-        importedType.GetProperty("Room")!.SetValue(s2, "B2");
-        importedType.GetProperty("ProfId")!.SetValue(s2, "2");
-        importedType.GetProperty("ProfId2")!.SetValue(s2, "");
-
-        listType.GetMethod("Add")!.Invoke(sessions, new[] { s1 });
-        listType.GetMethod("Add")!.Invoke(sessions, new[] { s2 });
-
-        var apply = typeof(ImportController).GetMethod("ApplyBusinessRules", BindingFlags.NonPublic | BindingFlags.Instance);
-        apply.Should().NotBeNull();
-        var result = apply!.Invoke(controller, new[] { sessions });
-
-        var count = (int)listType.GetProperty("Count")!.GetValue(result)!;
-        count.Should().Be(1);
-
-        var merged = listType.GetProperty("Item")!.GetValue(result, new object[] { 0 })!;
-        importedType.GetProperty("IsMerged")!.GetValue(merged).Should().Be(true);
-        importedType.GetProperty("Start")!.GetValue(merged).Should().Be(TimeSpan.FromHours(8));
-        importedType.GetProperty("End")!.GetValue(merged).Should().Be(TimeSpan.FromHours(11));
-    }
-
-    [Fact]
-    public void ExtractProfessors_ShouldIgnoreNoiseAndParseTwoNames()
-    {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var method = typeof(ImportController).GetMethod("ExtractProfessors", BindingFlags.NonPublic | BindingFlags.Instance);
-        method.Should().NotBeNull();
-
-        var description = "3A-1 Apprentissage Informatique\nDOE John\nSMITH Jane\n(Exporté le 01/01)\nIngénieur";
-        var tuple = ((string p1, string f1, string p2, string f2))method!.Invoke(controller, new object[] { description })!;
-
-        tuple.p1.Should().Be("DOE");
-        tuple.f1.Should().Be("John");
-        tuple.p2.Should().Be("SMITH");
-        tuple.f2.Should().Be("Jane");
-    }
-
-    [Fact]
-    public void ApplyBusinessRules_ShouldMergeConsecutiveSessions()
-    {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var importedType = typeof(ImportController).GetNestedType("ImportedSession", BindingFlags.NonPublic)!;
-        var listType = typeof(List<>).MakeGenericType(importedType);
-        var sessions = Activator.CreateInstance(listType)!;
-
-        var s1 = CreateImported(importedType, DateTime.Today, TimeSpan.FromHours(8), TimeSpan.FromHours(10), "Algo", "A1", "11", "", "3A", "");
-        var s2 = CreateImported(importedType, DateTime.Today, TimeSpan.FromHours(10.25), TimeSpan.FromHours(12), "Algo", "A1", "11", "", "3A", "");
-
-        listType.GetMethod("Add")!.Invoke(sessions, new[] { s1 });
-        listType.GetMethod("Add")!.Invoke(sessions, new[] { s2 });
-
-        var apply = typeof(ImportController).GetMethod("ApplyBusinessRules", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var result = apply.Invoke(controller, new[] { sessions })!;
-
-        var count = (int)listType.GetProperty("Count")!.GetValue(result)!;
-        count.Should().Be(1);
-
-        var merged = listType.GetProperty("Item")!.GetValue(result, new object[] { 0 })!;
-        importedType.GetProperty("Start")!.GetValue(merged).Should().Be(TimeSpan.FromHours(8));
-        importedType.GetProperty("End")!.GetValue(merged).Should().Be(TimeSpan.FromHours(12));
-        importedType.GetProperty("IsMerged")!.GetValue(merged).Should().Be(true);
-    }
-
-    [Fact]
-    public void ApplyBusinessRules_ShouldMergeConsecutiveSessions_WhenGapIsLessThanFifteenMinutes()
-    {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var importedType = typeof(ImportController).GetNestedType("ImportedSession", BindingFlags.NonPublic)!;
-        var listType = typeof(List<>).MakeGenericType(importedType);
-        var sessions = Activator.CreateInstance(listType)!;
-
-        var s1 = CreateImported(importedType, DateTime.Today, TimeSpan.FromHours(8), TimeSpan.FromHours(10), "Algo", "A1", "11", "", "3A", "");
-        var s2 = CreateImported(importedType, DateTime.Today, TimeSpan.FromHours(10).Add(TimeSpan.FromMinutes(10)), TimeSpan.FromHours(12), "Algo", "A1", "11", "", "3A", "");
-
-        listType.GetMethod("Add")!.Invoke(sessions, new[] { s1 });
-        listType.GetMethod("Add")!.Invoke(sessions, new[] { s2 });
-
-        var apply = typeof(ImportController).GetMethod("ApplyBusinessRules", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var result = apply.Invoke(controller, new[] { sessions })!;
-
-        var count = (int)listType.GetProperty("Count")!.GetValue(result)!;
-        count.Should().Be(1);
-
-        var merged = listType.GetProperty("Item")!.GetValue(result, new object[] { 0 })!;
-        importedType.GetProperty("End")!.GetValue(merged).Should().Be(TimeSpan.FromHours(12));
-        importedType.GetProperty("IsMerged")!.GetValue(merged).Should().Be(true);
-    }
-
-    [Fact]
     public async Task SyncWithDatabase_ShouldCreateSessionAndAttendances_WhenNewSessionImported()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
@@ -297,16 +111,16 @@ public class ImportControllerTests
         await db.SaveChangesAsync();
 
         var controller = BuildController(db);
-        var importedType = typeof(ImportController).GetNestedType("ImportedSession", BindingFlags.NonPublic)!;
-        var listType = typeof(List<>).MakeGenericType(importedType);
-        var importedList = Activator.CreateInstance(listType)!;
+        var importedList = new List<ImportedSession>
+        {
+            new()
+            {
+                Date = DateTime.Today, Start = TimeSpan.FromHours(8), End = TimeSpan.FromHours(10),
+                Name = "Algo", Room = "A1", ProfId = "11", ProfId2 = "", Year = "3A", TargetGroup = "3A-1"
+            }
+        };
 
-        var imported = CreateImported(importedType, DateTime.Today, TimeSpan.FromHours(8), TimeSpan.FromHours(10), "Algo", "A1", "11", "", "3A", "3A-1");
-        listType.GetMethod("Add")!.Invoke(importedList, new[] { imported });
-
-        var sync = typeof(ImportController).GetMethod("SyncWithDatabase", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var task = (Task)sync.Invoke(controller, new object[] { importedList, "3A", 1 })!;
-        await task;
+        await InvokeSyncWithDatabase(controller, importedList, "3A", 1);
 
         var session = await db.Sessions.SingleAsync();
         session.Name.Should().Be("Algo");
@@ -315,7 +129,7 @@ public class ImportControllerTests
 
         var attendances = await db.Attendances.ToListAsync();
         attendances.Should().HaveCount(1);
-        attendances.Single().StudentId.Should().Be(1);
+        attendances.Single().StudentId.Should().Be(1); // seul étudiant 3A/spé1 non supprimé
     }
 
     [Fact]
@@ -329,47 +143,32 @@ public class ImportControllerTests
         db.Sessions.AddRange(
             new Session
             {
-                Id = 100,
-                Date = date,
-                StartTime = start,
-                EndTime = end,
-                Year = "3A",
-                Name = "Old",
-                Room = "R1",
-                ValidationCode = "1111",
-                SpecializationId = 1,
-                TargetGroup = "",
-                ProfId = "1",
-                ProfId2 = ""
+                Id = 100, Date = date, StartTime = start, EndTime = end, Year = "3A",
+                Name = "Old", Room = "R1", ValidationCode = "1111", SpecializationId = 1,
+                TargetGroup = "", ProfId = "1", ProfId2 = ""
             },
             new Session
             {
-                Id = 101,
-                Date = date,
+                Id = 101, Date = date,
                 StartTime = DateTime.SpecifyKind(date.AddHours(14), DateTimeKind.Unspecified),
                 EndTime = DateTime.SpecifyKind(date.AddHours(16), DateTimeKind.Unspecified),
-                Year = "3A",
-                Name = "ToDelete",
-                Room = "R2",
-                ValidationCode = "2222",
-                SpecializationId = 1,
-                TargetGroup = "",
-                ProfId = "2",
-                ProfId2 = ""
+                Year = "3A", Name = "ToDelete", Room = "R2", ValidationCode = "2222",
+                SpecializationId = 1, TargetGroup = "", ProfId = "2", ProfId2 = ""
             });
         await db.SaveChangesAsync();
 
         var controller = BuildController(db);
-        var importedType = typeof(ImportController).GetNestedType("ImportedSession", BindingFlags.NonPublic)!;
-        var listType = typeof(List<>).MakeGenericType(importedType);
-        var importedList = Activator.CreateInstance(listType)!;
+        var importedList = new List<ImportedSession>
+        {
+            new()
+            {
+                Date = date, Start = TimeSpan.FromHours(8), End = TimeSpan.FromHours(10),
+                Name = "Updated", Room = "R9", ProfId = "9", ProfId2 = "10", Year = "3A",
+                TargetGroup = "3A-2", IsMerged = true
+            }
+        };
 
-        var updatedImported = CreateImported(importedType, date, TimeSpan.FromHours(8), TimeSpan.FromHours(10), "Updated", "R9", "9", "10", "3A", "3A-2", isMerged: true);
-        listType.GetMethod("Add")!.Invoke(importedList, new[] { updatedImported });
-
-        var sync = typeof(ImportController).GetMethod("SyncWithDatabase", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var task = (Task)sync.Invoke(controller, new object[] { importedList, "3A", 1 })!;
-        await task;
+        await InvokeSyncWithDatabase(controller, importedList, "3A", 1);
 
         var sessions = await db.Sessions.OrderBy(s => s.Id).ToListAsync();
         sessions.Should().HaveCount(1);
@@ -382,30 +181,13 @@ public class ImportControllerTests
         sessions[0].IsMerged.Should().BeTrue();
     }
 
-    private static object CreateImported(
-        Type importedType,
-        DateTime date,
-        TimeSpan start,
-        TimeSpan end,
-        string name,
-        string room,
-        string profId,
-        string profId2,
-        string year,
-        string targetGroup,
-        bool isMerged = false)
+    // SyncWithDatabase reste privé (logique interne d'écriture BDD) → invoqué par réflexion.
+    private static async Task InvokeSyncWithDatabase(
+        ImportController controller, List<ImportedSession> imported, string year, int specializationId)
     {
-        var item = Activator.CreateInstance(importedType)!;
-        importedType.GetProperty("Date")!.SetValue(item, date.Date);
-        importedType.GetProperty("Start")!.SetValue(item, start);
-        importedType.GetProperty("End")!.SetValue(item, end);
-        importedType.GetProperty("Name")!.SetValue(item, name);
-        importedType.GetProperty("Room")!.SetValue(item, room);
-        importedType.GetProperty("ProfId")!.SetValue(item, profId);
-        importedType.GetProperty("ProfId2")!.SetValue(item, profId2);
-        importedType.GetProperty("Year")!.SetValue(item, year);
-        importedType.GetProperty("TargetGroup")!.SetValue(item, targetGroup);
-        importedType.GetProperty("IsMerged")!.SetValue(item, isMerged);
-        return item;
+        var sync = typeof(ImportController).GetMethod("SyncWithDatabase", BindingFlags.NonPublic | BindingFlags.Instance);
+        sync.Should().NotBeNull();
+        var task = (Task)sync!.Invoke(controller, new object[] { imported, year, specializationId })!;
+        await task;
     }
 }

@@ -2,9 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
-using Ical.Net;
-using Ical.Net.CalendarComponents;
-using System.Text.RegularExpressions;
+using backend.Services;
+using System.Text;
 
 namespace backend.Controllers
 {
@@ -60,15 +59,12 @@ namespace backend.Controllers
             {
                 _logger.LogInformation($"=== DÉBUT ImportIcs pour l'année {model.Year} ===");
 
-                // Parsing
                 var rawSessions = await FetchAndParseIcs(model.IcsUrl, model.Year);
                 _logger.LogInformation($"{rawSessions.Count} événements trouvés dans l'ICS.");
 
-                // Merging
-                var processedSessions = ApplyBusinessRules(rawSessions);
+                var processedSessions = IcsImportHelper.ApplyBusinessRules(rawSessions);
                 _logger.LogInformation($"{processedSessions.Count} sessions après application des règles métier.");
 
-                // Save
                 await SyncWithDatabase(processedSessions, model.Year, specializationId);
 
                 _logger.LogInformation($"=== FIN ImportIcs pour {model.Year} ===");
@@ -94,7 +90,7 @@ namespace backend.Controllers
                 {
                     logger.LogInformation($"Traitement du lien pour l'année {link.Year}...");
                     var rawSessions = await FetchAndParseIcs(link.Url, link.Year);
-                    var processedSessions = ApplyBusinessRules(rawSessions);
+                    var processedSessions = IcsImportHelper.ApplyBusinessRules(rawSessions);
                     await SyncWithDatabase(processedSessions, link.Year, link.SpecializationId);
                 }
                 catch (Exception ex)
@@ -104,247 +100,77 @@ namespace backend.Controllers
             }
         }
 
-
         private async Task<List<ImportedSession>> FetchAndParseIcs(string url, string year)
         {
             using var client = new HttpClient();
-            var content = await client.GetStringAsync(url);
+            // Décodage UTF-8 explicite : les exports ADE sont en UTF-8, mais tous les
+            // serveurs ne renseignent pas le charset (sinon les accents deviennent illisibles).
+            var bytes = await client.GetByteArrayAsync(url);
+            var content = Encoding.UTF8.GetString(bytes).TrimStart('﻿');
 
-            var calendar = Calendar.Load(content);
             var sessions = new List<ImportedSession>();
 
-            var frenchTz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris")
-                           ?? TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time");
-
-            foreach (var component in calendar.Events)
+            foreach (var ev in IcsImportHelper.ParseCalendar(content))
             {
-                if (component.Start == null || component.End == null) continue;
-
-                var start = DateTime.SpecifyKind(
-                    component.Start.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.Start.AsDateTimeOffset.DateTime)).DateTime,
-                    DateTimeKind.Unspecified);
-                var end = DateTime.SpecifyKind(
-                    component.End.AsDateTimeOffset.ToOffset(frenchTz.GetUtcOffset(component.End.AsDateTimeOffset.DateTime)).DateTime,
-                    DateTimeKind.Unspecified);
-
-                // Extraction des professeurs depuis la description
-                var (p1, f1, p2, f2) = ExtractProfessors(component.Description);
-
-                var professor1 = await _context.Users
-                    .FirstOrDefaultAsync(p => p.IsProfessor && p.Name.ToLower() == p1.ToLower() && p.Firstname.ToLower() == f1.ToLower());
-
-                var professor2 = await _context.Users
-                    .FirstOrDefaultAsync(p => p.IsProfessor && p.Name.ToLower() == p2.ToLower() && p.Firstname.ToLower() == f2.ToLower());
-
-                if (professor1 == null && !string.IsNullOrEmpty(p1))
-                {
-                    professor1 = new User { Name = p1, Firstname = f1, Email = "", Year = "PROF", IsProfessor = true };
-                    _context.Users.Add(professor1);
-                    await _context.SaveChangesAsync();
-                }
-                if (professor2 == null && !string.IsNullOrEmpty(p2))
-                {
-                    professor2 = new User { Name = p2, Firstname = f2, Email = "", Year = "PROF", IsProfessor = true };
-                    _context.Users.Add(professor2);
-                    await _context.SaveChangesAsync();
-                }
-
-                var rawName = component.Summary ?? "Sans titre";
-                var cleanName = Regex.Replace(rawName, @"^#+\s*", "").Trim();
-                if (string.IsNullOrEmpty(cleanName)) cleanName = "Sans titre";
+                var professor1 = ev.Professors.Count > 0
+                    ? await ResolveOrCreateProfessor(ev.Professors[0].Name, ev.Professors[0].Firstname) : null;
+                var professor2 = ev.Professors.Count > 1
+                    ? await ResolveOrCreateProfessor(ev.Professors[1].Name, ev.Professors[1].Firstname) : null;
 
                 sessions.Add(new ImportedSession
                 {
-                    Date = start.Date,
-                    Start = start.TimeOfDay,
-                    End = end.TimeOfDay,
-                    Name = cleanName,
-                    Room = component.Location ?? "",
-                    ProfId = professor1?.Id != null ? professor1.Id.ToString() : "",
-                    ProfId2 = professor2?.Id != null ? professor2.Id.ToString() : "",
+                    Date = ev.Date,
+                    Start = ev.Start,
+                    End = ev.End,
+                    Name = ev.Name,
+                    Room = ev.Room,
+                    ProfId = professor1 != null ? professor1.Id.ToString() : "",
+                    ProfId2 = professor2 != null ? professor2.Id.ToString() : "",
                     Year = year,
-                    TargetGroup = ExtractTargetGroup(component.Description)
+                    TargetGroup = ev.TargetGroup
                 });
             }
 
             return sessions;
         }
 
-        private (string p1, string f1, string p2, string f2) ExtractProfessors(string description)
+        /// <summary>
+        /// Retrouve un professeur par (nom, prénom) ou le crée s'il n'existe pas encore.
+        /// L'appariement est insensible à la casse pour éviter les doublons.
+        /// </summary>
+        private async Task<User?> ResolveOrCreateProfessor(string name, string firstname)
         {
-            if (string.IsNullOrWhiteSpace(description)) return ("", "", "", "");
+            if (string.IsNullOrWhiteSpace(name)) return null;
 
-            // Filtrage des lignes inutiles : timestamps, promotions, groupes (INFO 1-A, 3A-1 ...), codes ADE, export
-            var lines = description.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim())
-                .Where(l => !string.IsNullOrWhiteSpace(l))
-                .Where(l => !Regex.IsMatch(l, @"\d"))            // Timestamps, groupes (INFO 1-A, 3A-1 ...), codes ADE
-                .Where(l => !l.StartsWith("Ingénieur", StringComparison.OrdinalIgnoreCase))
-                .Where(l => !l.StartsWith("Diplôme", StringComparison.OrdinalIgnoreCase))
-                .Where(l => !l.StartsWith("(Exporté le", StringComparison.OrdinalIgnoreCase))
-                .Where(l => !l.StartsWith("Apprentissage", StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var normalizedName = name.Trim();
+            var normalizedFirstname = (firstname ?? "").Trim();
 
-            string p1 = "", f1 = "", p2 = "", f2 = "";
+            var professor = await _context.Users.FirstOrDefaultAsync(p =>
+                p.IsProfessor &&
+                p.Name.ToLower() == normalizedName.ToLower() &&
+                p.Firstname.ToLower() == normalizedFirstname.ToLower());
 
-            if (lines.Count > 0) ParseName(lines[0], out p1, out f1);
-            if (lines.Count > 1) ParseName(lines[1], out p2, out f2);
-
-            return (p1, f1, p2, f2);
-        }
-
-        private static string ExtractTargetGroup(string description)
-        {
-            if (string.IsNullOrWhiteSpace(description)) return "";
-
-            // Cherche les lignes de type "3A-1 Apprentissage Informatique" pour identifier le groupe cible
-            var groups = description.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim())
-                .Select(l => Regex.Match(l, @"^(\d+[A-Z]-\d+)\s+Apprentissage"))
-                .Where(m => m.Success)
-                .Select(m => m.Groups[1].Value)
-                .Distinct()
-                .ToList();
-
-            // Un seul groupe identifié → session de sous-groupe, sinon toute la promotion
-            return groups.Count == 1 ? groups[0] : "";
-        }
-
-        private void ParseName(string fullName, out string name, out string firstname)
-        {
-            var parts = fullName.Split(' ', 2);
-            name = parts.Length > 0 ? parts[0] : "";
-            firstname = parts.Length > 1 ? parts[1] : "";
-        }
-
-        private List<ImportedSession> ApplyBusinessRules(List<ImportedSession> input)
-        {
-            // On groupe par date pour traiter jour par jour
-            var byDate = input.GroupBy(s => s.Date).ToList();
-            var result = new List<ImportedSession>();
-
-            foreach (var dayGroup in byDate)
+            if (professor == null)
             {
-                var daySessions = dayGroup.ToList();
-
-                // Fusion des chevauchements (Priorité 1)
-                // Même horaire (total ou partiel), même promotion, profs différents, intitulés différents
-                daySessions = MergeOverlappingSessions(daySessions);
-
-                // Fusion des sessions consécutives (Priorité 2)
-                // Même prof, même salle, même intitulé, 15 min d'écart
-                daySessions = MergeConsecutiveSessions(daySessions);
-
-                result.AddRange(daySessions);
+                professor = new User
+                {
+                    Name = normalizedName,
+                    Firstname = normalizedFirstname,
+                    Email = "",
+                    Year = "PROF",
+                    IsProfessor = true,
+                    Signature = ""
+                };
+                _context.Users.Add(professor);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Professeur créé à l'import : {normalizedName} {normalizedFirstname}");
             }
 
-            return result;
-        }
-
-        private List<ImportedSession> MergeOverlappingSessions(List<ImportedSession> sessions)
-        {
-            // Tri par heure de début
-            sessions = sessions.OrderBy(s => s.Start).ToList();
-            var merged = new List<ImportedSession>();
-
-            while (sessions.Count > 0)
-            {
-                var current = sessions[0];
-                sessions.RemoveAt(0);
-
-                // On vérifie les chevauchements avec les sessions suivantes
-                for (int i = 0; i < sessions.Count; i++)
-                {
-                    var other = sessions[i];
-
-                    // Chevauchement : Start1 < End2 ET Start2 < End1
-                    if (current.Start < other.End && other.Start < current.End)
-                    {
-                        // Fusion des informations
-                        current.Name = CombineStrings(current.Name, other.Name);
-                        current.Room = CombineStrings(current.Room, other.Room);
-
-                        // Fusion des profs (déduplication)
-                        var allProfs = new List<string>
-                        {
-                            current.ProfId,
-                            current.ProfId2,
-                            other.ProfId,
-                            other.ProfId2
-                        }.Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
-
-                        current.ProfId = allProfs.Count > 0 ? allProfs[0] : "";
-                        current.ProfId2 = allProfs.Count > 1 ? allProfs[1] : "";
-
-                        // Extension de la plage horaire
-                        if (other.Start < current.Start) current.Start = other.Start;
-                        if (other.End > current.End) current.End = other.End;
-
-                        current.IsMerged = true;
-
-                        // On retire la session fusionnée de la liste à traiter
-                        sessions.RemoveAt(i);
-                        i--;
-                    }
-                }
-                merged.Add(current);
-            }
-
-            return merged;
-        }
-
-        private List<ImportedSession> MergeConsecutiveSessions(List<ImportedSession> sessions)
-        {
-            sessions = sessions.OrderBy(s => s.Start).ToList();
-            var result = new List<ImportedSession>();
-
-            if (sessions.Count == 0) return result;
-
-            var current = sessions[0];
-
-            for (int i = 1; i < sessions.Count; i++)
-            {
-                var next = sessions[i];
-
-                // Critères : Même prof, même salle, même nom, écart de 15 min ou moins
-                bool sameProf = current.ProfId == next.ProfId && current.ProfId2 == next.ProfId2;
-                bool sameRoom = current.Room == next.Room;
-                bool sameName = current.Name == next.Name;
-
-                bool consecutive = next.Start <= current.End.Add(TimeSpan.FromMinutes(15));
-
-                if (sameProf && sameRoom && sameName && consecutive)
-                {
-                    // Fusion : on étend la fin de la session courante
-                    current.End = next.End;
-                    current.IsMerged = true;
-                }
-                else
-                {
-                    result.Add(current);
-                    current = next;
-                }
-            }
-            result.Add(current);
-
-            return result;
-        }
-
-        private string CombineStrings(string s1, string s2)
-        {
-            if (s1 == s2) return s1;
-            if (string.IsNullOrEmpty(s1)) return s2;
-            if (string.IsNullOrEmpty(s2)) return s1;
-
-            var parts = new List<string>();
-            parts.AddRange(s1.Split(" / "));
-            parts.AddRange(s2.Split(" / "));
-            return string.Join(" / ", parts.Distinct());
+            return professor;
         }
 
         private async Task SyncWithDatabase(List<ImportedSession> importedSessions, string year, int specializationId)
         {
-            // Récupération des sessions existantes pour l'année
             var existingSessions = await _context.Sessions
                 .Where(s => s.Year == year && s.SpecializationId == specializationId)
                 .Include(s => s.Attendances)
@@ -352,16 +178,11 @@ namespace backend.Controllers
 
             var sessionsToAdd = new List<Session>();
             var sessionsToUpdate = new List<Session>();
-            var sessionsToDelete = new List<Session>();
 
-            // Matching par clé unique (Date, Start, End, Year)
-            // Si une session importée correspond à une session existante (même créneau), on met à jour.
-            // Sinon on crée.
-            // Les sessions existantes non matchées sont supprimées.
-
+            // Matching par créneau exact (Date, Start, End, Year) : mise à jour si trouvé,
+            // création sinon. Les existants non retrouvés dans l'import sont supprimés.
             foreach (var imported in importedSessions)
             {
-                // Kind=Unspecified pour les colonnes 'timestamp without time zone' (heure locale)
                 var importedStartDateTime = DateTime.SpecifyKind(imported.Date.Date + imported.Start, DateTimeKind.Unspecified);
                 var importedEndDateTime = DateTime.SpecifyKind(imported.Date.Date + imported.End, DateTimeKind.Unspecified);
                 var match = existingSessions.FirstOrDefault(e =>
@@ -372,7 +193,6 @@ namespace backend.Controllers
 
                 if (match != null)
                 {
-                    // Update
                     bool changed = false;
                     if (match.Name != imported.Name) { match.Name = imported.Name; changed = true; }
                     if (match.Room != imported.Room) { match.Room = imported.Room; changed = true; }
@@ -382,13 +202,10 @@ namespace backend.Controllers
                     if (match.TargetGroup != imported.TargetGroup) { match.TargetGroup = imported.TargetGroup; changed = true; }
 
                     if (changed) sessionsToUpdate.Add(match);
-
-                    // On retire de la liste des existants pour ne pas le supprimer
                     existingSessions.Remove(match);
                 }
                 else
                 {
-                    // Create
                     var newSession = new Session
                     {
                         Date = DateTime.SpecifyKind(imported.Date.Date, DateTimeKind.Unspecified),
@@ -410,32 +227,25 @@ namespace backend.Controllers
                 }
             }
 
-            // Les sessions restantes dans existingSessions n'ont pas été trouvées dans l'import -> Suppression
-            sessionsToDelete = existingSessions;
-
+            // Les sessions restantes n'ont pas été retrouvées dans l'import → suppression.
+            var sessionsToDelete = existingSessions;
             if (sessionsToDelete.Any())
-            {
                 _context.Sessions.RemoveRange(sessionsToDelete);
-            }
 
             if (sessionsToAdd.Any())
-            {
                 _context.Sessions.AddRange(sessionsToAdd);
-            }
 
-            // Sauvegarde des changements (Updates, Deletes, Inserts)
             await _context.SaveChangesAsync();
 
-            // Création des feuilles de présence pour les nouvelles sessions
             if (sessionsToAdd.Any())
-            {
                 await CreateAttendancesForNewSessions(sessionsToAdd, year, specializationId);
-            }
         }
 
         private async Task CreateAttendancesForNewSessions(List<Session> sessions, string year, int specializationId)
         {
-            var students = await _context.Users.Where(u => u.Year == year && !u.IsDeleted && u.SpecializationId == specializationId).ToListAsync();
+            var students = await _context.Users
+                .Where(u => u.Year == year && !u.IsDeleted && u.SpecializationId == specializationId)
+                .ToListAsync();
             var attendances = new List<Attendance>();
 
             foreach (var session in sessions)
@@ -446,7 +256,7 @@ namespace backend.Controllers
                     {
                         SessionId = session.Id,
                         StudentId = student.Id,
-                        Status = AttendanceStatus.Absent // Par défaut
+                        Status = AttendanceStatus.Absent
                     });
                 }
             }
@@ -456,22 +266,6 @@ namespace backend.Controllers
                 _context.Attendances.AddRange(attendances);
                 await _context.SaveChangesAsync();
             }
-        }
-
-        // DTO interne pour le traitement
-        private class ImportedSession
-        {
-            public DateTime Date { get; set; }
-            public TimeSpan Start { get; set; }
-            public TimeSpan End { get; set; }
-            public string Name { get; set; } = "";
-            public string Room { get; set; } = "";
-
-            public string ProfId { get; set; } = "";
-            public string ProfId2 { get; set; } = "";
-            public string Year { get; set; } = "";
-            public string TargetGroup { get; set; } = "";
-            public bool IsMerged { get; set; }
         }
     }
 }
