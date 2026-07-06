@@ -289,7 +289,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useStudentsStore } from "../../stores/studentsStore";
@@ -327,6 +327,10 @@ const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
 const professorStore = useProfessorStore();
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+// Flux SSE qui pousse le cours actuel + le statut de présence de l'étudiant.
+let currentSessionStream = null;
+
 const formatDate = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -342,8 +346,10 @@ const formatTime = (timeString) => {
   return t.substring(0, 5);
 };
 
-const loadData = async () => {
-  loading.value = true;
+const loadData = async ({ silent = false } = {}) => {
+  // En mode silencieux (rafraîchissement déclenché par le flux SSE), on évite
+  // d'afficher le spinner pour ne pas faire clignoter la carte.
+  if (!silent) loading.value = true;
   error.value = null;
 
   try {
@@ -364,6 +370,12 @@ const loadData = async () => {
       studentYear.value = studentData.year;
       const session = await sessionStore.getCurrentSession(studentYear.value);
       if (!session) {
+        // Plus aucun cours en cours : on nettoie l'état pour que la carte
+        // disparaisse (sinon l'ancienne session resterait affichée).
+        currentSession.value = null;
+        attendance.value = null;
+        professor1.value = null;
+        professor2.value = null;
         return;
       }
       currentSession.value = session;
@@ -398,11 +410,117 @@ const loadData = async () => {
   }
 };
 
+/**
+ * Ouvre le flux SSE du cours actuel pour l'année de l'étudiant.
+ * EventSource ne pouvant pas envoyer d'en-tête Authorization, on transmet
+ * le JWT en query (?access_token=...) ; le backend le valide lui-même.
+ */
+function startCurrentSessionStream() {
+  if (currentSessionStream || !studentYear.value) return;
+  const token = localStorage.getItem("access_token");
+  if (!token) return;
+
+  const url = `${API_URL}/Session/current/${encodeURIComponent(
+    studentYear.value,
+  )}/stream?access_token=${encodeURIComponent(token)}`;
+  currentSessionStream = new EventSource(url);
+
+  currentSessionStream.onmessage = (e) => {
+    let payload;
+    try {
+      payload = JSON.parse(e.data);
+    } catch {
+      return;
+    }
+
+    const newSessionId = payload?.session?.id ?? null;
+    const currentId = currentSession.value?.id ?? null;
+
+    if (newSessionId !== currentId) {
+      // Le cours actuel a changé (début, fin ou bascule de créneau) :
+      // rechargement complet (profs, code délégué, signature, présence) sans spinner.
+      // Un nouveau cours qui démarre (≠ disparition) déclenche une notification navigateur.
+      if (newSessionId !== null) {
+        notifyNewCourse(payload.session);
+      }
+      loadData({ silent: true });
+    } else if (newSessionId !== null && payload.status != null) {
+      // Même cours : on met juste à jour le badge de présence en place.
+      // (le spread d'un null/undefined est un no-op en JS)
+      attendance.value = { ...attendance.value, status: payload.status };
+    }
+  };
+
+  currentSessionStream.onerror = () => {
+    // EventSource se reconnecte automatiquement ; on log juste pour le debug.
+    console.debug("Flux SSE du cours actuel interrompu, reconnexion auto...");
+  };
+}
+
+function stopCurrentSessionStream() {
+  if (currentSessionStream) {
+    currentSessionStream.close();
+    currentSessionStream = null;
+  }
+}
+
+/**
+ * Demande (une seule fois) la permission d'afficher des notifications navigateur.
+ * Sans effet si l'API n'existe pas ou si le choix a déjà été fait.
+ */
+function requestNotificationPermission() {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+/**
+ * Affiche une notification navigateur pour un cours qui démarre.
+ * @param {{id:number,name?:string,room?:string,specializationName?:string}} session
+ */
+function notifyNewCourse(session) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted")
+    return;
+  if (!session) return;
+  // Ne notifie que si l'onglet n'est pas au premier plan : si l'utilisateur regarde
+  // déjà le dashboard, la carte qui apparaît suffit.
+  if (typeof document !== "undefined" && document.visibilityState === "visible")
+    return;
+
+  const body =
+    (session.name || "Cours") +
+    (session.room ? " — salle " + session.room : "") +
+    (session.specializationName ? " (" + session.specializationName + ")" : "");
+
+  try {
+    const notif = new Notification("Cours en cours", {
+      body,
+      tag: "polypresence-course-" + session.id, // remplace une notif précédente du même cours
+      renotify: true,
+    });
+    notif.onclick = () => {
+      window.focus();
+      notif.close();
+    };
+    // Ferme automatiquement la notification au bout de 5 s.
+    setTimeout(() => notif.close(), 5000);
+  } catch {
+    // Création de Notification refusée par le contexte : on ignore silencieusement.
+  }
+}
+
 onMounted(async () => {
   await loadData();
   if (authStore.user && authStore.user.isDelegate) {
     isDelegate.value = true;
   }
+  requestNotificationPermission();
+  startCurrentSessionStream();
+});
+
+onUnmounted(() => {
+  stopCurrentSessionStream();
 });
 
 const saveProfEmail = async () => {
@@ -521,9 +639,12 @@ watch(professor2, (newProf) => {
 
 watch(
   () => authStore.user?.studentId,
-  (newStudentId, oldStudentId) => {
+  async (newStudentId, oldStudentId) => {
     if (newStudentId !== oldStudentId && newStudentId) {
-      loadData();
+      // L'année peut changer : on relance le flux SSE après rechargement.
+      stopCurrentSessionStream();
+      await loadData();
+      startCurrentSessionStream();
     }
   },
 );

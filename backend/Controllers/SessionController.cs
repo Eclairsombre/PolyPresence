@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using backend.Services;
 using System.Net.Mail;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -628,28 +629,51 @@ namespace backend.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Trouve la session "en cours" pour un étudiant donné, sur la base de son
+        /// inscription (présence enregistrée). C'est plus précis qu'un simple filtre
+        /// par année : l'inscription encode déjà la filière ET le sous-groupe (TargetGroup),
+        /// donc deux filières d'une même promo avec des cours simultanés ne se mélangent pas.
+        /// Renvoie null si l'utilisateur n'a aucun cours en cours.
+        /// </summary>
+        private static async Task<Session?> FindCurrentEnrolledSessionAsync(
+            ApplicationDbContext db, int userId, CancellationToken cancellationToken = default)
+        {
+            if (userId == 0) return null;
+
+            var now = DateTime.Now;
+            var today = now.Date;
+
+            // Sessions du jour où l'étudiant est inscrit (a une ligne de présence).
+            var sessionsToday = await db.Sessions
+                .AsNoTracking()
+                .Include(s => s.Specialization)
+                .Where(s => s.Date == today &&
+                            db.Attendances.Any(a => a.SessionId == s.Id && a.StudentId == userId))
+                .ToListAsync(cancellationToken);
+
+            // Filtre horaire en mémoire (cohérent avec le comportement historique).
+            return sessionsToday.FirstOrDefault(s => s.StartTime <= now && s.EndTime >= now);
+        }
+
         /**
          * GetCurrentSession
          *
-         * This method retrieves the current session for a given year.
-         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
+         * Renvoie le "cours actuel" de l'étudiant connecté, déterminé par son inscription
+         * (présence) et non par sa seule année — ce qui respecte la filière et le sous-groupe.
+         * Le paramètre {year} est conservé pour la compatibilité de route mais n'est plus
+         * utilisé pour le filtrage. Le code de validation n'est inclus que pour un délégué/admin.
          */
         [HttpGet("current/{year}")]
         public async Task<ActionResult<object>> GetCurrentSession(string year)
         {
-            var now = DateTime.Now;
-            var today = now.Date;
+            int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId);
 
-            var sessionsToday = await _context.Sessions
-                .Where(s => s.Year == year && s.Date == today)
-                .ToListAsync();
-
-            var currentSession = sessionsToday
-                .FirstOrDefault(s => s.StartTime <= now && s.EndTime >= now);
+            var currentSession = await FindCurrentEnrolledSessionAsync(_context, userId);
 
             if (currentSession == null)
             {
-                return NotFound(new { message = $"Aucune session trouvée pour l'année {year} aujourd'hui pour l'heure {now}." });
+                return NotFound(new { message = "Aucune session en cours pour l'utilisateur." });
             }
 
             var isAdmin = false;
@@ -657,25 +681,12 @@ namespace backend.Controllers
 
             if (User.Identity?.IsAuthenticated == true)
             {
-                var isAdminClaim = User.FindFirstValue("role");
-                var isDelegateClaim = User.FindFirstValue("isDelegate");
-
-                isAdmin = isAdminClaim == "Admin";
-                isDelegate = isDelegateClaim == "true";
-
-                var userStudentNumber = User.FindFirstValue("studentNumber");
-                _logger.LogInformation($"User {userStudentNumber} requesting current session - Role: {isAdminClaim}, IsDelegate: {isDelegateClaim}");
-                _logger.LogInformation($"Interpreted values - IsAdmin: {isAdmin}, IsDelegate: {isDelegate}");
-            }
-            else
-            {
-                _logger.LogInformation("No authenticated user found for current session request");
+                isAdmin = User.FindFirstValue("role") == "Admin";
+                isDelegate = User.FindFirstValue("isDelegate") == "true";
             }
 
             if (!isAdmin && !isDelegate)
             {
-                _logger.LogInformation("Hiding validation code in current session response");
-
                 return new ActionResult<object>(new
                 {
                     currentSession.Id,
@@ -686,12 +697,131 @@ namespace backend.Controllers
                     currentSession.Name,
                     currentSession.Room,
                     currentSession.IsSent,
-                    currentSession.IsMailSent
+                    currentSession.IsMailSent,
+                    currentSession.SpecializationId,
+                    SpecializationName = currentSession.Specialization?.Name
                 });
             }
 
-            _logger.LogInformation("Returning full current session with validation code");
-            return currentSession;
+            return new ActionResult<object>(currentSession);
+        }
+
+        /**
+         * StreamCurrentSession (SSE)
+         *
+         * Flux Server-Sent Events qui pousse le "cours actuel" de l'étudiant connecté
+         * (session en cours pour son année + son statut de présence) dès qu'il change :
+         * un cours commence, se termine, ou son statut bascule (présent/absent/annulé).
+         * Utilisé par le tableau de bord étudiant pour une mise à jour automatique sans refresh.
+         *
+         * Authentification : EventSource ne peut pas envoyer d'en-tête Authorization,
+         * on valide donc le JWT passé en query (?access_token=...). Le middleware laisse
+         * passer les chemins en "/stream" (ils s'authentifient eux-mêmes).
+         */
+        [HttpGet("current/{year}/stream")]
+        public async Task StreamCurrentSession(string year, [FromQuery] string? access_token, CancellationToken cancellationToken)
+        {
+            // 1) Authentifier via le token de query avant d'ouvrir le flux SSE.
+            int userId;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var jwtService = scope.ServiceProvider.GetRequiredService<IJwtService>();
+
+                var principal = string.IsNullOrEmpty(access_token)
+                    ? null
+                    : await jwtService.ValidateTokenAsync(access_token);
+
+                if (principal == null ||
+                    !int.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId))
+                {
+                    Response.StatusCode = 401;
+                    return;
+                }
+
+                var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+                if (user == null || user.IsDeleted)
+                {
+                    Response.StatusCode = 401;
+                    return;
+                }
+            }
+
+            // 2) Ouvrir le flux SSE.
+            Response.Headers["Content-Type"] = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no"; // évite le buffering par nginx
+
+            // camelCase pour être cohérent avec le reste de l'API (MVC sérialise en camelCase)
+            // et avec ce que lit le front (payload.session.id, payload.status).
+            var jsonOptions = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            };
+            string? lastJson = null;
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    string json;
+                    // Scope/DbContext frais à chaque itération : la connexion SSE est longue.
+                    using (var scope = _scopeFactory.CreateScope())
+                    {
+                        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                        // Cours actuel basé sur l'inscription de l'étudiant (filière + sous-groupe),
+                        // pas sur la seule année. Le paramètre {year} reste dans la route uniquement
+                        // pour la distinguer de "current/{year}".
+                        var current = await FindCurrentEnrolledSessionAsync(db, userId, cancellationToken);
+
+                        object? payload = null;
+                        if (current != null)
+                        {
+                            var attendance = await db.Attendances
+                                .AsNoTracking()
+                                .FirstOrDefaultAsync(a => a.SessionId == current.Id && a.StudentId == userId, cancellationToken);
+
+                            payload = new
+                            {
+                                session = new
+                                {
+                                    current.Id,
+                                    current.Date,
+                                    current.StartTime,
+                                    current.EndTime,
+                                    current.Year,
+                                    current.Name,
+                                    current.Room,
+                                    current.SpecializationId,
+                                    SpecializationName = current.Specialization != null ? current.Specialization.Name : null
+                                },
+                                status = attendance != null ? (int?)(int)attendance.Status : null
+                            };
+                        }
+
+                        json = System.Text.Json.JsonSerializer.Serialize(payload, jsonOptions);
+                    }
+
+                    if (json != lastJson)
+                    {
+                        lastJson = json;
+                        await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+                    }
+                    else
+                    {
+                        // Commentaire SSE = heartbeat, garde la connexion ouverte.
+                        await Response.WriteAsync(": ping\n\n", cancellationToken);
+                    }
+                    await Response.Body.FlushAsync(cancellationToken);
+
+                    await Task.Delay(2000, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Client déconnecté : fin normale du flux.
+            }
         }
 
         /**

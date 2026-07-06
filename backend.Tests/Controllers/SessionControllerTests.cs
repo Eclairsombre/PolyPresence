@@ -196,10 +196,11 @@ public class SessionControllerTests
     }
 
     [Fact]
-    public async Task GetCurrentSession_ShouldHideValidationCode_ForAnonymous()
+    public async Task GetCurrentSession_ShouldHideValidationCode_ForEnrolledStudent()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 5, StudentNumber = "S5", Name = "Doe", Firstname = "Jane", Email = "j@p.fr", Year = "3A" });
         db.Sessions.Add(new Session
         {
             Id = 14,
@@ -212,14 +213,76 @@ public class SessionControllerTests
             ValidationCode = "CURR",
             SpecializationId = 1
         });
+        db.Attendances.Add(new Attendance { SessionId = 14, StudentId = 5, Status = AttendanceStatus.Absent });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildController(db, PrincipalWithIdAndRole(5));
 
         var result = await controller.GetCurrentSession("3A");
 
         result.Value.Should().NotBeNull();
         Serialize(result.Value!).Should().NotContain("ValidationCode");
+    }
+
+    [Fact]
+    public async Task GetCurrentSession_ShouldReturnNotFound_WhenStudentNotEnrolled()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 6, StudentNumber = "S6", Name = "Roe", Firstname = "Jim", Email = "ji@p.fr", Year = "3A" });
+        // Une session 3A est en cours, mais l'étudiant n'y est PAS inscrit.
+        db.Sessions.Add(new Session
+        {
+            Id = 15,
+            Name = "POO",
+            Year = "3A",
+            Room = "E11",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-10),
+            EndTime = DateTime.Now.AddMinutes(50),
+            ValidationCode = "CURR",
+            SpecializationId = 1
+        });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db, PrincipalWithIdAndRole(6));
+
+        var result = await controller.GetCurrentSession("3A");
+
+        result.Result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetCurrentSession_ShouldReturnEnrolledSession_AmongConcurrentSessions()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Specializations.Add(new Specialization { Id = 2, Name = "Meca", Code = "MECA" });
+        db.Users.Add(new User { Id = 7, StudentNumber = "S7", Name = "Poe", Firstname = "Amy", Email = "a@p.fr", Year = "3A", SpecializationId = 2 });
+        // Deux cours 3A en parallèle (filières différentes). L'étudiant n'est inscrit qu'au second.
+        db.Sessions.Add(new Session
+        {
+            Id = 30, Name = "Cours filière A", Year = "3A", Room = "A1", Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-10), EndTime = DateTime.Now.AddMinutes(50),
+            ValidationCode = "AAAA", SpecializationId = 1
+        });
+        db.Sessions.Add(new Session
+        {
+            Id = 31, Name = "Cours filière B", Year = "3A", Room = "B1", Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-10), EndTime = DateTime.Now.AddMinutes(50),
+            ValidationCode = "BBBB", SpecializationId = 2
+        });
+        db.Attendances.Add(new Attendance { SessionId = 31, StudentId = 7, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db, PrincipalWithIdAndRole(7));
+
+        var result = await controller.GetCurrentSession("3A");
+
+        result.Value.Should().NotBeNull();
+        // On cible par Id (le sérialiseur échappe les accents, ce qui rendrait
+        // une comparaison sur le nom fragile).
+        Serialize(result.Value!).Should().Contain("\"Id\":31").And.NotContain("\"Id\":30");
     }
 
     [Fact]

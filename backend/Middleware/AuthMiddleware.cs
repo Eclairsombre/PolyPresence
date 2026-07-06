@@ -40,12 +40,16 @@ namespace backend.Middleware
 
             var requestPath = context.Request.Path.Value?.ToLowerInvariant();
 
-            // Vérifier si le chemin concerne les routes de la page de signature du professeur
+            // Vérifier si le chemin concerne les routes de la page de signature du professeur.
+            // Les flux SSE ("/stream") sont aussi laissés passer : EventSource ne peut pas
+            // envoyer d'en-tête Authorization, ces endpoints valident eux-mêmes le JWT
+            // transmis en query (?access_token=...).
             if (requestPath != null && (
                 requestPath.Contains("/attendance-status/") ||
                 requestPath.Contains("/attendance-comment/") ||
                 requestPath.Contains("/attendances") ||
-                requestPath.Contains("/prof-signature/")
+                requestPath.Contains("/prof-signature/") ||
+                requestPath.EndsWith("/stream")
             ))
             {
                 await _next(context);
