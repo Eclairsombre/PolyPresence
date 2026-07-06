@@ -53,11 +53,6 @@ const handleDelete = async () => {
   const deletePromises = (studentsToDelete as Student[]).map((student) =>
     studentStore
       .deleteStudent(student.studentNumber)
-      .then(() => {
-        console.log(
-          `Student ${student.name} ${student.firstname} deleted successfully.`,
-        );
-      })
       .catch((error) => {
         console.debug(
           `Error deleting student ${student.name} ${student.firstname}:`,
@@ -106,11 +101,6 @@ const handleFileUpload = async (event: Event) => {
           };
           return studentStore
             .addStudent(student)
-            .then(() => {
-              console.log(
-                `Student ${student.name} ${student.firstname} added successfully.`,
-              );
-            })
             .catch((error) => {
               console.debug(
                 `Error adding student ${student.name} ${student.firstname}:`,

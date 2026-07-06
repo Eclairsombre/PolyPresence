@@ -26,6 +26,7 @@ import { defineComponent, ref, onMounted } from "vue";
 import SignaturePad from "signature_pad";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useAuthStore } from "../../stores/authStore";
+import { useToastStore } from "../../stores/toastStore";
 
 export default defineComponent({
   name: "SignatureCreator",
@@ -36,6 +37,7 @@ export default defineComponent({
     const isEmpty = ref(true);
     const sessionStore = useSessionStore();
     const authStore = useAuthStore();
+    const toast = useToastStore();
 
     const initSignaturePad = () => {
       if (!signaturePad.value) return;
@@ -80,7 +82,7 @@ export default defineComponent({
 
     const saveSignature = async () => {
       if (!signaturePadInstance.value || signaturePadInstance.value.isEmpty()) {
-        alert("Veuillez d'abord signer.");
+        toast.error("Veuillez d'abord signer dans la zone prévue.");
         return;
       }
 
@@ -88,15 +90,13 @@ export default defineComponent({
         const signatureData = signaturePadInstance.value.toDataURL();
         const studentNumber = authStore.user.studentId;
 
-        const response = await sessionStore.saveSignature(
-          studentNumber,
-          signatureData,
-        );
+        await sessionStore.saveSignature(studentNumber, signatureData);
 
+        toast.success("Signature enregistrée.");
         emit("signatureSaved");
       } catch (err) {
         console.debug("Erreur lors de la sauvegarde de la signature:", err);
-        alert(
+        toast.error(
           "Une erreur est survenue lors de la sauvegarde de votre signature.",
         );
       }

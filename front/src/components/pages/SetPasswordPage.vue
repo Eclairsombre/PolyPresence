@@ -55,12 +55,16 @@
         </div>
 
         <Transition name="fade">
-          <div v-if="errorMessage" class="feedback feedback-error">
+          <div v-if="errorMessage" class="feedback feedback-error" role="alert">
             {{ errorMessage }}
           </div>
         </Transition>
         <Transition name="fade">
-          <div v-if="successMessage" class="feedback feedback-success">
+          <div
+            v-if="successMessage"
+            class="feedback feedback-success"
+            role="status"
+          >
             {{ successMessage }}
           </div>
         </Transition>
@@ -74,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -91,15 +95,7 @@ const token = route.query.token;
 if (!token) {
   errorMessage.value =
     "Token de réinitialisation manquant. Vérifiez le lien que vous avez reçu par email.";
-  console.log("Token manquant dans l'URL:", window.location.href);
 }
-
-onMounted(() => {
-  console.log("Page chargée avec URL:", window.location.href);
-  console.log("Token présent:", token);
-  console.log("Nom de la route:", route.name);
-  console.log("Path de la route:", route.path);
-});
 
 const submitPassword = async () => {
   errorMessage.value = "";

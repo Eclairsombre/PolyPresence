@@ -13,44 +13,44 @@
 
       <div class="dashboard-grid">
         <router-link to="/sessions" class="dash-card">
-          <div class="dash-card-icon">S</div>
+          <div class="dash-card-icon"><AppIcon name="calendar" :size="24" /></div>
           <div class="dash-card-info">
             <h3>Sessions</h3>
             <p>Consulter et suivre les sessions</p>
           </div>
         </router-link>
         <router-link to="/students" class="dash-card">
-          <div class="dash-card-icon">E</div>
+          <div class="dash-card-icon"><AppIcon name="cap" :size="24" /></div>
           <div class="dash-card-info">
-            <h3>Etudiants</h3>
+            <h3>Étudiants</h3>
             <p>Consulter la liste des inscrits</p>
           </div>
         </router-link>
         <router-link to="/professors" class="dash-card">
-          <div class="dash-card-icon">P</div>
+          <div class="dash-card-icon"><AppIcon name="users" :size="24" /></div>
           <div class="dash-card-info">
             <h3>Professeurs</h3>
             <p>Liste des professeurs</p>
           </div>
         </router-link>
         <router-link to="/admin/import-edt" class="dash-card">
-          <div class="dash-card-icon">I</div>
+          <div class="dash-card-icon"><AppIcon name="upload" :size="24" /></div>
           <div class="dash-card-info">
             <h3>Import EDT</h3>
             <p>Importer l'emploi du temps</p>
           </div>
         </router-link>
         <router-link to="/admin/specializations" class="dash-card">
-          <div class="dash-card-icon">F</div>
+          <div class="dash-card-icon"><AppIcon name="layers" :size="24" /></div>
           <div class="dash-card-info">
-            <h3>Filieres</h3>
-            <p>Consulter les specialisations</p>
+            <h3>Filières</h3>
+            <p>Consulter les spécialisations</p>
           </div>
         </router-link>
         <router-link to="/mail-preferences" class="dash-card">
-          <div class="dash-card-icon">M</div>
+          <div class="dash-card-icon"><AppIcon name="mail" :size="24" /></div>
           <div class="dash-card-info">
-            <h3>Preferences Mail</h3>
+            <h3>Préférences Mail</h3>
             <p>Configurer les envois</p>
           </div>
         </router-link>
@@ -93,6 +93,7 @@
 <script setup>
 import { computed } from "vue";
 import StudentsAttendanceSheetPage from "../Holder/SessionHolder.vue";
+import AppIcon from "../AppIcon.vue";
 import { useAuthStore } from "../../stores/authStore";
 
 const authStore = useAuthStore();

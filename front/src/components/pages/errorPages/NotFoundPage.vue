@@ -35,10 +35,11 @@ onMounted(() => {
 }
 
 .error-container {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  padding: 40px 30px;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  padding: 48px 40px;
   text-align: center;
   max-width: 500px;
   width: 100%;
@@ -53,32 +54,32 @@ onMounted(() => {
 }
 
 h1 {
-  color: #2c3e50;
+  color: #1a1a2e;
   margin-bottom: 20px;
   font-size: 2rem;
+  font-weight: 700;
 }
 
 p {
-  color: #7f8c8d;
+  color: #6c757d;
   margin-bottom: 30px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .home-button {
   display: inline-block;
-  background-color: #3498db;
-  color: white;
-  padding: 12px 25px;
-  border-radius: 30px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  padding: 11px 28px;
+  border-radius: 10px;
   text-decoration: none;
-  font-weight: 500;
-  transition: all 0.3s;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
 .home-button:hover {
-  background-color: #2980b9;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(26, 26, 46, 0.25);
 }
 
 @media (max-width: 600px) {

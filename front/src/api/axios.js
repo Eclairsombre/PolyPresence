@@ -72,9 +72,6 @@ apiClient.interceptors.response.use(
       const isOnProfSignaturePage = currentPath.includes("/prof-signature/");
 
       if (!isLoginAttempt && !isOnAuthPage && !isOnProfSignaturePage) {
-        console.log(
-          "Session expirée ou non autorisé. Redirection vers la page de connexion.",
-        );
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         window.location.href = `/login`;

@@ -47,12 +47,14 @@
         </div>
 
         <Transition name="fade">
-          <div v-if="errorMessage" class="feedback feedback-error">
+          <div v-if="errorMessage" class="feedback feedback-error" role="alert">
             {{ errorMessage }}
           </div>
         </Transition>
 
-        <button type="submit" class="btn btn-primary">Se connecter</button>
+        <button type="submit" class="btn btn-primary" :disabled="loading">
+          {{ loading ? "Connexion…" : "Se connecter" }}
+        </button>
       </form>
 
       <div class="card-footer">
@@ -68,49 +70,42 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref } from "vue";
+import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
+
 const authStore = useAuthStore();
+const router = useRouter();
 const username = ref("");
 const password = ref("");
 const errorMessage = ref("");
-
-const handleKeyPress = (event) => {
-  if (event.key === "Enter") {
-    loginWithCredentials();
-  }
-};
-
-onMounted(() => {
-  window.addEventListener("keypress", handleKeyPress);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("keypress", handleKeyPress);
-});
+const loading = ref(false);
 
 const loginWithCredentials = async () => {
+  if (loading.value) return;
   errorMessage.value = "";
-  if (username.value && password.value) {
-    try {
-      const user = await authStore.loginWithCredentials(
-        username.value,
-        password.value,
-      );
-      // Les professeurs sont dirigés vers leur espace dédié.
-      router.push(user?.isProfessor ? "/professor/dashboard" : "/");
-    } catch (error) {
-      console.debug("Erreur lors de la connexion:", error);
-      errorMessage.value =
-        error?.message || "Une erreur est survenue lors de la connexion.";
-    }
-  } else {
+
+  if (!username.value || !password.value) {
     errorMessage.value = "Veuillez entrer votre identifiant et mot de passe.";
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const user = await authStore.loginWithCredentials(
+      username.value,
+      password.value,
+    );
+    // Les professeurs sont dirigés vers leur espace dédié.
+    router.push(user?.isProfessor ? "/professor/dashboard" : "/");
+  } catch (error) {
+    console.debug("Erreur lors de la connexion:", error);
+    errorMessage.value =
+      error?.message || "Une erreur est survenue lors de la connexion.";
+  } finally {
+    loading.value = false;
   }
 };
-
-import { useRouter } from "vue-router";
-const router = useRouter();
 
 const navigateToRegister = () => {
   router.push("/register");
@@ -239,9 +234,14 @@ const navigateToForgotPassword = () => {
   color: #fff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   box-shadow: 0 4px 16px rgba(26, 26, 46, 0.25);
   transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-outline {

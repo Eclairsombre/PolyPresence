@@ -1,12 +1,28 @@
 <template>
-  <div class="popup-delete-student">
-    <div class="popup-content">
+  <div class="popup-delete-student" @click.self="$emit('close')">
+    <div
+      class="popup-content"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Supprimer l'étudiant"
+    >
       <div class="popup-header">
         <h2>Supprimer l'étudiant</h2>
-        <button class="close-button" @click="$emit('close')">&times;</button>
+        <button
+          class="close-button"
+          aria-label="Fermer"
+          @click="$emit('close')"
+        >
+          &times;
+        </button>
       </div>
       <div class="popup-body">
-        <p>Voulez-vous vraiment supprimer cet étudiant&nbsp;?</p>
+        <p v-if="studentName">
+          Voulez-vous vraiment supprimer
+          <strong>{{ studentName }}</strong>&nbsp;? Cette action est
+          irréversible.
+        </p>
+        <p v-else>Voulez-vous vraiment supprimer cet étudiant&nbsp;?</p>
         <div class="form-actions">
           <button class="cancel-btn" @click="$emit('close')">Annuler</button>
           <button class="delete-btn" @click="$emit('confirm')">Supprimer</button>
@@ -17,6 +33,10 @@
 </template>
 
 <script setup>
+defineProps({
+  studentName: { type: String, default: "" },
+});
+defineEmits(["close", "confirm"]);
 </script>
 
 <style scoped>

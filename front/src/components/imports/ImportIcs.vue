@@ -215,9 +215,11 @@ import { ref, onMounted, computed } from "vue";
 import AppIcon from "../AppIcon.vue";
 import { useIcsLinkStore } from "../../stores/icsLinkStore.js";
 import { useSpecializationStore } from "../../stores/specializationStore.js";
+import { useConfirmStore } from "../../stores/confirmStore";
 
 const icsLinkStore = useIcsLinkStore();
 const specializationStore = useSpecializationStore();
+const confirmer = useConfirmStore();
 
 const icsUrl = ref("");
 const year = ref("");
@@ -300,7 +302,13 @@ const cancelEdit = () => {
 };
 
 const deleteLink = async (id) => {
-  if (!confirm("Êtes-vous sûr de vouloir supprimer ce lien ICS ?")) return;
+  const confirmed = await confirmer.ask({
+    title: "Supprimer le lien ICS",
+    message: "Êtes-vous sûr de vouloir supprimer ce lien ICS ?",
+    confirmLabel: "Supprimer",
+    danger: true,
+  });
+  if (!confirmed) return;
   await icsLinkStore.deleteIcsLink(id);
 };
 

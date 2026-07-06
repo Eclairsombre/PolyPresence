@@ -7,9 +7,19 @@
         type="text"
         v-model="validationCode"
         placeholder="Code de validation"
+        aria-label="Code de validation"
         class="validate-input"
+        inputmode="numeric"
+        autocomplete="off"
+        :disabled="isSubmitting"
       />
-      <button @click="validatePresence" class="validate-btn">Valider</button>
+      <button
+        @click="validatePresence"
+        class="validate-btn"
+        :disabled="isSubmitting"
+      >
+        {{ isSubmitting ? "Validation…" : "Valider" }}
+      </button>
     </div>
   </div>
 </template>
@@ -19,6 +29,7 @@ import { ref, defineEmits, onMounted, onUnmounted } from "vue";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useStudentsStore } from "../../stores/studentsStore";
+import { useToastStore } from "../../stores/toastStore";
 
 const props = defineProps({
   hasSignature: {
@@ -45,38 +56,45 @@ const emit = defineEmits(["presenceValidated"]);
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
+const toast = useToastStore();
 const validationCode = ref("");
+const isSubmitting = ref(false);
 
 const validatePresence = async () => {
+  if (isSubmitting.value) return;
+
   if (!authStore.user || !authStore.user.studentId) {
-    alert("Veuillez vous connecter pour accéder à cette fonctionnalité.");
+    toast.error("Veuillez vous connecter pour accéder à cette fonctionnalité.");
     return;
   }
 
   if (!props.hasSignature) {
-    alert("Vous devez d'abord définir votre signature.");
+    toast.error("Vous devez d'abord définir votre signature (menu « Ma signature »).");
     return;
   }
 
-  if (validationCode.value === "") {
-    alert("Veuillez saisir le code de validation.");
+  if (validationCode.value.trim() === "") {
+    toast.error("Veuillez saisir le code de validation.");
     return;
   }
 
+  isSubmitting.value = true;
   try {
     await sessionStore.validatePresence(
       authStore.user.studentId,
       sessionStore.currentSession.id,
       validationCode.value,
     );
+    toast.success("Présence validée avec succès.");
     emit("presenceValidated");
   } catch (error) {
     console.debug("Erreur lors de la validation de la présence:", error);
-    if (error.response && error.response.data && error.response.data.message) {
-      alert(error.response.data.message);
-    } else {
-      alert("Une erreur s'est produite lors de la validation de la présence.");
-    }
+    toast.error(
+      error.response?.data?.message ||
+        "Une erreur s'est produite lors de la validation de la présence.",
+    );
+  } finally {
+    isSubmitting.value = false;
   }
 };
 </script>
@@ -142,10 +160,15 @@ const validatePresence = async () => {
   white-space: nowrap;
 }
 
-.validate-btn:hover {
+.validate-btn:hover:not(:disabled) {
   background: #219150;
   box-shadow: 0 4px 12px rgba(39, 174, 96, 0.25);
   transform: translateY(-1px);
+}
+
+.validate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 480px) {

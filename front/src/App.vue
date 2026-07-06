@@ -124,6 +124,8 @@
     <footer class="app-footer">
       <p>&copy; 2025 PolyPresence — Polytech Lyon</p>
     </footer>
+    <ToastContainer />
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -131,6 +133,8 @@
 import { useAuthStore } from "./stores/authStore";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import ToastContainer from "./components/ui/ToastContainer.vue";
+import ConfirmDialog from "./components/ui/ConfirmDialog.vue";
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -188,6 +192,21 @@ body {
   line-height: 1.6;
   color: #1a1a2e;
   background-color: #f0f2f5;
+}
+
+/* Focus clavier visible sur tous les éléments interactifs (accessibilité WCAG 2.4.7).
+   :focus-visible n'apparaît qu'à la navigation clavier, pas au clic souris. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible,
+[role="switch"]:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .app-container {

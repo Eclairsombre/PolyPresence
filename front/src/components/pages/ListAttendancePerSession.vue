@@ -246,6 +246,7 @@ import { useStudentsStore } from "../../stores/studentsStore";
 import SignatureDisplay from "../signature/SignatureDisplay.vue";
 import { useMailPreferencesStore } from "../../stores/mailPreferencesStore.js";
 import { useProfessorStore } from "../../stores/professorStore";
+import { useToastStore } from "../../stores/toastStore";
 
 export default defineComponent({
   name: "ListAttendancePerSession",
@@ -259,6 +260,7 @@ export default defineComponent({
     const sessionStore = useSessionStore();
     const studentsStore = useStudentsStore();
     const mailStore = useMailPreferencesStore();
+    const toast = useToastStore();
 
     const session = ref(null);
     const students = ref([]);
@@ -426,7 +428,7 @@ export default defineComponent({
       savingProfessorSlot.value = 0;
 
       if (!ok) {
-        alert(
+        toast.error(
           sessionStore.error ||
             "Impossible de modifier le professeur de la session.",
         );

@@ -150,6 +150,7 @@
   />
   <PopUpDeleteStudent
     v-if="showDeleteConfirm"
+    :student-name="deleteTargetName"
     @close="cancelDelete"
     @confirm="deleteStudent"
   />
@@ -236,6 +237,12 @@ const openEditPopup = (student) => {
 const closeEditPopup = () => {
   showEditPopup.value = false;
 };
+
+const deleteTargetName = computed(() => {
+  const s = selectedStudent.value;
+  if (!s) return "";
+  return `${s.firstname ?? ""} ${s.name ?? ""}`.trim();
+});
 
 const confirmDeleteStudent = (student) => {
   selectedStudent.value = student;

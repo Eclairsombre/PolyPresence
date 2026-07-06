@@ -36,12 +36,16 @@
         </div>
 
         <Transition name="fade">
-          <div v-if="errorMessage" class="feedback feedback-error">
+          <div v-if="errorMessage" class="feedback feedback-error" role="alert">
             {{ errorMessage }}
           </div>
         </Transition>
         <Transition name="fade">
-          <div v-if="successMessage" class="feedback feedback-success">
+          <div
+            v-if="successMessage"
+            class="feedback feedback-success"
+            role="status"
+          >
             {{ successMessage }}
           </div>
         </Transition>

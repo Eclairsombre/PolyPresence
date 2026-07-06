@@ -206,10 +206,6 @@ axios.interceptors.response.use(
 
         if (!isOnAuthPage) {
           window.location.href = `/unauthorized`;
-        } else {
-          console.log(
-            "Erreur 403 sur page d'authentification, pas de redirection",
-          );
         }
       }
     }
@@ -390,7 +386,6 @@ export const useAuthStore = defineStore("auth", {
       if (!username || !password)
         throw new Error("Identifiant ou mot de passe manquant");
       try {
-        console.log(API_URL);
         const response = await axios.post(`${API_URL}/User/login`, {
           studentNumber: username,
           password: password,

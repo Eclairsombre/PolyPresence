@@ -107,13 +107,13 @@
             <AppIcon name="check" :size="14" /> Signé
           </span>
           <span v-else class="sign-state sign-state--todo">À signer</span>
-          <a
+          <router-link
             v-if="s.signatureToken"
-            :href="`/prof-signature/${s.signatureToken}`"
+            :to="`/prof-signature/${s.signatureToken}`"
             class="btn btn-primary btn-sm"
           >
             {{ s.alreadySigned ? "Voir / émarger" : "Émarger" }}
-          </a>
+          </router-link>
         </div>
       </div>
     </div>

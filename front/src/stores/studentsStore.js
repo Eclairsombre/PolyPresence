@@ -221,7 +221,7 @@ export const useStudentsStore = defineStore("students", {
         }
       } catch (error) {
         if (error.response && error.response.status === 404) {
-          console.log(`Étudiant avec le numéro ${studentNumber} non trouvé.`);
+          console.debug(`Étudiant avec le numéro ${studentNumber} non trouvé.`);
         } else {
           console.debug("Erreur lors de la récupération de l'étudiant:", error);
         }

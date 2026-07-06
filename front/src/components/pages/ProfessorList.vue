@@ -116,8 +116,12 @@
 import { onMounted, ref } from "vue";
 import AppIcon from "../AppIcon.vue";
 import { useProfessorStore } from "../../stores/professorStore";
+import { useToastStore } from "../../stores/toastStore";
+import { useConfirmStore } from "../../stores/confirmStore";
 
 const professorStore = useProfessorStore();
+const toast = useToastStore();
+const confirmer = useConfirmStore();
 const professors = ref([]);
 const isCreating = ref(false);
 const newProfessor = ref({
@@ -158,14 +162,15 @@ async function saveEmail(prof) {
   if (ok) {
     prof.email = prof.newEmail;
     prof.editing = false;
+    toast.success("Email du professeur mis à jour.");
   } else {
-    alert("Erreur lors de la mise à jour de l'email");
+    toast.error("Erreur lors de la mise à jour de l'email.");
   }
 }
 
 async function addProfessor() {
   if (!newProfessor.value.firstname || !newProfessor.value.name) {
-    alert("Le prénom et le nom sont obligatoires.");
+    toast.error("Le prénom et le nom sont obligatoires.");
     return;
   }
 
@@ -178,7 +183,7 @@ async function addProfessor() {
   isCreating.value = false;
 
   if (!created) {
-    alert(professorStore.error || "Erreur lors de l'ajout du professeur");
+    toast.error(professorStore.error || "Erreur lors de l'ajout du professeur.");
     return;
   }
 
@@ -187,23 +192,28 @@ async function addProfessor() {
     name: "",
     email: "",
   };
+  toast.success("Professeur ajouté.");
   await refreshProfessors();
 }
 
 async function removeProfessor(prof) {
-  const confirmed = window.confirm(
-    `Supprimer ${prof.firstname} ${prof.name} ? Les sessions associées seront désaffectées.`,
-  );
+  const confirmed = await confirmer.ask({
+    title: "Supprimer le professeur",
+    message: `Supprimer ${prof.firstname} ${prof.name} ? Les sessions associées seront désaffectées.`,
+    confirmLabel: "Supprimer",
+    danger: true,
+  });
   if (!confirmed) return;
 
   const ok = await professorStore.deleteProfessor(prof.id);
   if (!ok) {
-    alert(
-      professorStore.error || "Erreur lors de la suppression du professeur",
+    toast.error(
+      professorStore.error || "Erreur lors de la suppression du professeur.",
     );
     return;
   }
 
+  toast.success("Professeur supprimé.");
   await refreshProfessors();
 }
 </script>

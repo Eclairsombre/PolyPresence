@@ -193,8 +193,13 @@
               {{ signatureError }}
             </div>
 
-            <button type="submit" class="btn btn-primary btn-full">
-              <AppIcon name="check" /> Valider la signature
+            <button
+              type="submit"
+              class="btn btn-primary btn-full"
+              :disabled="isSubmitting"
+            >
+              <AppIcon name="check" />
+              {{ isSubmitting ? "Validation…" : "Valider la signature" }}
             </button>
           </form>
         </div>
@@ -389,6 +394,7 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 const profName = ref("");
 const profFirstname = ref("");
 const loading = ref(true);
+const isSubmitting = ref(false);
 const error = ref("");
 const signatureError = ref("");
 const signatureSuccess = ref(false);
@@ -565,6 +571,15 @@ onMounted(async () => {
     if (data.profId2)
       professor2.value = await professorStore.fetchProfessorById(data.profId2);
 
+    // Pré-remplir l'identité du professeur d'après le token (créneau 1 ou 2).
+    const assignedProf =
+      data.profSignatureToken === token ? professor1.value : professor2.value;
+    if (assignedProf) {
+      if (!profFirstname.value)
+        profFirstname.value = assignedProf.firstname || "";
+      if (!profName.value) profName.value = assignedProf.name || "";
+    }
+
     // Détecter si la signature a déjà été soumise
     const alreadySigned =
       data.profSignatureToken === token
@@ -622,27 +637,33 @@ async function handleSignatureConfirm() {
   await submitSignature();
 }
 async function submitSignature() {
+  if (isSubmitting.value) return;
   const signatureData = signaturePad.value.getSignature();
   if (!signatureData || signatureData.length < 30) {
     signatureError.value = "Merci de signer dans la zone prévue.";
     return;
   }
-  const payload = {
-    Signature: signatureData,
-    Name: profName.value,
-    Firstname: profFirstname.value,
-  };
-  const result = await profSignatureStore.saveProfSignature(token, payload);
-  if (result) {
-    submittedName.value = profName.value;
-    submittedFirstname.value = profFirstname.value;
-    submittedSignature.value = signatureData;
-    saveToStorage(profName.value, profFirstname.value, signatureData);
-    signatureSuccess.value = true;
-    signatureError.value = "";
-    showToast("Signature enregistrée avec succès !");
-  } else {
-    signatureError.value = profSignatureStore.error;
+  isSubmitting.value = true;
+  try {
+    const payload = {
+      Signature: signatureData,
+      Name: profName.value,
+      Firstname: profFirstname.value,
+    };
+    const result = await profSignatureStore.saveProfSignature(token, payload);
+    if (result) {
+      submittedName.value = profName.value;
+      submittedFirstname.value = profFirstname.value;
+      submittedSignature.value = signatureData;
+      saveToStorage(profName.value, profFirstname.value, signatureData);
+      signatureSuccess.value = true;
+      signatureError.value = "";
+      showToast("Signature enregistrée avec succès !");
+    } else {
+      signatureError.value = profSignatureStore.error;
+    }
+  } finally {
+    isSubmitting.value = false;
   }
 }
 

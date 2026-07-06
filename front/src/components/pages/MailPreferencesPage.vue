@@ -64,20 +64,31 @@
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Enregistrer</button>
-            <button type="button" class="btn btn-outline" @click="testMail">
-              Tester l'envoi
+            <button type="submit" class="btn btn-primary" :disabled="savingPrefs">
+              {{ savingPrefs ? "Enregistrement…" : "Enregistrer" }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline"
+              @click="testMail"
+              :disabled="testingMail"
+            >
+              {{ testingMail ? "Envoi…" : "Tester l'envoi" }}
             </button>
           </div>
         </form>
 
         <Transition name="fade">
-          <div v-if="successMessage" class="feedback feedback-success">
+          <div
+            v-if="successMessage"
+            class="feedback feedback-success"
+            role="status"
+          >
             {{ successMessage }}
           </div>
         </Transition>
         <Transition name="fade">
-          <div v-if="testMessage" class="feedback feedback-info">
+          <div v-if="testMessage" class="feedback feedback-info" role="status">
             {{ testMessage }}
           </div>
         </Transition>
@@ -104,7 +115,14 @@
 </template>
 
 <script>
-import { defineComponent, reactive, onMounted, ref, computed } from "vue";
+import {
+  defineComponent,
+  reactive,
+  onMounted,
+  onUnmounted,
+  ref,
+  computed,
+} from "vue";
 import { useAuthStore } from "../../stores/authStore";
 import { useMailPreferencesStore } from "../../stores/mailPreferencesStore";
 
@@ -121,6 +139,9 @@ export default defineComponent({
     const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
     const successMessage = ref("");
     const testMessage = ref("");
+    const savingPrefs = ref(false);
+    const testingMail = ref(false);
+    let timerInterval = null;
     const timerData = computed(() => mailPreferencesStore.timerData);
 
     const fetchPreferences = async () => {
@@ -143,24 +164,36 @@ export default defineComponent({
 
     const updatePreferences = async () => {
       if (!authStore.user || !authStore.user.studentId) return;
-      await mailPreferencesStore.updateMailPreferences(
-        authStore.user.studentId,
-        preferences,
-      );
-      successMessage.value = mailPreferencesStore.successMessage;
-      setTimeout(() => {
-        successMessage.value = "";
-        mailPreferencesStore.resetMessages();
-      }, 3000);
+      if (savingPrefs.value) return;
+      savingPrefs.value = true;
+      try {
+        await mailPreferencesStore.updateMailPreferences(
+          authStore.user.studentId,
+          preferences,
+        );
+        successMessage.value = mailPreferencesStore.successMessage;
+        setTimeout(() => {
+          successMessage.value = "";
+          mailPreferencesStore.resetMessages();
+        }, 3000);
+      } finally {
+        savingPrefs.value = false;
+      }
     };
 
     const testMail = async () => {
-      await mailPreferencesStore.testMail(preferences.emailTo);
-      testMessage.value = mailPreferencesStore.testMessage;
-      setTimeout(() => {
-        testMessage.value = "";
-        mailPreferencesStore.resetMessages();
-      }, 3000);
+      if (testingMail.value) return;
+      testingMail.value = true;
+      try {
+        await mailPreferencesStore.testMail(preferences.emailTo);
+        testMessage.value = mailPreferencesStore.testMessage;
+        setTimeout(() => {
+          testMessage.value = "";
+          mailPreferencesStore.resetMessages();
+        }, 3000);
+      } finally {
+        testingMail.value = false;
+      }
     };
 
     const toggleDay = (day) => {
@@ -173,15 +206,16 @@ export default defineComponent({
 
     const fetchTimer = async () => {
       await mailPreferencesStore.fetchTimers();
-      if (mailPreferencesStore.timerData) {
-        const { nextMail, mailRemaining } = mailPreferencesStore.timerData;
-      }
     };
 
     onMounted(() => {
       fetchPreferences();
       fetchTimer();
-      setInterval(fetchTimer, 10000);
+      timerInterval = setInterval(fetchTimer, 10000);
+    });
+
+    onUnmounted(() => {
+      if (timerInterval) clearInterval(timerInterval);
     });
 
     return {
@@ -194,6 +228,8 @@ export default defineComponent({
       testMail,
       testMessage,
       timerData,
+      savingPrefs,
+      testingMail,
     };
   },
 });
@@ -380,12 +416,17 @@ export default defineComponent({
   transition: all 0.2s;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: #3498db;
   color: #fff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #2980b9;
   box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
 }
@@ -396,7 +437,7 @@ export default defineComponent({
   border: 1px solid #3498db;
 }
 
-.btn-outline:hover {
+.btn-outline:hover:not(:disabled) {
   background: #eef6ff;
 }
 
