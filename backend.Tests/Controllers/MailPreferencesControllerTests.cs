@@ -2,19 +2,59 @@ using backend.Controllers;
 using backend.Models;
 using backend.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using QuestPDF.Infrastructure;
+using System.Security.Claims;
 
 namespace backend.Tests.Controllers;
 
 public class MailPreferencesControllerTests
 {
-    private static MailPreferencesController BuildController(backend.Data.ApplicationDbContext db)
+    // Environnement de test : non-Production → TestMail est en dry-run (aucun envoi SMTP réel).
+    private sealed class FakeWebHostEnvironment : IWebHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Development";
+        public string ApplicationName { get; set; } = "Tests";
+        public string WebRootPath { get; set; } = "";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = "";
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private static ClaimsPrincipal PrincipalWithId(int id) =>
+        new(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, id.ToString()) }, "test"));
+
+    private static MailPreferencesController BuildController(
+        backend.Data.ApplicationDbContext db, ClaimsPrincipal? principal = null)
     {
         var serviceScopeFactory = new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
-        return new MailPreferencesController(db, NullLogger<SessionController>.Instance, serviceScopeFactory);
+        var controller = new MailPreferencesController(
+            db, NullLogger<SessionController>.Instance, serviceScopeFactory, new FakeWebHostEnvironment());
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = principal ?? new ClaimsPrincipal(new ClaimsIdentity())
+            }
+        };
+        return controller;
+    }
+
+    private static async Task<MailPreferencesController> BuildAdminControllerAsync(
+        backend.Data.ApplicationDbContext db, int adminId = 9000)
+    {
+        db.Users.Add(new User
+        {
+            Id = adminId, StudentNumber = $"ADM{adminId}", Name = "Ad", Firstname = "Min",
+            Email = $"adm{adminId}@x.fr", Year = "ADMIN", IsAdmin = true, Signature = ""
+        });
+        await db.SaveChangesAsync();
+        return BuildController(db, PrincipalWithId(adminId));
     }
 
     [Fact]
@@ -142,34 +182,48 @@ public class MailPreferencesControllerTests
     }
 
     [Fact]
-    public void TestMail_ShouldReturnBadRequest_WhenMailMissing()
+    public async Task TestMail_ShouldReturnForbid_WhenNotAdmin()
     {
         using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "N", Firstname = "P", Email = "s1@x.fr", Year = "3A", IsAdmin = false, Signature = "" });
+        db.SaveChanges();
+        var controller = BuildController(db, PrincipalWithId(1));
 
-        var result = controller.TestMail(string.Empty);
+        var result = await controller.TestMail("receiver@test.fr");
+
+        result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task TestMail_ShouldReturnBadRequest_WhenMailMissing()
+    {
+        using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = await BuildAdminControllerAsync(db);
+
+        var result = await controller.TestMail(string.Empty);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
-    public void TestMail_ShouldReturn500_WhenFromEmailMissing()
+    public async Task TestMail_ShouldReturnDryRun_WhenNotProduction()
     {
         using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
-        var previousFrom = Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL");
+        // Hors Production et sans SMTP_FORCE_SEND : dry-run, aucun mail réel n'est envoyé.
+        var previousForce = Environment.GetEnvironmentVariable("SMTP_FORCE_SEND");
         try
         {
-            Environment.SetEnvironmentVariable("SMTP_FROM_EMAIL", null);
+            Environment.SetEnvironmentVariable("SMTP_FORCE_SEND", null);
 
-            var result = controller.TestMail("receiver@test.fr");
+            var result = await controller.TestMail("receiver@test.fr");
 
-            result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(500);
+            result.Should().BeOfType<OkObjectResult>();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("SMTP_FROM_EMAIL", previousFrom);
+            Environment.SetEnvironmentVariable("SMTP_FORCE_SEND", previousForce);
         }
     }
 

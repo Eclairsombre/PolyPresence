@@ -4,10 +4,13 @@ using System.Net;
 using System.Net.Mail;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using backend.Data;
 using backend.Models;
 using System.IO.Compression;
 using System.Globalization;
+using System.Security.Claims;
+using Microsoft.Extensions.Hosting;
 
 namespace backend.Controllers
 {
@@ -26,12 +29,14 @@ namespace backend.Controllers
 
         private readonly IServiceScopeFactory _serviceScopeFactory;
 
-        public MailPreferencesController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
+        private readonly IWebHostEnvironment _env;
+
+        public MailPreferencesController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory, IWebHostEnvironment env)
         {
             _logger = logger;
             _context = context;
             _serviceScopeFactory = serviceScopeFactory;
-
+            _env = env;
         }
 
         /*
@@ -540,10 +545,31 @@ namespace backend.Controllers
         * This method sends a test email to the specified address.
         */
         [HttpPost("test/{mail}")]
-        public IActionResult TestMail(string mail)
+        [Authorize]
+        public async Task<IActionResult> TestMail(string mail)
         {
+            // Réservé aux administrateurs : cet endpoint envoie un mail réel via SMTP.
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+                return Unauthorized("Authentification requise.");
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null || currentUser.IsDeleted)
+                return Unauthorized("Authentification requise.");
+            if (!currentUser.IsAdmin)
+                return Forbid();
+
             if (string.IsNullOrEmpty(mail))
                 return BadRequest("L'adresse email est requise pour tester l'envoi.");
+
+            // Respect du dry-run (comme EmailDispatcherService) : aucun envoi SMTP réel
+            // hors Production, sauf échappatoire explicite SMTP_FORCE_SEND=true.
+            var forceSend = string.Equals(
+                Environment.GetEnvironmentVariable("SMTP_FORCE_SEND"), "true",
+                StringComparison.OrdinalIgnoreCase);
+            if (!_env.IsProduction() && !forceSend)
+            {
+                _logger.LogInformation($"[DRY-RUN] Mail de test NON envoyé à {mail} (hors Production).");
+                return Ok("Mode test (dry-run) : aucun mail réel n'est envoyé hors production.");
+            }
 
             try
             {

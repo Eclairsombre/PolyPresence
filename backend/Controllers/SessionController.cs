@@ -33,6 +33,40 @@ namespace backend.Controllers
             _scopeFactory = serviceScopeFactory;
         }
 
+        /// <summary>
+        /// Renvoie l'utilisateur authentifié (JWT validé en amont), ou null s'il n'y a
+        /// pas d'authentification valide. Sert de base aux contrôles de rôle.
+        /// </summary>
+        private async Task<User?> GetAuthenticatedUserAsync()
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
+                return null;
+            var user = await _context.Users.FindAsync(userId);
+            return (user == null || user.IsDeleted) ? null : user;
+        }
+
+        /// <summary>
+        /// Autorise l'accès aux présences d'une session : soit via un token de signature prof
+        /// valide (en-tête "Prof-Signature-Token" ou <paramref name="explicitToken"/> pour le SSE),
+        /// soit pour un utilisateur authentifié admin/délégué.
+        /// </summary>
+        private async Task<bool> IsAttendanceAccessAuthorizedAsync(Session session, string? explicitToken = null)
+        {
+            var token = explicitToken;
+            if (string.IsNullOrEmpty(token) &&
+                Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
+            {
+                token = headerToken.ToString();
+            }
+
+            if (!string.IsNullOrEmpty(token) &&
+                (token == session.ProfSignatureToken || token == session.ProfSignatureToken2))
+                return true;
+
+            var currentUser = await GetAuthenticatedUserAsync();
+            return currentUser != null && (currentUser.IsAdmin || currentUser.IsDelegate);
+        }
+
 
 
         /**
@@ -195,9 +229,11 @@ namespace backend.Controllers
                 }
                 : new
                 {
+                    // Les tokens de signature prof ne sont JAMAIS exposés aux non-admins
+                    // (sinon un étudiant pourrait signer à la place du professeur).
                     s.Id, s.Date, s.StartTime, s.EndTime, s.Year, s.Name, s.Room,
-                    s.ProfId, s.ProfSignature, s.ProfSignatureToken,
-                    s.ProfId2, s.ProfSignature2, s.ProfSignatureToken2,
+                    s.ProfId, s.ProfSignature,
+                    s.ProfId2, s.ProfSignature2,
                     s.IsSent, s.IsMailSent, s.IsMailSent2, s.SpecializationId,
                     SpecializationName = s.Specialization?.Name,
                     SpecializationCode = s.Specialization?.Code
@@ -238,24 +274,16 @@ namespace backend.Controllers
                 return NotFound();
             }
 
+            // Détection admin/délégué basée sur la base (cohérent avec GetSessions/GetSessionsByYear).
+            // L'ancienne détection par claim ("role"/"isDelegate") était fragile car la validation
+            // JWT remappe le claim "role", ce qui pouvait masquer code de validation et token à un admin.
             var isAdmin = false;
             var isDelegate = false;
-
-            if (User.Identity?.IsAuthenticated == true)
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser != null)
             {
-                var isAdminClaim = User.FindFirstValue("role");
-                var isDelegateClaim = User.FindFirstValue("isDelegate");
-
-                isAdmin = isAdminClaim == "Admin";
-                isDelegate = isDelegateClaim == "true";
-
-                var userStudentNumber = User.FindFirstValue("studentNumber");
-                _logger.LogInformation($"User {userStudentNumber} requesting session {id} - Role: {isAdminClaim}, IsDelegate: {isDelegateClaim}");
-                _logger.LogInformation($"Interpreted values - IsAdmin: {isAdmin}, IsDelegate: {isDelegate}");
-            }
-            else
-            {
-                _logger.LogInformation($"No authenticated user found for session {id} request");
+                isAdmin = currentUser.IsAdmin;
+                isDelegate = currentUser.IsDelegate;
             }
 
             if (!isAdmin && !isDelegate)
@@ -264,6 +292,7 @@ namespace backend.Controllers
 
                 return new ActionResult<object>(new
                 {
+                    // Tokens de signature prof volontairement omis pour les non-admins.
                     session.Id,
                     session.Date,
                     session.StartTime,
@@ -273,10 +302,8 @@ namespace backend.Controllers
                     session.Room,
                     session.ProfId,
                     session.ProfSignature,
-                    session.ProfSignatureToken,
                     session.ProfId2,
                     session.ProfSignature2,
-                    session.ProfSignatureToken2,
                     session.IsSent,
                     session.IsMailSent,
                     session.IsMailSent2,
@@ -351,6 +378,7 @@ namespace backend.Controllers
             {
                 var sessionsWithoutCode = sessions.Select(s => new
                 {
+                    // Tokens de signature prof volontairement omis pour les non-admins.
                     s.Id,
                     s.Date,
                     s.StartTime,
@@ -360,10 +388,8 @@ namespace backend.Controllers
                     s.Room,
                     s.ProfId,
                     s.ProfSignature,
-                    s.ProfSignatureToken,
                     s.ProfId2,
                     s.ProfSignature2,
-                    s.ProfSignatureToken2,
                     s.IsSent,
                     s.IsMailSent,
                     s.IsMailSent2,
@@ -468,8 +494,15 @@ namespace backend.Controllers
          * This method creates a new session in the database.
          */
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<Session>> PostSession(Session session)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "Authentification requise." });
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+                return Forbid();
+
             _logger.LogInformation("Création d'une nouvelle session");
             session.ProfSignatureToken = Guid.NewGuid().ToString();
 
@@ -1108,6 +1141,12 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = $"Session avec l'ID {sessionId} non trouvée." });
             }
 
+            // Autorisation : token de signature prof valide (page prof — en-tête posé par
+            // l'intercepteur axios) OU utilisateur authentifié admin/délégué. Sans cela, la
+            // liste (noms, n° étudiants, signatures) était accessible publiquement par sessionId.
+            if (!await IsAttendanceAccessAuthorizedAsync(session))
+                return Forbid();
+
             var attendances = await _context.Attendances
                 .Where(a => a.SessionId == sessionId)
                 .Include(a => a.User)
@@ -1157,8 +1196,23 @@ namespace backend.Controllers
          * Accès public via le lien tokenisé (route en "/attendances/" laissée passer par le middleware).
          */
         [HttpGet("{sessionId}/attendances/stream")]
-        public async Task StreamSessionAttendances(int sessionId, CancellationToken cancellationToken)
+        public async Task StreamSessionAttendances(int sessionId, [FromQuery] string? token, CancellationToken cancellationToken)
         {
+            // Autorisation avant d'ouvrir le flux : EventSource ne peut pas envoyer d'en-tête,
+            // le token de signature prof est donc transmis en query (?token=...).
+            var authSession = await _context.Sessions.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == sessionId, cancellationToken);
+            if (authSession == null)
+            {
+                Response.StatusCode = 404;
+                return;
+            }
+            if (!await IsAttendanceAccessAuthorizedAsync(authSession, token))
+            {
+                Response.StatusCode = 403;
+                return;
+            }
+
             Response.Headers["Content-Type"] = "text/event-stream";
             Response.Headers["Cache-Control"] = "no-cache";
             Response.Headers["X-Accel-Buffering"] = "no"; // évite le buffering par nginx
@@ -1268,8 +1322,13 @@ namespace backend.Controllers
          * This method retrieves the signature for a student.
          */
         [HttpGet("signature/{studentNumber}")]
+        [Authorize]
         public async Task<IActionResult> GetSignature(string studentNumber)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "Authentification requise." });
+
             var student = await _context.Users
                 .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
 
@@ -1277,6 +1336,11 @@ namespace backend.Controllers
             {
                 return NotFound(new { error = true, message = "Aucun étudiant trouvé avec les identifiants fournis." });
             }
+
+            // IDOR : un utilisateur ne peut lire que sa propre signature (sauf admin/délégué).
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate &&
+                currentUser.StudentNumber != student.StudentNumber)
+                return Forbid();
 
             return Ok(new { signature = student.Signature });
         }
@@ -1347,8 +1411,15 @@ namespace backend.Controllers
          * This method sets the professor's email for a session.
          */
         [HttpPost("{sessionId}/set-prof-email")]
+        [Authorize]
         public async Task<IActionResult> SetProfEmail(int sessionId, [FromBody] SetProfEmailModel model)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "Authentification requise." });
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+                return Forbid();
+
             _logger.LogDebug($"Tentative de mise à jour de l'email du professeur pour la session {sessionId}");
             _logger.LogDebug($"Email du professeur : {model.ProfEmail}");
             var session = await _context.Sessions.FindAsync(sessionId);
@@ -1370,8 +1441,15 @@ namespace backend.Controllers
          * This method sets the second professor's email for a session.
          */
         [HttpPost("{sessionId}/set-prof2-email")]
+        [Authorize]
         public async Task<IActionResult> SetProf2Email(int sessionId, [FromBody] SetProfEmailModel model)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "Authentification requise." });
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+                return Forbid();
+
             _logger.LogDebug($"Tentative de mise à jour de l'email du professeur 2 pour la session {sessionId}");
             _logger.LogDebug($"Email du professeur 2 : {model.ProfEmail}");
             var session = await _context.Sessions.FindAsync(sessionId);
@@ -1462,8 +1540,15 @@ namespace backend.Controllers
          * This method resends the email to the professor for a session.
          */
         [HttpPost("{sessionId}/resend-prof-mail")]
+        [Authorize]
         public async Task<IActionResult> ResendProfMail(int sessionId)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "Authentification requise." });
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+                return Forbid();
+
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null || string.IsNullOrEmpty(session.ProfId))
                 return NotFound(new { error = true, message = "Session ou email du professeur 1 non trouvé." });
@@ -1478,8 +1563,15 @@ namespace backend.Controllers
          * This method resends the email to the second professor for a session.
          */
         [HttpPost("{sessionId}/resend-prof2-mail")]
+        [Authorize]
         public async Task<IActionResult> ResendProf2Mail(int sessionId)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+                return Unauthorized(new { message = "Authentification requise." });
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+                return Forbid();
+
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null || string.IsNullOrEmpty(session.ProfId2))
                 return NotFound(new { error = true, message = "Session ou email du professeur 2 non trouvé." });
@@ -1914,26 +2006,11 @@ Cordialement";
                 }
             }
 
-            if (string.IsNullOrEmpty(profTokenValue))
-            {
-                _logger.LogInformation("Recherche de toutes les sessions récentes...");
-                var today = DateTime.Today;
-                var sessions = await _context.Sessions
-                    .Where(s => s.Date >= today.AddDays(-1) && s.Date <= today.AddDays(1))
-                    .ToListAsync();
-
-                foreach (var s in sessions)
-                {
-                    _logger.LogInformation($"Session ID={s.Id}, Date={s.Date}, ProfSignatureToken={s.ProfSignatureToken}");
-                }
-
-                var matchingSession = sessions.FirstOrDefault(s => s.Id == sessionId);
-                if (matchingSession != null)
-                {
-                    profTokenValue = matchingSession.ProfSignatureToken;
-                    _logger.LogInformation($"Utilisation du token de la session trouvée: {profTokenValue}");
-                }
-            }
+            // NOTE SÉCURITÉ : on NE retombe PLUS sur le token de la session lu en base
+            // lorsqu'aucun token n'est fourni. Auparavant, une requête anonyme sans token
+            // récupérait le ProfSignatureToken de la session puis se comparait à lui-même,
+            // s'auto-autorisant → écriture publique du commentaire. Désormais, sans token
+            // valide fourni par l'appelant, seule l'authentification admin/délégué/propriétaire passe.
 
             if (!string.IsNullOrEmpty(profTokenValue) && profTokenValue != sessionNormal.ProfSignatureToken && profTokenValue != sessionNormal.ProfSignatureToken2)
             {

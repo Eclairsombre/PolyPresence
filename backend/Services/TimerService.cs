@@ -184,7 +184,8 @@ namespace backend.Services
             {
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
-                var controller = new MailPreferencesController(scopedContext, logger, _serviceScopeFactory);
+                var env = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+                var controller = new MailPreferencesController(scopedContext, logger, _serviceScopeFactory, env);
                 await controller.GenerateAndSendZip();
             }
             _nextMailExecutionTime = GetNextMailExecutionTime();

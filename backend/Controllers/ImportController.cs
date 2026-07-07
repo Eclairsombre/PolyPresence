@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
 using backend.Services;
 using System.Text;
+using System.Net;
+using System.Net.Sockets;
+using System.Security.Claims;
 
 namespace backend.Controllers
 {
@@ -34,8 +38,19 @@ namespace backend.Controllers
          * Point d'entrée pour l'import manuel via API.
          */
         [HttpPost("import-ics")]
+        [Authorize]
         public async Task<IActionResult> ImportIcs([FromBody] ImportIcsModel model)
         {
+            // Réservé aux admins/délégués : l'import écrase/supprime des sessions et
+            // télécharge une URL arbitraire (voir la validation anti-SSRF plus bas).
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int currentUserId))
+                return Unauthorized(new { error = true, message = "Authentification requise." });
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null || currentUser.IsDeleted)
+                return Unauthorized(new { error = true, message = "Authentification requise." });
+            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
+                return Forbid();
+
             if (string.IsNullOrWhiteSpace(model.IcsUrl) || string.IsNullOrWhiteSpace(model.Year))
                 return BadRequest(new { error = true, message = "URL ICS ou année manquante." });
 
@@ -54,6 +69,11 @@ namespace backend.Controllers
                     return BadRequest(new { error = true, message = "Aucune filière par défaut trouvée." });
                 specializationId = defaultSpec.Id;
             }
+
+            // Anti-SSRF (juste avant le téléchargement) : n'autoriser que http(s) vers une
+            // adresse publique (bloque localhost, plages privées et IP de métadonnées cloud).
+            if (!await IsSafePublicUrlAsync(model.IcsUrl))
+                return BadRequest(new { error = true, message = "URL ICS non autorisée." });
 
             try
             {
@@ -98,6 +118,65 @@ namespace backend.Controllers
                     logger.LogError(ex, $"Erreur lors de l'import automatique pour {link.Year}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Validation anti-SSRF : n'autorise que http/https vers une adresse IP publique.
+        /// Bloque loopback, plages privées (RFC1918), link-local (169.254.x, dont l'IP de
+        /// métadonnées cloud 169.254.169.254), CGNAT et adresses IPv6 locales.
+        /// </summary>
+        private static async Task<bool> IsSafePublicUrlAsync(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                return false;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+                return false;
+
+            IPAddress[] addresses;
+            try
+            {
+                addresses = await Dns.GetHostAddressesAsync(uri.DnsSafeHost);
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (addresses.Length == 0)
+                return false;
+
+            foreach (var ip in addresses)
+            {
+                if (IsPrivateOrReserved(ip))
+                    return false;
+            }
+            return true;
+        }
+
+        private static bool IsPrivateOrReserved(IPAddress ip)
+        {
+            if (IPAddress.IsLoopback(ip))
+                return true;
+
+            if (ip.AddressFamily == AddressFamily.InterNetwork)
+            {
+                var b = ip.GetAddressBytes();
+                if (b[0] == 10) return true;                              // 10.0.0.0/8
+                if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return true; // 172.16.0.0/12
+                if (b[0] == 192 && b[1] == 168) return true;             // 192.168.0.0/16
+                if (b[0] == 169 && b[1] == 254) return true;             // 169.254.0.0/16 (link-local + métadonnées cloud)
+                if (b[0] == 127) return true;                            // 127.0.0.0/8
+                if (b[0] == 0) return true;                              // 0.0.0.0/8
+                if (b[0] == 100 && b[1] >= 64 && b[1] <= 127) return true; // 100.64.0.0/10 (CGNAT)
+            }
+            else if (ip.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                if (ip.IsIPv6LinkLocal || ip.IsIPv6SiteLocal || ip.IsIPv6UniqueLocal)
+                    return true;
+                if (ip.IsIPv4MappedToIPv6)
+                    return IsPrivateOrReserved(ip.MapToIPv4());
+            }
+            return false;
         }
 
         private async Task<List<ImportedSession>> FetchAndParseIcs(string url, string year)

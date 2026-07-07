@@ -539,7 +539,9 @@ let attendancesStream = null;
 
 function startAttendancesStream() {
   if (!session.value?.id || attendancesStream) return;
-  const url = `${API_URL}/Session/${session.value.id}/attendances/stream`;
+  // EventSource ne peut pas envoyer d'en-tête : le token de signature prof est transmis
+  // en query pour que le backend autorise l'accès au flux des présences.
+  const url = `${API_URL}/Session/${session.value.id}/attendances/stream?token=${encodeURIComponent(token)}`;
   attendancesStream = new EventSource(url);
   attendancesStream.onmessage = (e) => {
     // On n'écrase pas une mise à jour optimistique locale en cours.

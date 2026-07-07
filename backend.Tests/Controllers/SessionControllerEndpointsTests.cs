@@ -36,11 +36,24 @@ public class SessionControllerEndpointsTests
     private static ClaimsPrincipal PrincipalWithId(int id) =>
         new(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, id.ToString()) }, "test"));
 
+    // Contrôleur avec un admin authentifié (pour les endpoints désormais réservés admin/délégué).
+    private static async Task<SessionController> BuildAdminControllerAsync(
+        backend.Data.ApplicationDbContext db, int adminId = 9999)
+    {
+        db.Users.Add(new User
+        {
+            Id = adminId, StudentNumber = $"ADM{adminId}", Name = "Ad", Firstname = "Min",
+            Email = $"adm{adminId}@x.fr", Year = "ADMIN", IsAdmin = true, Signature = ""
+        });
+        await db.SaveChangesAsync();
+        return BuildController(db, PrincipalWithId(adminId));
+    }
+
     [Fact]
     public async Task PostSession_ShouldCreateSession_WithSignatureToken()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.PostSession(new Session
         {
@@ -195,7 +208,7 @@ public class SessionControllerEndpointsTests
     public async Task GetSignature_ShouldReturnNotFound_WhenStudentMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.GetSignature("UNKNOWN");
 
@@ -232,7 +245,7 @@ public class SessionControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.SetProfEmail(1, new SessionController.SetProfEmailModel { ProfEmail = "new@prof.fr" });
 
@@ -257,7 +270,7 @@ public class SessionControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.ResendProf2Mail(30);
 
@@ -376,7 +389,7 @@ public class SessionControllerEndpointsTests
         db.Attendances.Add(new Attendance { Id = 203, SessionId = 203, StudentId = 10, Status = AttendanceStatus.Absent, Comment = "RAS" });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
         var result = await controller.GetSessionAttendances(203);
 
         result.Should().BeOfType<OkObjectResult>();
@@ -400,7 +413,7 @@ public class SessionControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
         var result = await controller.SetProf2Email(204, new SessionController.SetProfEmailModel { ProfEmail = "p2@test.fr" });
 
         result.Should().BeOfType<NotFoundObjectResult>();
@@ -539,7 +552,7 @@ public class SessionControllerEndpointsTests
     public async Task SetProfEmail_ShouldReturnNotFound_WhenSessionMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.SetProfEmail(999, new SessionController.SetProfEmailModel { ProfEmail = "prof@test.fr" });
 
@@ -564,7 +577,7 @@ public class SessionControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
         var result = await controller.SetProfEmail(730, new SessionController.SetProfEmailModel { ProfEmail = "prof@test.fr" });
 
         result.Should().BeOfType<NotFoundObjectResult>();
@@ -588,7 +601,7 @@ public class SessionControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
         var result = await controller.SetProf2Email(740, new SessionController.SetProfEmailModel { ProfEmail = "p2@test.fr" });
 
         result.Should().BeOfType<NotFoundObjectResult>();
@@ -612,7 +625,7 @@ public class SessionControllerEndpointsTests
         db.Sessions.Add(new Session { Id = 760, Year = "3A", Name = "Cours", Room = "A1", Date = DateTime.Today, StartTime = DateTime.Now, EndTime = DateTime.Now.AddHours(1), ValidationCode = "X" });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
         var result = await controller.GetSessionAttendances(760);
 
         result.Should().BeOfType<NotFoundObjectResult>();
@@ -795,7 +808,7 @@ public class SessionControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
         var result = await controller.ResendProfMail(4010);
 
         result.Should().BeOfType<OkObjectResult>();
@@ -821,7 +834,7 @@ public class SessionControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
         var result = await controller.ResendProf2Mail(4020);
 
         result.Should().BeOfType<OkObjectResult>();

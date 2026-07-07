@@ -168,9 +168,14 @@ public class UserControllerEndpointsTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var passwordMock = new Mock<IPasswordService>();
+        passwordMock.Setup(p => p.ValidatePasswordStrength(It.IsAny<string>()))
+            .Returns((true, new List<string>()));
+        passwordMock.Setup(p => p.HashPassword(It.IsAny<string>())).Returns("hashed-pwd");
 
-        var result = await controller.SetPassword(new UserController.SetPasswordRequest { Token = "valid-token", Password = "abcdef" });
+        var controller = BuildController(db, passwordMock: passwordMock);
+
+        var result = await controller.SetPassword(new UserController.SetPasswordRequest { Token = "valid-token", Password = "Abcdef1!" });
 
         result.Should().BeOfType<OkObjectResult>();
         db.Users.Single(u => u.StudentNumber == "S1").PasswordHash.Should().NotBeNullOrEmpty();

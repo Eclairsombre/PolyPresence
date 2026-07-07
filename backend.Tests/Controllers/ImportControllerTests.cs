@@ -3,11 +3,13 @@ using backend.Models;
 using backend.Services;
 using backend.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Reflection;
+using System.Security.Claims;
 
 namespace backend.Tests.Controllers;
 
@@ -24,11 +26,55 @@ public class ImportControllerTests
             new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
     }
 
+    // Contrôleur avec un admin authentifié dans le contexte HTTP (import-ics est réservé aux admins).
+    private static async Task<ImportController> BuildAdminControllerAsync(backend.Data.ApplicationDbContext db)
+    {
+        var admin = new User
+        {
+            Id = 9000, StudentNumber = "ADMIN9000", Name = "Ad", Firstname = "Min",
+            Email = "admin9000@x.fr", Year = "ADMIN", IsAdmin = true, Signature = ""
+        };
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, admin.Id.ToString()) }, "test"));
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = principal }
+        };
+        return controller;
+    }
+
+    [Fact]
+    public async Task ImportIcs_ShouldReturnForbid_WhenNotAdmin()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 5, StudentNumber = "S5", Name = "N", Firstname = "P", Email = "s5@x.fr", Year = "3A", IsAdmin = false, Signature = "" });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, "5") }, "test"));
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = principal }
+        };
+
+        var result = await controller.ImportIcs(new ImportController.ImportIcsModel
+        {
+            IcsUrl = "https://example.com/edt.ics", Year = "3A", SpecializationId = 1
+        });
+
+        result.Should().BeOfType<ForbidResult>();
+    }
+
     [Fact]
     public async Task ImportIcs_ShouldReturnBadRequest_WhenUrlOrYearMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.ImportIcs(new ImportController.ImportIcsModel { IcsUrl = "", Year = "" });
 
@@ -39,7 +85,7 @@ public class ImportControllerTests
     public async Task ImportIcs_ShouldReturnBadRequest_WhenSpecializationNotFound()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.ImportIcs(new ImportController.ImportIcsModel
         {
@@ -58,7 +104,7 @@ public class ImportControllerTests
         db.Specializations.Add(new Specialization { Name = "GC", Code = "GC" });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.ImportIcs(new ImportController.ImportIcsModel
         {
@@ -71,14 +117,15 @@ public class ImportControllerTests
     }
 
     [Fact]
-    public async Task ImportIcs_ShouldReturnServerError_WhenFetchFails()
+    public async Task ImportIcs_ShouldReturnBadRequest_WhenUrlPointsToPrivateAddress_Ssrf()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
+        // 127.0.0.1 (loopback) doit être bloqué par la protection anti-SSRF avant tout téléchargement.
         var result = await controller.ImportIcs(new ImportController.ImportIcsModel
         {
             IcsUrl = "http://127.0.0.1:1/not-reachable.ics",
@@ -86,7 +133,7 @@ public class ImportControllerTests
             SpecializationId = 1
         });
 
-        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(500);
+        result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]

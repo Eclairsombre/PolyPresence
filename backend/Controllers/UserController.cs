@@ -457,9 +457,12 @@ namespace backend.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.RegisterToken == request.Token && u.RegisterTokenExpiration > DateTime.UtcNow);
             if (user == null)
                 return BadRequest(new { message = "Lien invalide ou expiré." });
-            if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
-                return BadRequest(new { message = "Le mot de passe doit contenir au moins 6 caractères." });
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            // Politique de mot de passe partagée (>= 8 caractères + complexité, hachage BCrypt coût 12),
+            // identique à reset-password / change-password (avant : 6 caractères, coût par défaut).
+            var (isValid, errors) = _passwordService.ValidatePasswordStrength(request.Password);
+            if (!isValid)
+                return BadRequest(new { message = "Mot de passe invalide.", errors });
+            user.PasswordHash = _passwordService.HashPassword(request.Password);
             user.RegisterToken = null;
             user.RegisterTokenExpiration = null;
             user.RegisterMailSent = false;

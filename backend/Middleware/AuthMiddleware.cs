@@ -3,6 +3,7 @@ using backend.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace backend.Middleware
 {
@@ -13,6 +14,22 @@ namespace backend.Middleware
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<AuthMiddleware> _logger;
+
+        // Endpoints "publics par jeton" (lien prof reçu par mail, sans compte connecté)
+        // ou auto-validés (SSE : EventSource ne peut pas envoyer d'en-tête Authorization).
+        // Ils réalisent EUX-MÊMES leur contrôle d'accès (validation du ProfSignatureToken,
+        // ou du access_token JWT transmis en query). On restreint le contournement à des
+        // routes EXACTES : l'ancien `Contains("/attendances")` exposait toute la famille
+        // /attendances (liste + flux SSE de présences avec données personnelles) au public.
+        private static readonly Regex[] TokenValidatedRoutes = new[]
+        {
+            @"^/api/session/prof-signature/[^/]+$",          // GET/POST signature prof par token
+            @"^/api/session/\d+/attendances$",               // liste des présences (page prof, token en en-tête)
+            @"^/api/session/\d+/attendances/stream$",        // SSE présences (page prof, token en query)
+            @"^/api/session/\d+/attendance-status/[^/]+$",   // bascule de statut (page prof)
+            @"^/api/session/\d+/attendance-comment/[^/]+$",  // commentaire (page prof)
+            @"^/api/session/current/[^/]+/stream$",          // SSE "cours en cours" étudiant (valide access_token)
+        }.Select(p => new Regex(p, RegexOptions.Compiled)).ToArray();
 
         public AuthMiddleware(RequestDelegate next, ILogger<AuthMiddleware> logger)
         {
@@ -40,17 +57,10 @@ namespace backend.Middleware
 
             var requestPath = context.Request.Path.Value?.ToLowerInvariant();
 
-            // Vérifier si le chemin concerne les routes de la page de signature du professeur.
-            // Les flux SSE ("/stream") sont aussi laissés passer : EventSource ne peut pas
-            // envoyer d'en-tête Authorization, ces endpoints valident eux-mêmes le JWT
-            // transmis en query (?access_token=...).
-            if (requestPath != null && (
-                requestPath.Contains("/attendance-status/") ||
-                requestPath.Contains("/attendance-comment/") ||
-                requestPath.Contains("/attendances") ||
-                requestPath.Contains("/prof-signature/") ||
-                requestPath.EndsWith("/stream")
-            ))
+            // Routes publiques par jeton / auto-validées (voir TokenValidatedRoutes) :
+            // on ne contourne l'auth JWT que pour ces routes EXACTES. Chaque endpoint
+            // concerné valide lui-même le ProfSignatureToken (en-tête/query) ou le access_token.
+            if (requestPath != null && TokenValidatedRoutes.Any(r => r.IsMatch(requestPath)))
             {
                 await _next(context);
                 return;

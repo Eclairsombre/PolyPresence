@@ -163,6 +163,7 @@ public class SessionControllerTests
             ValidationCode = "SHOW",
             SpecializationId = 1
         });
+        db.Users.Add(new User { Id = 3, StudentNumber = "DEL3", Name = "D", Firstname = "E", Email = "d3@x.fr", Year = "3A", IsDelegate = true, Signature = "" });
         await db.SaveChangesAsync();
 
         var controller = BuildController(db, PrincipalWithIdAndRole(3, role: "User", isDelegate: "true"));
@@ -521,9 +522,10 @@ public class SessionControllerTests
             SpecializationId = 1,
             ProfId = null
         });
+        db.Users.Add(new User { Id = 999, StudentNumber = "ADM999", Name = "Ad", Firstname = "Min", Email = "adm999@x.fr", Year = "ADMIN", IsAdmin = true, Signature = "" });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildController(db, PrincipalWithIdAndRole(999, "Admin"));
 
         var result = await controller.ResendProfMail(40);
 
