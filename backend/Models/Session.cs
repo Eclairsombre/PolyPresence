@@ -27,7 +27,6 @@ namespace backend.Models
         public string? ProfSignature2 { get; set; }
         public string? ProfSignatureToken2 { get; set; }
 
-        public string TargetGroup { get; set; } = string.Empty;
         [JsonIgnore]
         public List<Attendance> Attendances { get; set; } = new List<Attendance>();
         public bool IsSent { get; set; } = false;

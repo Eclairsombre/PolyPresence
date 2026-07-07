@@ -383,11 +383,21 @@ namespace backend.Controllers
          * This method retrieves all User entities for a specific year.
          * Public endpoint to get users by year.
          */
-        [HttpGet("year/{year}")]
-        public async Task<ActionResult<IEnumerable<User>>> GetUserByYear(string year, [FromQuery] int? specializationId)
-        {
-            _logger.LogInformation($"Public request for users in year {year}");
+        // DTO léger pour les listes d'étudiants : n'expose JAMAIS Signature (image base64),
+        // PasswordHash ni les tokens d'inscription (avant, l'entité complète était renvoyée,
+        // soit plusieurs Mo par page + fuite de données sensibles sur un endpoint public).
+        public sealed record StudentListItemDto(
+            int Id, string Name, string Firstname, string StudentNumber,
+            string Email, string Year, bool IsDelegate, int? SpecializationId);
 
+        [HttpGet("year/{year}")]
+        public async Task<ActionResult<object>> GetUserByYear(
+            string year,
+            [FromQuery] int? specializationId,
+            [FromQuery] int? page = null,
+            [FromQuery] int? pageSize = null,
+            [FromQuery] string? search = null)
+        {
             var query = _context.Users.Where(s => s.Year == year && !s.IsDeleted);
 
             if (specializationId.HasValue && !string.Equals(year, "ADMIN", StringComparison.OrdinalIgnoreCase))
@@ -395,14 +405,48 @@ namespace backend.Controllers
                 query = query.Where(s => s.SpecializationId == specializationId.Value);
             }
 
-            var users = await query.ToListAsync();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(u =>
+                    u.Name.ToLower().Contains(term) ||
+                    u.Firstname.ToLower().Contains(term) ||
+                    u.StudentNumber.ToLower().Contains(term) ||
+                    u.Email.ToLower().Contains(term));
+            }
 
-            if (users == null || users.Count == 0)
+            query = query.OrderBy(u => u.Name).ThenBy(u => u.Firstname);
+
+            var projected = query.Select(u => new StudentListItemDto(
+                u.Id, u.Name, u.Firstname, u.StudentNumber, u.Email, u.Year, u.IsDelegate, u.SpecializationId));
+
+            // Mode paginé (page fourni) : enveloppe { items, total, page, pageSize, totalPages }.
+            if (page.HasValue)
+            {
+                var currentPage = page.Value < 1 ? 1 : page.Value;
+                var size = pageSize.GetValueOrDefault(50);
+                if (size < 1) size = 50;
+                if (size > 500) size = 500; // garde-fou
+                var totalCount = await query.CountAsync();
+                var pageItems = await projected.Skip((currentPage - 1) * size).Take(size).ToListAsync();
+                return Ok(new
+                {
+                    items = pageItems,
+                    total = totalCount,
+                    page = currentPage,
+                    pageSize = size,
+                    totalPages = (int)Math.Ceiling(totalCount / (double)size)
+                });
+            }
+
+            // Mode historique (sans pagination) : renvoie la liste, 404 si vide (compat front).
+            var users = await projected.ToListAsync();
+            if (users.Count == 0)
             {
                 return NotFound(new { message = $"Aucun étudiant trouvé pour l'année {year}" });
             }
 
-            return users;
+            return Ok(users);
         }
 
         /**
@@ -1251,19 +1295,21 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
 
                 var reactivationSessions = await reactivationSessionsQuery.ToListAsync();
 
-                foreach (var session in reactivationSessions)
-                {
-                    var alreadyExists = await _context.Attendances.AnyAsync(a => a.SessionId == session.Id && a.StudentId == deletedUser.Id);
-                    if (!alreadyExists)
+                // Une seule requête pour connaître les présences déjà existantes de l'étudiant
+                // (évite un AnyAsync par séance → N+1), puis insertion groupée.
+                var existingSessionIds = (await _context.Attendances
+                    .Where(a => a.StudentId == deletedUser.Id)
+                    .Select(a => a.SessionId)
+                    .ToListAsync()).ToHashSet();
+
+                _context.Attendances.AddRange(reactivationSessions
+                    .Where(s => !existingSessionIds.Contains(s.Id))
+                    .Select(s => new Attendance
                     {
-                        _context.Attendances.Add(new Attendance
-                        {
-                            SessionId = session.Id,
-                            StudentId = deletedUser.Id,
-                            Status = AttendanceStatus.Absent
-                        });
-                    }
-                }
+                        SessionId = s.Id,
+                        StudentId = deletedUser.Id,
+                        Status = AttendanceStatus.Absent
+                    }));
 
                 await _context.SaveChangesAsync();
                 _logger.LogInformation($"Compte de {deletedUser.StudentNumber} réactivé par {adminUser.StudentNumber}");
@@ -1285,20 +1331,14 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
 
             var futureSessions = await futureSessionsQuery.ToListAsync();
 
-            foreach (var session in futureSessions)
+            // L'utilisateur vient d'être créé : il n'a aucune présence existante, donc pas
+            // besoin de vérifier séance par séance (ancien N+1). Insertion groupée directe.
+            _context.Attendances.AddRange(futureSessions.Select(session => new Attendance
             {
-                var alreadyExists = await _context.Attendances.AnyAsync(a => a.SessionId == session.Id && a.StudentId == user.Id);
-                if (!alreadyExists)
-                {
-                    var attendance = new Attendance
-                    {
-                        SessionId = session.Id,
-                        StudentId = user.Id,
-                        Status = AttendanceStatus.Absent
-                    };
-                    _context.Attendances.Add(attendance);
-                }
-            }
+                SessionId = session.Id,
+                StudentId = user.Id,
+                Status = AttendanceStatus.Absent
+            }));
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);

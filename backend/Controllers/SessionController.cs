@@ -33,6 +33,14 @@ namespace backend.Controllers
             _scopeFactory = serviceScopeFactory;
         }
 
+        // Intervalle de polling des flux SSE (1 requête DB par flux par intervalle).
+        // "Cours en cours" étudiant : change très rarement → 60 s. Avec ce faible rythme,
+        // des milliers de flux ouverts ne génèrent qu'une charge DB négligeable : on peut
+        // donc laisser le flux ouvert à TOUT LE MONDE (aucun plafond de connexions).
+        private const int StudentSsePollMs = 60000;
+        // Page prof : voir les émargements quasi en direct (peu de profs connectés) → 3 s.
+        private const int ProfSsePollMs = 3000;
+
         /// <summary>
         /// Renvoie l'utilisateur authentifié (JWT validé en amont), ou null s'il n'y a
         /// pas d'authentification valide. Sert de base aux contrôles de rôle.
@@ -222,7 +230,7 @@ namespace backend.Controllers
                 {
                     s.Id, s.Date, s.StartTime, s.EndTime, s.Year, s.Name, s.Room,
                     s.ValidationCode, s.ProfId, s.ProfSignature, s.ProfSignatureToken,
-                    s.ProfId2, s.ProfSignature2, s.ProfSignatureToken2, s.TargetGroup,
+                    s.ProfId2, s.ProfSignature2, s.ProfSignatureToken2,
                     s.IsSent, s.IsMailSent, s.IsMailSent2, s.IsMerged, s.SpecializationId,
                     SpecializationName = s.Specialization?.Name,
                     SpecializationCode = s.Specialization?.Code
@@ -330,7 +338,6 @@ namespace backend.Controllers
                 session.ProfId2,
                 session.ProfSignature2,
                 session.ProfSignatureToken2,
-                session.TargetGroup,
                 session.IsSent,
                 session.IsMailSent,
                 session.IsMailSent2,
@@ -417,7 +424,6 @@ namespace backend.Controllers
                 s.ProfId2,
                 s.ProfSignature2,
                 s.ProfSignatureToken2,
-                s.TargetGroup,
                 s.IsSent,
                 s.IsMailSent,
                 s.IsMailSent2,
@@ -665,8 +671,8 @@ namespace backend.Controllers
         /// <summary>
         /// Trouve la session "en cours" pour un étudiant donné, sur la base de son
         /// inscription (présence enregistrée). C'est plus précis qu'un simple filtre
-        /// par année : l'inscription encode déjà la filière ET le sous-groupe (TargetGroup),
-        /// donc deux filières d'une même promo avec des cours simultanés ne se mélangent pas.
+        /// par année : l'inscription encode la filière, donc deux filières d'une même
+        /// promo avec des cours simultanés ne se mélangent pas.
         /// Renvoie null si l'utilisateur n'a aucun cours en cours.
         /// </summary>
         private static async Task<Session?> FindCurrentEnrolledSessionAsync(
@@ -693,7 +699,7 @@ namespace backend.Controllers
          * GetCurrentSession
          *
          * Renvoie le "cours actuel" de l'étudiant connecté, déterminé par son inscription
-         * (présence) et non par sa seule année — ce qui respecte la filière et le sous-groupe.
+         * (présence) et non par sa seule année — ce qui respecte la filière.
          * Le paramètre {year} est conservé pour la compatibilité de route mais n'est plus
          * utilisé pour le filtrage. Le code de validation n'est inclus que pour un délégué/admin.
          */
@@ -803,7 +809,7 @@ namespace backend.Controllers
                     {
                         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                        // Cours actuel basé sur l'inscription de l'étudiant (filière + sous-groupe),
+                        // Cours actuel basé sur l'inscription de l'étudiant (filière),
                         // pas sur la seule année. Le paramètre {year} reste dans la route uniquement
                         // pour la distinguer de "current/{year}".
                         var current = await FindCurrentEnrolledSessionAsync(db, userId, cancellationToken);
@@ -848,7 +854,7 @@ namespace backend.Controllers
                     }
                     await Response.Body.FlushAsync(cancellationToken);
 
-                    await Task.Delay(2000, cancellationToken);
+                    await Task.Delay(StudentSsePollMs, cancellationToken);
                 }
             }
             catch (OperationCanceledException)
@@ -1263,7 +1269,7 @@ namespace backend.Controllers
                     }
                     await Response.Body.FlushAsync(cancellationToken);
 
-                    await Task.Delay(2000, cancellationToken);
+                    await Task.Delay(ProfSsePollMs, cancellationToken);
                 }
             }
             catch (OperationCanceledException)

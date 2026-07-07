@@ -50,6 +50,16 @@ namespace backend.Data
                 .HasForeignKey(s => s.SpecializationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Index sur Sessions : c'est la table la plus volumineuse et la plus requêtée.
+            // Sans eux, chaque requête (planning du jour, "cours en cours" du SSE toutes les
+            // quelques secondes, recherche par token de signature prof) fait un scan séquentiel.
+            modelBuilder.Entity<Session>().HasIndex(s => s.Date);                 // "cours en cours" (Date == today)
+            modelBuilder.Entity<Session>().HasIndex(s => new { s.Year, s.Date }); // liste paginée (filtre Year + tri Date)
+            modelBuilder.Entity<Session>().HasIndex(s => s.ProfSignatureToken);   // lookup lien de signature prof
+            modelBuilder.Entity<Session>().HasIndex(s => s.ProfSignatureToken2);
+            modelBuilder.Entity<Session>().HasIndex(s => s.ProfId);               // sessions d'un prof
+            modelBuilder.Entity<Session>().HasIndex(s => s.ProfId2);
+
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Specialization)
                 .WithMany()

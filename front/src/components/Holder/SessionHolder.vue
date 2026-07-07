@@ -330,6 +330,8 @@ const professorStore = useProfessorStore();
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 // Flux SSE qui pousse le cours actuel + le statut de présence de l'étudiant.
 let currentSessionStream = null;
+let currentSessionStreamRetry = 0;
+let currentSessionStreamTimer = null;
 
 const formatDate = (dateString) => {
   if (!dateString) return "";
@@ -420,12 +422,16 @@ function startCurrentSessionStream() {
   const token = localStorage.getItem("access_token");
   if (!token) return;
 
+  clearTimeout(currentSessionStreamTimer);
+
   const url = `${API_URL}/Session/current/${encodeURIComponent(
     studentYear.value,
   )}/stream?access_token=${encodeURIComponent(token)}`;
   currentSessionStream = new EventSource(url);
 
   currentSessionStream.onmessage = (e) => {
+    // Une réception réussie = connexion saine → on réinitialise le backoff.
+    currentSessionStreamRetry = 0;
     let payload;
     try {
       payload = JSON.parse(e.data);
@@ -452,12 +458,27 @@ function startCurrentSessionStream() {
   };
 
   currentSessionStream.onerror = () => {
-    // EventSource se reconnecte automatiquement ; on log juste pour le debug.
-    console.debug("Flux SSE du cours actuel interrompu, reconnexion auto...");
+    // On remplace la reconnexion native (immédiate, sans backoff → "thundering herd"
+    // si le serveur tombe) par un backoff exponentiel plafonné + jitter.
+    if (currentSessionStream) {
+      currentSessionStream.close();
+      currentSessionStream = null;
+    }
+    currentSessionStreamRetry += 1;
+    const base = Math.min(30000, 1000 * 2 ** (currentSessionStreamRetry - 1));
+    const delay = base / 2 + Math.random() * (base / 2); // jitter 50–100 % du délai
+    console.debug(
+      `Flux SSE interrompu, reconnexion dans ${Math.round(delay)} ms (essai ${currentSessionStreamRetry}).`,
+    );
+    clearTimeout(currentSessionStreamTimer);
+    currentSessionStreamTimer = setTimeout(startCurrentSessionStream, delay);
   };
 }
 
 function stopCurrentSessionStream() {
+  clearTimeout(currentSessionStreamTimer);
+  currentSessionStreamTimer = null;
+  currentSessionStreamRetry = 0;
   if (currentSessionStream) {
     currentSessionStream.close();
     currentSessionStream = null;

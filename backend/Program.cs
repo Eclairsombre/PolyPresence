@@ -8,6 +8,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -90,13 +94,26 @@ builder.Services.AddSingleton<ICookieEncryptionService, CookieEncryptionService>
 // Enregistrement du DbContext avec PostgreSQL.
 // EnableRetryOnFailure : réessaie automatiquement les échecs transitoires
 // (micro-coupures réseau/DB) au lieu de renvoyer un 500 immédiat.
+// Pool de connexions PostgreSQL dimensionné explicitement (le défaut Npgsql = 100,
+// non documenté auparavant). MaxPoolSize doit rester <= max_connections de PostgreSQL.
+var dbConnString = builder.Configuration.GetConnectionString("DefaultConnection");
+var npgsqlCsb = new NpgsqlConnectionStringBuilder(dbConnString)
+{
+    MaxPoolSize = 100,
+    MinPoolSize = 5,
+    Timeout = 15,           // attente max pour obtenir une connexion (s)
+    CommandTimeout = 30,
+};
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlCsb.ConnectionString,
         npgsql => npgsql.EnableRetryOnFailure(
             maxRetryCount: 3,
             maxRetryDelay: TimeSpan.FromSeconds(5),
             errorCodesToAdd: null)));
+
+// IHttpClientFactory : évite de créer un HttpClient par import (épuisement de sockets).
+builder.Services.AddHttpClient();
 
 // Services d'arrière-plan
 builder.Services.AddHostedService<RateLimitCleanupService>();
@@ -121,7 +138,7 @@ app.Services.GetRequiredService<TimerService>();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.EnsureCreated();
+    ApplyMigrations(db, app.Logger);
 
     var adminStudentNumber = Environment.GetEnvironmentVariable("ADMIN_BASE_STUDENT_NUMBER") ?? "";
     var adminPassword = Environment.GetEnvironmentVariable("ADMIN_BASE_PASSWORD") ?? "";
@@ -195,6 +212,76 @@ using (var scope = app.Services.CreateScope())
         };
 
         await dbContext.Database.ExecuteSqlRawAsync(sql);
+    }
+
+    // Applique les migrations EF au démarrage. Gère le cas d'une base créée
+    // historiquement via EnsureCreated (donc sans table __EFMigrationsHistory) :
+    // on "adopte" les migrations en marquant comme déjà appliquées toutes celles
+    // correspondant au schéma existant, puis Migrate() applique les nouvelles.
+    static void ApplyMigrations(ApplicationDbContext dbContext, ILogger logger)
+    {
+        var dbCreator = dbContext.GetService<IRelationalDatabaseCreator>();
+        if (!dbCreator.Exists())
+        {
+            // Base neuve : Migrate() crée la base et applique TOUTES les migrations.
+            logger.LogInformation("Base absente : création + application de toutes les migrations.");
+            dbContext.Database.Migrate();
+            return;
+        }
+
+        var historyRepo = dbContext.GetService<IHistoryRepository>();
+        var migrationsAssembly = dbContext.GetService<IMigrationsAssembly>();
+        var all = migrationsAssembly.Migrations.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+
+        // Migrations déjà enregistrées (table d'historique absente OU vide => aucune).
+        var applied = historyRepo.Exists()
+            ? historyRepo.GetAppliedMigrations().Select(m => m.MigrationId).ToHashSet()
+            : new HashSet<string>();
+
+        // Schéma déjà présent (base historiquement créée via EnsureCreated) mais AUCUNE
+        // migration enregistrée : on "adopte" les migrations en marquant comme déjà appliquées
+        // toutes celles correspondant au schéma existant (toutes sauf la dernière : indexes +
+        // drop TargetGroup), puis Migrate() applique la dernière. Sans ça, Migrate rejouerait
+        // InitialCreate sur des tables existantes ("relation already exists").
+        if (applied.Count == 0 && TableExists(dbContext, "Sessions"))
+        {
+            var toBaseline = all.Take(all.Count - 1).ToList();
+
+            logger.LogWarning(
+                "Base sans historique EF (héritée d'EnsureCreated) : baseline de {Count} migration(s), puis application des nouvelles.",
+                toBaseline.Count);
+
+            using var tx = dbContext.Database.BeginTransaction();
+            dbContext.Database.ExecuteSqlRaw(historyRepo.GetCreateIfNotExistsScript());
+            foreach (var id in toBaseline)
+            {
+                dbContext.Database.ExecuteSqlRaw(historyRepo.GetInsertScript(
+                    new HistoryRow(id, ProductInfo.GetVersion())));
+            }
+            tx.Commit();
+        }
+
+        var pending = dbContext.Database.GetPendingMigrations().ToList();
+        if (pending.Count > 0)
+            logger.LogInformation("Application de {Count} migration(s) en attente : {Migrations}", pending.Count, string.Join(", ", pending));
+        dbContext.Database.Migrate();
+    }
+
+    static bool TableExists(ApplicationDbContext dbContext, string table)
+    {
+        var conn = dbContext.Database.GetDbConnection();
+        var wasClosed = conn.State != System.Data.ConnectionState.Open;
+        if (wasClosed) conn.Open();
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT to_regclass('public.\"{table}\"') IS NOT NULL";
+            return cmd.ExecuteScalar() is bool b && b;
+        }
+        finally
+        {
+            if (wasClosed) conn.Close();
+        }
     }
 
     await SyncIdentitySequenceAsync(db, "Sessions");

@@ -257,8 +257,7 @@ public class MailPreferencesControllerTests
             EndTime = DateTime.Today.AddHours(10),
             Room = "A101",
             ValidationCode = "VAL",
-            SpecializationId = 1,
-            TargetGroup = "3A-1"
+            SpecializationId = 1
         };
         db.Sessions.Add(session);
 

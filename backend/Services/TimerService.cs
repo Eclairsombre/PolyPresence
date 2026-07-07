@@ -1,4 +1,5 @@
 using System.Timers;
+using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using backend.Data;
@@ -153,8 +154,9 @@ namespace backend.Services
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
                 var importLogger = scope.ServiceProvider.GetRequiredService<ILogger<ImportController>>();
+                var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                 logger.LogInformation("Synchronisation quotidienne des sessions et attendances à 01:00");
-                var controller = new ImportController(scopedContext, importLogger, _serviceScopeFactory);
+                var controller = new ImportController(scopedContext, importLogger, _serviceScopeFactory, httpClientFactory);
                 await controller.ImportAllIcsLinks(scopedContext, importLogger);
             }
             _nextSessionExecutionTime = GetNextSessionExecutionTime();

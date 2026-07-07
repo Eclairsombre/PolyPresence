@@ -199,8 +199,10 @@ public class UserControllerTests
 
         var result = await controller.GetUserByYear("3A", 1);
 
-        result.Value.Should().HaveCount(1);
-        result.Value!.Single().StudentNumber.Should().Be("S1");
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var items = ok.Value.Should().BeAssignableTo<IEnumerable<UserController.StudentListItemDto>>().Subject.ToList();
+        items.Should().ContainSingle();
+        items[0].StudentNumber.Should().Be("S1");
     }
 
     [Fact]

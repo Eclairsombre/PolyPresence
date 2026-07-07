@@ -536,14 +536,18 @@ function loadFromStorage() {
 
 // --- SSE : mise à jour automatique de la liste des présences ---
 let attendancesStream = null;
+let attendancesStreamRetry = 0;
+let attendancesStreamTimer = null;
 
 function startAttendancesStream() {
   if (!session.value?.id || attendancesStream) return;
+  clearTimeout(attendancesStreamTimer);
   // EventSource ne peut pas envoyer d'en-tête : le token de signature prof est transmis
   // en query pour que le backend autorise l'accès au flux des présences.
   const url = `${API_URL}/Session/${session.value.id}/attendances/stream?token=${encodeURIComponent(token)}`;
   attendancesStream = new EventSource(url);
   attendancesStream.onmessage = (e) => {
+    attendancesStreamRetry = 0; // réception OK → réinitialise le backoff
     // On n'écrase pas une mise à jour optimistique locale en cours.
     if (pendingStudents.value.size > 0 || bulkLoading.value) return;
     let incoming;
@@ -557,9 +561,17 @@ function startAttendancesStream() {
       a.item1.name.localeCompare(b.item1.name),
     );
   };
-  // EventSource se reconnecte automatiquement en cas de coupure réseau.
+  // Reconnexion avec backoff exponentiel plafonné + jitter (évite le "thundering herd").
   attendancesStream.onerror = () => {
-    console.debug("Flux SSE présences interrompu, reconnexion automatique…");
+    if (attendancesStream) {
+      attendancesStream.close();
+      attendancesStream = null;
+    }
+    attendancesStreamRetry += 1;
+    const base = Math.min(30000, 1000 * 2 ** (attendancesStreamRetry - 1));
+    const delay = base / 2 + Math.random() * (base / 2);
+    clearTimeout(attendancesStreamTimer);
+    attendancesStreamTimer = setTimeout(startAttendancesStream, delay);
   };
 }
 
@@ -616,6 +628,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  clearTimeout(attendancesStreamTimer);
+  attendancesStreamTimer = null;
   if (attendancesStream) {
     attendancesStream.close();
     attendancesStream = null;

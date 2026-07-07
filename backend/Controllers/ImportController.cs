@@ -6,6 +6,7 @@ using backend.Models;
 using backend.Services;
 using System.Text;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Claims;
 
@@ -18,12 +19,18 @@ namespace backend.Controllers
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ImportController> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public ImportController(ApplicationDbContext context, ILogger<ImportController> logger, IServiceScopeFactory serviceScopeFactory)
+        // Cache de résolution des professeurs pour la durée de l'import (un prof enseignant
+        // 30 séances était re-cherché 30× en base). Clé = "nom|prénom" insensible à la casse.
+        private readonly Dictionary<string, User> _professorCache = new();
+
+        public ImportController(ApplicationDbContext context, ILogger<ImportController> logger, IServiceScopeFactory serviceScopeFactory, IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
+            _httpClientFactory = httpClientFactory;
         }
 
         public class ImportIcsModel
@@ -181,7 +188,7 @@ namespace backend.Controllers
 
         private async Task<List<ImportedSession>> FetchAndParseIcs(string url, string year)
         {
-            using var client = new HttpClient();
+            var client = _httpClientFactory.CreateClient();
             // Décodage UTF-8 explicite : les exports ADE sont en UTF-8, mais tous les
             // serveurs ne renseignent pas le charset (sinon les accents deviennent illisibles).
             var bytes = await client.GetByteArrayAsync(url);
@@ -223,6 +230,10 @@ namespace backend.Controllers
 
             var normalizedName = name.Trim();
             var normalizedFirstname = (firstname ?? "").Trim();
+            var cacheKey = (normalizedName + "|" + normalizedFirstname).ToLowerInvariant();
+
+            if (_professorCache.TryGetValue(cacheKey, out var cached))
+                return cached;
 
             var professor = await _context.Users.FirstOrDefaultAsync(p =>
                 p.IsProfessor &&
@@ -245,6 +256,7 @@ namespace backend.Controllers
                 _logger.LogInformation($"Professeur créé à l'import : {normalizedName} {normalizedFirstname}");
             }
 
+            _professorCache[cacheKey] = professor;
             return professor;
         }
 
@@ -278,7 +290,6 @@ namespace backend.Controllers
                     if (match.ProfId != imported.ProfId) { match.ProfId = imported.ProfId; changed = true; }
                     if (match.ProfId2 != imported.ProfId2) { match.ProfId2 = imported.ProfId2; changed = true; }
                     if (match.IsMerged != imported.IsMerged) { match.IsMerged = imported.IsMerged; changed = true; }
-                    if (match.TargetGroup != imported.TargetGroup) { match.TargetGroup = imported.TargetGroup; changed = true; }
 
                     if (changed) sessionsToUpdate.Add(match);
                     existingSessions.Remove(match);
@@ -296,7 +307,6 @@ namespace backend.Controllers
                         ProfId = imported.ProfId,
                         ProfId2 = imported.ProfId2,
                         IsMerged = imported.IsMerged,
-                        TargetGroup = imported.TargetGroup,
                         ValidationCode = new Random().Next(1000, 9999).ToString(),
                         ProfSignatureToken = Guid.NewGuid().ToString(),
                         ProfSignatureToken2 = !string.IsNullOrEmpty(imported.ProfId2) ? Guid.NewGuid().ToString() : null,

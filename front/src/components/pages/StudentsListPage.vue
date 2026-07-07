@@ -5,7 +5,7 @@
       <div class="page-title">
         <h1>{{ yearFilter !== "ADMIN" ? "Étudiants" : "Administrateurs" }}</h1>
         <p class="page-subtitle">
-          {{ students.length }}
+          {{ filteredStudents.length }}
           {{ yearFilter !== "ADMIN" ? "étudiants" : "administrateurs" }} trouvés
         </p>
       </div>
@@ -24,6 +24,15 @@
     <!-- Filters -->
     <div class="filters-card">
       <div class="filters-row">
+        <div class="filter-item filter-search">
+          <label for="students-search">Rechercher</label>
+          <input
+            id="students-search"
+            v-model="searchQuery"
+            type="search"
+            placeholder="Nom, prénom, n° étudiant, email…"
+          />
+        </div>
         <div v-if="yearFilter !== 'ADMIN'" class="filter-item">
           <label for="students-specialization-filter">Filière</label>
           <select
@@ -72,7 +81,7 @@
 
     <!-- Table -->
     <div class="table-card">
-      <table v-if="students.length > 0">
+      <table v-if="filteredStudents.length > 0">
         <thead>
           <tr>
             <th>Nom</th>
@@ -85,7 +94,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="student in students" :key="student.id">
+          <tr v-for="student in pagedStudents" :key="student.id">
             <td class="cell-name">{{ student.name }}</td>
             <td>{{ student.firstname }}</td>
             <td class="hide-mobile">
@@ -127,6 +136,24 @@
           {{ yearFilter !== "ADMIN" ? "étudiant" : "administrateur" }} trouvé.
         </div>
       </div>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button
+          class="page-btn"
+          :disabled="currentPage <= 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          Précédent
+        </button>
+        <span class="page-info">Page {{ currentPage }} / {{ totalPages }}</span>
+        <button
+          class="page-btn"
+          :disabled="currentPage >= totalPages"
+          @click="goToPage(currentPage + 1)"
+        >
+          Suivant
+        </button>
+      </div>
     </div>
   </div>
   <PopUpImportStudent
@@ -160,7 +187,7 @@
 import { useStudentsStore } from "../../stores/studentsStore.js";
 import { useAuthStore } from "../../stores/authStore.js";
 import { useSpecializationStore } from "../../stores/specializationStore.js";
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, watch } from "vue";
 import AppIcon from "../AppIcon.vue";
 import PopUpImportStudent from "../popups/PopUpImportStudent.vue";
 import PopUpAddStudent from "../popups/PopUpAddStudent.vue";
@@ -184,6 +211,40 @@ const selectedStudent = ref(null);
 
 const students = ref([]);
 
+// Recherche + pagination côté client (la liste est désormais légère : DTO sans
+// signature/hash, quelques Ko par promo, donc filtrage/pagination en mémoire suffit).
+const searchQuery = ref("");
+const currentPage = ref(1);
+const pageSize = 25;
+
+const filteredStudents = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return students.value;
+  return students.value.filter((s) =>
+    [s.name, s.firstname, s.studentNumber, s.email]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q)),
+  );
+});
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredStudents.value.length / pageSize)),
+);
+
+const pagedStudents = computed(() => {
+  const page = Math.min(currentPage.value, totalPages.value);
+  const start = (page - 1) * pageSize;
+  return filteredStudents.value.slice(start, start + pageSize);
+});
+
+const goToPage = (p) => {
+  currentPage.value = Math.min(Math.max(1, p), totalPages.value);
+};
+
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
+
 onMounted(async () => {
   authStore.initialize();
   await specializationStore.fetchSpecializations();
@@ -194,6 +255,7 @@ const refreshStudents = async () => {
   const specId = selectedSpecializationId.value || undefined;
   students.value = await studentsStore.fetchStudents(yearFilter.value, specId);
   students.value = students.value.sort((a, b) => a.name.localeCompare(b.name));
+  currentPage.value = 1;
 };
 
 const currentUser = computed(() => authStore.user);
@@ -360,6 +422,67 @@ const cancelDelete = () => {
 .filter-item select:focus {
   border-color: #3498db;
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.filter-search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.filter-item input[type="search"] {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1a1a2e;
+  background: #fff;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  width: 100%;
+}
+
+.filter-item input[type="search"]:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  border-top: 1px solid #f0f0f5;
+}
+
+.page-btn {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #f0f2f5;
+  border-color: #3498db;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-weight: 600;
 }
 
 /* Year tabs */

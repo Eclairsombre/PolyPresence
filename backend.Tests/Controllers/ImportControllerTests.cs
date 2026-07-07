@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Net.Http;
 using System.Reflection;
 using System.Security.Claims;
 
@@ -20,10 +21,14 @@ public class ImportControllerTests
 {
     private static ImportController BuildController(backend.Data.ApplicationDbContext db)
     {
+        var services = new ServiceCollection();
+        services.AddHttpClient();
+        var provider = services.BuildServiceProvider();
         return new ImportController(
             db,
             NullLogger<ImportController>.Instance,
-            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IHttpClientFactory>());
     }
 
     // Contrôleur avec un admin authentifié dans le contexte HTTP (import-ics est réservé aux admins).
@@ -172,7 +177,6 @@ public class ImportControllerTests
         var session = await db.Sessions.SingleAsync();
         session.Name.Should().Be("Algo");
         session.SpecializationId.Should().Be(1);
-        session.TargetGroup.Should().Be("3A-1");
 
         var attendances = await db.Attendances.ToListAsync();
         attendances.Should().HaveCount(1);
@@ -192,7 +196,7 @@ public class ImportControllerTests
             {
                 Id = 100, Date = date, StartTime = start, EndTime = end, Year = "3A",
                 Name = "Old", Room = "R1", ValidationCode = "1111", SpecializationId = 1,
-                TargetGroup = "", ProfId = "1", ProfId2 = ""
+                ProfId = "1", ProfId2 = ""
             },
             new Session
             {
@@ -200,7 +204,7 @@ public class ImportControllerTests
                 StartTime = DateTime.SpecifyKind(date.AddHours(14), DateTimeKind.Unspecified),
                 EndTime = DateTime.SpecifyKind(date.AddHours(16), DateTimeKind.Unspecified),
                 Year = "3A", Name = "ToDelete", Room = "R2", ValidationCode = "2222",
-                SpecializationId = 1, TargetGroup = "", ProfId = "2", ProfId2 = ""
+                SpecializationId = 1, ProfId = "2", ProfId2 = ""
             });
         await db.SaveChangesAsync();
 
@@ -224,7 +228,6 @@ public class ImportControllerTests
         sessions[0].Room.Should().Be("R9");
         sessions[0].ProfId.Should().Be("9");
         sessions[0].ProfId2.Should().Be("10");
-        sessions[0].TargetGroup.Should().Be("3A-2");
         sessions[0].IsMerged.Should().BeTrue();
     }
 
