@@ -161,7 +161,7 @@
               <span class="delegate-label">Professeur 1</span>
               <div class="delegate-actions">
                 <span class="prof-email">{{
-                  professor1?.email || "Non défini"
+                  profEffectiveEmail || "Non défini"
                 }}</span>
                 <button
                   @click="showEditProfMailPopup = true"
@@ -189,7 +189,7 @@
               <span class="delegate-label">Professeur 2</span>
               <div class="delegate-actions">
                 <span class="prof-email">{{
-                  professor2?.email || "Non défini"
+                  prof2EffectiveEmail || "Non défini"
                 }}</span>
                 <button
                   @click="showEditProf2MailPopup = true"
@@ -198,7 +198,7 @@
                   Modifier
                 </button>
                 <button
-                  v-if="professor2?.email"
+                  v-if="prof2EffectiveEmail"
                   @click="showResendProf2MailPopup = true"
                   class="btn-sm btn-accent-sm"
                 >
@@ -289,11 +289,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useStudentsStore } from "../../stores/studentsStore";
 import { useProfessorStore } from "../../stores/professorStore";
+import {
+  readOverride,
+  writeOverride,
+  pruneExpiredOverrides,
+} from "../../utils/profMailOverride";
 
 import ValidatePresence from "../buttons/ValidatePresence.vue";
 import PopUpEditProfMail from "../popups/PopUpEditProfMail.vue";
@@ -321,11 +326,41 @@ const showCode = ref(false);
 const showCodePopup = ref(false);
 const professor1 = ref(null);
 const professor2 = ref(null);
+// Adresse corrigée localement par le délégué pour la session en cours ("" = aucune).
+// Stockée dans le navigateur uniquement, jamais en base.
+const profEmailOverride = ref("");
+const prof2EmailOverride = ref("");
 
 const sessionStore = useSessionStore();
 const authStore = useAuthStore();
 const studentsStore = useStudentsStore();
 const professorStore = useProfessorStore();
+
+// Clé de cloisonnement : évite qu'un override reste visible pour un autre
+// compte sur un navigateur partagé.
+const overrideUserKey = computed(() => authStore.user?.studentId ?? "anon");
+
+// Adresse réellement utilisée pour le renvoi : l'override s'il existe.
+const profEffectiveEmail = computed(
+  () => profEmailOverride.value || professor1.value?.email || "",
+);
+const prof2EffectiveEmail = computed(
+  () => prof2EmailOverride.value || professor2.value?.email || "",
+);
+
+/** Recharge les overrides depuis le localStorage pour la session affichée. */
+const syncOverridesFromStorage = (session) => {
+  profEmailOverride.value = readOverride(
+    overrideUserKey.value,
+    session?.id,
+    1,
+  );
+  prof2EmailOverride.value = readOverride(
+    overrideUserKey.value,
+    session?.id,
+    2,
+  );
+};
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 // Flux SSE qui pousse le cours actuel + le statut de présence de l'étudiant.
@@ -390,8 +425,9 @@ const loadData = async ({ silent = false } = {}) => {
           session.profId2,
         );
 
-      profEmailInput.value = professor1.value?.email || "";
-      prof2EmailInput.value = professor2.value?.email || "";
+      syncOverridesFromStorage(session);
+      profEmailInput.value = profEffectiveEmail.value;
+      prof2EmailInput.value = prof2EffectiveEmail.value;
       const at = await sessionStore.getAttendance(
         authStore.user.studentId,
         currentSession.value.id,
@@ -532,6 +568,8 @@ function notifyNewCourse(session) {
 }
 
 onMounted(async () => {
+  // Évite que le localStorage accumule une entrée par session passée.
+  pruneExpiredOverrides();
   await loadData();
   if (authStore.user && authStore.user.isDelegate) {
     isDelegate.value = true;
@@ -544,40 +582,40 @@ onUnmounted(() => {
   stopCurrentSessionStream();
 });
 
-const saveProfEmail = async () => {
+// L'adresse corrigée n'est pas envoyée au serveur ici : elle est seulement
+// mémorisée localement, puis transmise au prochain renvoi de mail.
+const saveProfEmail = () => {
   if (!profEmailInput.value || !currentSession.value?.id) return;
-  try {
-    await sessionStore.setProfEmail(
-      currentSession.value.id,
-      profEmailInput.value,
-    );
-    currentSession.value.profEmail = profEmailInput.value;
-  } catch (e) {
-    error.value =
-      e.response?.data?.message ||
-      "Erreur lors de la modification de l'email du professeur.";
-    console.debug("Erreur:", e);
-  }
+  profEmailOverride.value = profEmailInput.value;
+  writeOverride(
+    overrideUserKey.value,
+    currentSession.value,
+    1,
+    profEmailInput.value,
+  );
   profEmailEditMode.value = false;
 };
 const cancelProfEmailEdit = () => {
   profEmailEditMode.value = false;
-  profEmailInput.value = currentSession.value.profEmail;
+  profEmailInput.value = profEffectiveEmail.value;
 };
 const resendProfMail = async () => {
   if (!currentSession.value?.id) return;
   mailSentMessage.value = "";
   try {
-    await sessionStore.resendProfMail(currentSession.value.id);
+    await sessionStore.resendProfMail(
+      currentSession.value.id,
+      profEmailOverride.value,
+    );
     mailSentMessage.value = "Mail renvoyé au professeur.";
   } catch (e) {
     mailSentMessage.value = "Erreur lors de l'envoi du mail.";
     console.debug("Erreur:", e);
   }
 };
-const onProfMailPopupSave = async (newEmail) => {
+const onProfMailPopupSave = (newEmail) => {
   profEmailInput.value = newEmail;
-  await saveProfEmail();
+  saveProfEmail();
   showEditProfMailPopup.value = false;
 };
 const confirmResendProfMail = async () => {
@@ -585,33 +623,31 @@ const confirmResendProfMail = async () => {
   await resendProfMail();
 };
 
-const saveProf2Email = async () => {
+const saveProf2Email = () => {
   if (!prof2EmailInput.value || !currentSession.value?.id) return;
-  try {
-    await sessionStore.setProf2Email(
-      currentSession.value.id,
-      prof2EmailInput.value,
-    );
-    currentSession.value.profEmail2 = prof2EmailInput.value;
-  } catch (e) {
-    error.value =
-      e.response?.data?.message ||
-      "Erreur lors de la modification de l'email du professeur 2.";
-    console.debug("Erreur:", e);
-  }
+  prof2EmailOverride.value = prof2EmailInput.value;
+  writeOverride(
+    overrideUserKey.value,
+    currentSession.value,
+    2,
+    prof2EmailInput.value,
+  );
   prof2EmailEditMode.value = false;
 };
 
 const cancelProf2EmailEdit = () => {
   prof2EmailEditMode.value = false;
-  prof2EmailInput.value = currentSession.value.profEmail2;
+  prof2EmailInput.value = prof2EffectiveEmail.value;
 };
 
 const resendProf2Mail = async () => {
   if (!currentSession.value?.id) return;
   mailSentMessage.value = "";
   try {
-    await sessionStore.resendProf2Mail(currentSession.value.id);
+    await sessionStore.resendProf2Mail(
+      currentSession.value.id,
+      prof2EmailOverride.value,
+    );
     mailSentMessage.value = "Mail renvoyé au professeur 2.";
   } catch (e) {
     mailSentMessage.value = "Erreur lors de l'envoi du mail au professeur 2.";
@@ -619,9 +655,9 @@ const resendProf2Mail = async () => {
   }
 };
 
-const onProf2MailPopupSave = async (newEmail) => {
+const onProf2MailPopupSave = (newEmail) => {
   prof2EmailInput.value = newEmail;
-  await saveProf2Email();
+  saveProf2Email();
   showEditProf2MailPopup.value = false;
 };
 
@@ -645,17 +681,24 @@ function confirmShowCode() {
   showCode.value = true;
   showCodePopup.value = false;
 }
-watch(currentSession, (val) => {
-  profEmailInput.value = val?.profEmail || "";
-  prof2EmailInput.value = val?.profEmail2 || "";
+// Le flux SSE repousse régulièrement la session : ces watchers doivent relire
+// l'override local, sinon la correction du délégué serait écrasée quelques
+// secondes après la saisie.
+watch(
+  () => currentSession.value?.id,
+  (sessionId) => {
+    syncOverridesFromStorage(sessionId ? currentSession.value : null);
+    profEmailInput.value = profEffectiveEmail.value;
+    prof2EmailInput.value = prof2EffectiveEmail.value;
+  },
+);
+
+watch(professor1, () => {
+  profEmailInput.value = profEffectiveEmail.value;
 });
 
-watch(professor1, (newProf) => {
-  profEmailInput.value = newProf?.email || "";
-});
-
-watch(professor2, (newProf) => {
-  prof2EmailInput.value = newProf?.email || "";
+watch(professor2, () => {
+  prof2EmailInput.value = prof2EffectiveEmail.value;
 });
 
 watch(

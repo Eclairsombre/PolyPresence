@@ -633,52 +633,17 @@ export const useSessionStore = defineStore("session", {
     },
 
     /**
-     * Sets the professor 1's email for a session
-     * @param {number} sessionId - Session ID
-     * @param {string} profEmail - Professor 1's email address
-     * @returns {Promise<boolean>} True if successful
-     */
-    async setProfEmail(sessionId, profEmail) {
-      try {
-        await apiClient.post(`${API_URL}/Session/${sessionId}/set-prof-email`, {
-          profEmail,
-        });
-        return true;
-      } catch (e) {
-        throw e;
-      }
-    },
-
-    /**
      * Resends the professor 1 signature email for a session
      * @param {number} sessionId - Session ID
+     * @param {string} [overrideEmail] - Adresse de substitution pour ce seul envoi.
+     *   Rien n'est enregistré sur la fiche du professeur.
      * @returns {Promise<boolean>} True if successful
      */
-    async resendProfMail(sessionId) {
+    async resendProfMail(sessionId, overrideEmail) {
       try {
-        await apiClient.post(
-          `${API_URL}/Session/${sessionId}/resend-prof-mail`,
-        );
-        return true;
-      } catch (e) {
-        throw e;
-      }
-    },
-
-    /**
-     * Sets the professor 2's email for a session
-     * @param {number} sessionId - Session ID
-     * @param {string} profEmail2 - Professor 2's email address
-     * @returns {Promise<boolean>} True if successful
-     */
-    async setProf2Email(sessionId, profEmail2) {
-      try {
-        await apiClient.post(
-          `${API_URL}/Session/${sessionId}/set-prof2-email`,
-          {
-            profEmail: profEmail2,
-          },
-        );
+        await apiClient.post(`${API_URL}/Session/${sessionId}/resend-prof-mail`, {
+          overrideEmail: overrideEmail || null,
+        });
         return true;
       } catch (e) {
         throw e;
@@ -688,12 +653,14 @@ export const useSessionStore = defineStore("session", {
     /**
      * Resends the professor 2 signature email for a session
      * @param {number} sessionId - Session ID
+     * @param {string} [overrideEmail] - Adresse de substitution pour ce seul envoi.
      * @returns {Promise<boolean>} True if successful
      */
-    async resendProf2Mail(sessionId) {
+    async resendProf2Mail(sessionId, overrideEmail) {
       try {
         await apiClient.post(
           `${API_URL}/Session/${sessionId}/resend-prof2-mail`,
+          { overrideEmail: overrideEmail || null },
         );
         return true;
       } catch (e) {

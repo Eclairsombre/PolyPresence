@@ -389,32 +389,37 @@ describe("sessionStore", () => {
     expect(result).toEqual([]);
   });
 
-  it("setProfEmail appelle l'API et retourne true", async () => {
-    apiClient.post.mockResolvedValue({});
-    const store = useSessionStore();
-    const ok = await store.setProfEmail(1, "p1@test.fr");
-    expect(ok).toBe(true);
-  });
-
-  it("resendProfMail appelle l'API", async () => {
+  it("resendProfMail appelle l'API sans override par défaut", async () => {
     apiClient.post.mockResolvedValue({});
     const store = useSessionStore();
     const ok = await store.resendProfMail(1);
     expect(ok).toBe(true);
+    expect(apiClient.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Session/1/resend-prof-mail"),
+      { overrideEmail: null },
+    );
   });
 
-  it("setProf2Email appelle l'API", async () => {
+  it("resendProfMail transmet l'adresse de substitution", async () => {
     apiClient.post.mockResolvedValue({});
     const store = useSessionStore();
-    const ok = await store.setProf2Email(1, "p2@test.fr");
+    const ok = await store.resendProfMail(1, "p1@test.fr");
     expect(ok).toBe(true);
+    expect(apiClient.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Session/1/resend-prof-mail"),
+      { overrideEmail: "p1@test.fr" },
+    );
   });
 
-  it("resendProf2Mail appelle l'API", async () => {
+  it("resendProf2Mail transmet l'adresse de substitution", async () => {
     apiClient.post.mockResolvedValue({});
     const store = useSessionStore();
-    const ok = await store.resendProf2Mail(1);
+    const ok = await store.resendProf2Mail(1, "p2@test.fr");
     expect(ok).toBe(true);
+    expect(apiClient.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Session/1/resend-prof2-mail"),
+      { overrideEmail: "p2@test.fr" },
+    );
   });
 
   it("setSessionProfessor retourne false et renseigne error en echec", async () => {

@@ -1412,66 +1412,6 @@ namespace backend.Controllers
         }
 
         /**
-         * SetProfEmail
-         *
-         * This method sets the professor's email for a session.
-         */
-        [HttpPost("{sessionId}/set-prof-email")]
-        [Authorize]
-        public async Task<IActionResult> SetProfEmail(int sessionId, [FromBody] SetProfEmailModel model)
-        {
-            var currentUser = await GetAuthenticatedUserAsync();
-            if (currentUser == null)
-                return Unauthorized(new { message = "Authentification requise." });
-            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
-                return Forbid();
-
-            _logger.LogDebug($"Tentative de mise à jour de l'email du professeur pour la session {sessionId}");
-            _logger.LogDebug($"Email du professeur : {model.ProfEmail}");
-            var session = await _context.Sessions.FindAsync(sessionId);
-            if (session == null)
-                return NotFound(new { error = true, message = "Session non trouvée." });
-            if (!int.TryParse(session.ProfId, out int profId))
-                return NotFound(new { error = true, message = "Professeur non trouvé (ID invalide)." });
-            var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == profId && u.IsProfessor);
-            if (professor == null)
-                return NotFound(new { error = true, message = "Professeur non trouvé." });
-            professor.Email = model.ProfEmail;
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Email du professeur 1 enregistré" });
-        }
-
-        /**
-         * SetProf2Email
-         *
-         * This method sets the second professor's email for a session.
-         */
-        [HttpPost("{sessionId}/set-prof2-email")]
-        [Authorize]
-        public async Task<IActionResult> SetProf2Email(int sessionId, [FromBody] SetProfEmailModel model)
-        {
-            var currentUser = await GetAuthenticatedUserAsync();
-            if (currentUser == null)
-                return Unauthorized(new { message = "Authentification requise." });
-            if (!currentUser.IsAdmin && !currentUser.IsDelegate)
-                return Forbid();
-
-            _logger.LogDebug($"Tentative de mise à jour de l'email du professeur 2 pour la session {sessionId}");
-            _logger.LogDebug($"Email du professeur 2 : {model.ProfEmail}");
-            var session = await _context.Sessions.FindAsync(sessionId);
-            if (session == null)
-                return NotFound(new { error = true, message = "Session non trouvée." });
-            if (!int.TryParse(session.ProfId2, out int profId2))
-                return NotFound(new { error = true, message = "Professeur 2 non trouvé (ID invalide)." });
-            var professor2 = await _context.Users.FirstOrDefaultAsync(u => u.Id == profId2 && u.IsProfessor);
-            if (professor2 == null)
-                return NotFound(new { error = true, message = "Professeur 2 non trouvé." });
-            professor2.Email = model.ProfEmail;
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Email du professeur 2 enregistré et mail envoyé." });
-        }
-
-        /**
          * SetSessionProfessor
          *
          * This method assigns or removes a professor on a given session slot (1 or 2).
@@ -1544,10 +1484,13 @@ namespace backend.Controllers
          * ResendProfMail
          *
          * This method resends the email to the professor for a session.
+         * An optional OverrideEmail redirects this single mail to another address
+         * (professeur mal renseigné) : rien n'est persisté sur la fiche du professeur,
+         * seule la ligne d'outbox porte l'adresse de substitution.
          */
         [HttpPost("{sessionId}/resend-prof-mail")]
         [Authorize]
-        public async Task<IActionResult> ResendProfMail(int sessionId)
+        public async Task<IActionResult> ResendProfMail(int sessionId, [FromBody] ResendProfMailModel? model = null)
         {
             var currentUser = await GetAuthenticatedUserAsync();
             if (currentUser == null)
@@ -1555,10 +1498,14 @@ namespace backend.Controllers
             if (!currentUser.IsAdmin && !currentUser.IsDelegate)
                 return Forbid();
 
+            var overrideEmail = NormalizeOverrideEmail(model?.OverrideEmail);
+            if (overrideEmail != null && !IsPlausibleEmail(overrideEmail))
+                return BadRequest(new { error = true, message = "Format d'email invalide." });
+
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null || string.IsNullOrEmpty(session.ProfId))
                 return NotFound(new { error = true, message = "Session ou email du professeur 1 non trouvé." });
-            await SendProfSignatureMail(session, 1);
+            await SendProfSignatureMail(session, 1, overrideEmail);
             await _context.SaveChangesAsync();
             return Ok(new { message = "Mail renvoyé au professeur 1." });
         }
@@ -1567,10 +1514,11 @@ namespace backend.Controllers
          * ResendProf2Mail
          *
          * This method resends the email to the second professor for a session.
+         * Voir ResendProfMail pour la sémantique de OverrideEmail.
          */
         [HttpPost("{sessionId}/resend-prof2-mail")]
         [Authorize]
-        public async Task<IActionResult> ResendProf2Mail(int sessionId)
+        public async Task<IActionResult> ResendProf2Mail(int sessionId, [FromBody] ResendProfMailModel? model = null)
         {
             var currentUser = await GetAuthenticatedUserAsync();
             if (currentUser == null)
@@ -1578,12 +1526,41 @@ namespace backend.Controllers
             if (!currentUser.IsAdmin && !currentUser.IsDelegate)
                 return Forbid();
 
+            var overrideEmail = NormalizeOverrideEmail(model?.OverrideEmail);
+            if (overrideEmail != null && !IsPlausibleEmail(overrideEmail))
+                return BadRequest(new { error = true, message = "Format d'email invalide." });
+
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null || string.IsNullOrEmpty(session.ProfId2))
                 return NotFound(new { error = true, message = "Session ou email du professeur 2 non trouvé." });
-            await SendProfSignatureMail(session, 2);
+            await SendProfSignatureMail(session, 2, overrideEmail);
             await _context.SaveChangesAsync();
             return Ok(new { message = "Mail renvoyé au professeur 2." });
+        }
+
+        /// <summary>Trim + null si vide, pour distinguer "pas d'override" d'une saisie blanche.</summary>
+        private static string? NormalizeOverrideEmail(string? email)
+            => string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+
+        /// <summary>
+        /// Valide l'adresse avec l'analyseur que MailMessage.To.Add utilisera lui-même :
+        /// ce qui passe ici est envoyable, ce qui échoue est rejeté tout de suite plutôt
+        /// que de faire échouer l'envoi plus tard dans EmailDispatcherService.
+        /// </summary>
+        private static bool IsPlausibleEmail(string email)
+        {
+            if (email.Length > 254) return false;
+            try
+            {
+                // MailAddress accepte "Nom <a@b.fr>" : on exige la forme nue,
+                // et un domaine qualifié (pas de "prof@localhost").
+                var parsed = new System.Net.Mail.MailAddress(email);
+                return parsed.Address == email && parsed.Host.Contains('.', StringComparison.Ordinal);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
         }
 
 
@@ -1616,8 +1593,10 @@ namespace backend.Controllers
          * This method sends an email to a specific professor for signing the attendance sheet.
          * @param session The session
          * @param professorNumber 1 for first professor, 2 for second professor
+         * @param overrideEmail Adresse de substitution pour ce seul envoi (null = adresse du compte).
+         *        N'est jamais écrite en base : elle ne vit que dans la ligne d'outbox.
          */
-        private async Task SendProfSignatureMail(Session session, int professorNumber)
+        private async Task SendProfSignatureMail(Session session, int professorNumber, string? overrideEmail = null)
         {
             string? profEmail;
             string? profSignatureToken;
@@ -1643,6 +1622,10 @@ namespace backend.Controllers
             {
                 throw new ArgumentException("Le numéro de professeur doit être 1 ou 2", nameof(professorNumber));
             }
+
+            // L'override prime sur l'adresse du compte, uniquement pour cet envoi.
+            if (!string.IsNullOrWhiteSpace(overrideEmail))
+                profEmail = overrideEmail;
 
             if (session == null || string.IsNullOrWhiteSpace(profEmail) || string.IsNullOrWhiteSpace(profSignatureToken))
                 return;
@@ -1675,13 +1658,14 @@ Cordialement";
         }
 
         /**
-         * SetProfEmailModel
+         * ResendProfMailModel
          *
-         * This model is used for setting the professor's email.
+         * Body optionnel du renvoi de mail. OverrideEmail redirige ce seul envoi
+         * vers une autre adresse, sans rien modifier sur la fiche du professeur.
          */
-        public class SetProfEmailModel
+        public class ResendProfMailModel
         {
-            public string ProfEmail { get; set; } = string.Empty;
+            public string? OverrideEmail { get; set; }
         }
 
         public class SetSessionProfessorModel

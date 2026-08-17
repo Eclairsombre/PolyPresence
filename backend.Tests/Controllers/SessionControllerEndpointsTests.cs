@@ -227,7 +227,7 @@ public class SessionControllerEndpointsTests
     }
 
     [Fact]
-    public async Task SetProfEmail_ShouldUpdateProfessorEmail_WhenValid()
+    public async Task ResendProfMail_ShouldUseOverrideEmail_WithoutTouchingProfessorRecord()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User { Id = 7, Name = "Prof", Firstname = "One", Email = "old@prof.fr", Year = "PROF", IsProfessor = true });
@@ -241,16 +241,223 @@ public class SessionControllerEndpointsTests
             StartTime = DateTime.Now,
             EndTime = DateTime.Now.AddHours(1),
             ValidationCode = "A",
-            ProfId = "7"
+            ProfId = "7",
+            ProfSignatureToken = "token-1"
         });
         await db.SaveChangesAsync();
 
         var controller = await BuildAdminControllerAsync(db);
 
-        var result = await controller.SetProfEmail(1, new SessionController.SetProfEmailModel { ProfEmail = "new@prof.fr" });
+        var result = await controller.ResendProfMail(1, new SessionController.ResendProfMailModel { OverrideEmail = "new@prof.fr" });
 
         result.Should().BeOfType<OkObjectResult>();
-        (await db.Users.FindAsync(7))!.Email.Should().Be("new@prof.fr");
+        // Le mail part à l'adresse de substitution...
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "new@prof.fr");
+        // ...mais la fiche du professeur reste intacte.
+        (await db.Users.FindAsync(7))!.Email.Should().Be("old@prof.fr");
+    }
+
+    [Fact]
+    public async Task ResendProfMail_ShouldUseAccountEmail_WhenNoOverrideProvided()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 8, Name = "Prof", Firstname = "One", Email = "prof@univ.fr", Year = "PROF", IsProfessor = true });
+        db.Sessions.Add(new Session
+        {
+            Id = 2,
+            Year = "3A",
+            Name = "Cours",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now,
+            EndTime = DateTime.Now.AddHours(1),
+            ValidationCode = "A",
+            ProfId = "8",
+            ProfSignatureToken = "token-2"
+        });
+        await db.SaveChangesAsync();
+
+        var controller = await BuildAdminControllerAsync(db);
+
+        var result = await controller.ResendProfMail(2, null);
+
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "prof@univ.fr");
+    }
+
+    /// <summary>Session minimale prête à recevoir un renvoi de mail pour le prof 1.</summary>
+    private static async Task SeedResendableSessionAsync(
+        backend.Data.ApplicationDbContext db, int sessionId, int profId, string profEmail)
+    {
+        db.Users.Add(new User { Id = profId, Name = "Prof", Firstname = "One", Email = profEmail, Year = "PROF", IsProfessor = true });
+        db.Sessions.Add(new Session
+        {
+            Id = sessionId,
+            Year = "3A",
+            Name = "Cours",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now,
+            EndTime = DateTime.Now.AddHours(1),
+            ValidationCode = "A",
+            ProfId = profId.ToString(),
+            ProfSignatureToken = $"token-{sessionId}"
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task ResendProfMail_ShouldForbid_WhenCallerIsPlainStudent()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        await SeedResendableSessionAsync(db, 610, 611, "prof@univ.fr");
+        db.Users.Add(new User
+        {
+            Id = 612, StudentNumber = "STU612", Name = "Etu", Firstname = "Diant",
+            Email = "etu@univ.fr", Year = "3A", Signature = ""
+        });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db, PrincipalWithId(612));
+        var result = await controller.ResendProfMail(610, new SessionController.ResendProfMailModel { OverrideEmail = "pirate@test.fr" });
+
+        result.Should().BeOfType<ForbidResult>();
+        db.OutboxEmails.Should().BeEmpty();
+        (await db.Users.FindAsync(611))!.Email.Should().Be("prof@univ.fr");
+    }
+
+    [Fact]
+    public async Task ResendProfMail_ShouldReturnUnauthorized_WhenNotAuthenticated()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        await SeedResendableSessionAsync(db, 620, 621, "prof@univ.fr");
+
+        var controller = BuildController(db);
+        var result = await controller.ResendProfMail(620, new SessionController.ResendProfMailModel { OverrideEmail = "pirate@test.fr" });
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+        db.OutboxEmails.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResendProfMail_ShouldFallBackToAccountEmail_WhenOverrideIsWhitespace()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        await SeedResendableSessionAsync(db, 630, 631, "prof@univ.fr");
+
+        var controller = await BuildAdminControllerAsync(db);
+        var result = await controller.ResendProfMail(630, new SessionController.ResendProfMailModel { OverrideEmail = "   " });
+
+        // Une saisie blanche ne doit pas être confondue avec une adresse invalide :
+        // elle équivaut à "pas d'override".
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "prof@univ.fr");
+    }
+
+    [Fact]
+    public async Task ResendProfMail_ShouldTrimOverrideEmail()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        await SeedResendableSessionAsync(db, 640, 641, "prof@univ.fr");
+
+        var controller = await BuildAdminControllerAsync(db);
+        var result = await controller.ResendProfMail(640, new SessionController.ResendProfMailModel { OverrideEmail = "  autre@univ.fr  " });
+
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "autre@univ.fr");
+    }
+
+    [Theory]
+    [InlineData("pas-une-adresse")]
+    [InlineData("prof@localhost")]          // domaine non qualifié
+    [InlineData("Nom Prenom <a@b.fr>")]     // forme display-name refusée
+    [InlineData("a@b.fr, c@d.fr")]          // tentative d'ajout d'un second destinataire
+    [InlineData("a@b.fr\nBcc: x@y.fr")]     // tentative d'injection d'en-tête
+    [InlineData("@univ.fr")]
+    [InlineData("prof@")]
+    public async Task ResendProfMail_ShouldRejectMalformedOverride(string badEmail)
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        await SeedResendableSessionAsync(db, 650, 651, "prof@univ.fr");
+
+        var controller = await BuildAdminControllerAsync(db);
+        var result = await controller.ResendProfMail(650, new SessionController.ResendProfMailModel { OverrideEmail = badEmail });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        db.OutboxEmails.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResendProfMail_ShouldNeverPersistOverride_OnSessionOrProfessor()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        await SeedResendableSessionAsync(db, 660, 661, "prof@univ.fr");
+
+        var controller = await BuildAdminControllerAsync(db);
+        await controller.ResendProfMail(660, new SessionController.ResendProfMailModel { OverrideEmail = "autre@univ.fr" });
+        await controller.ResendProfMail(660, new SessionController.ResendProfMailModel { OverrideEmail = "encore@univ.fr" });
+
+        // Après deux renvois successifs, ni la fiche prof ni la session ne portent trace
+        // de l'adresse de substitution : seule la file d'emails en garde la trace.
+        (await db.Users.FindAsync(661))!.Email.Should().Be("prof@univ.fr");
+        db.OutboxEmails.Select(e => e.ToEmail).Should().BeEquivalentTo(
+            new[] { "autre@univ.fr", "encore@univ.fr" });
+    }
+
+    [Fact]
+    public async Task ResendProf2Mail_ShouldReturnBadRequest_WhenOverrideEmailInvalid()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 671, Name = "Prof", Firstname = "Two", Email = "p2@univ.fr", Year = "PROF", IsProfessor = true });
+        db.Sessions.Add(new Session
+        {
+            Id = 670,
+            Year = "3A",
+            Name = "Cours",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now,
+            EndTime = DateTime.Now.AddHours(1),
+            ValidationCode = "A",
+            ProfId2 = "671",
+            ProfSignatureToken2 = "token-670"
+        });
+        await db.SaveChangesAsync();
+
+        var controller = await BuildAdminControllerAsync(db);
+        var result = await controller.ResendProf2Mail(670, new SessionController.ResendProfMailModel { OverrideEmail = "nope" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        db.OutboxEmails.Should().BeEmpty();
+        (await db.Users.FindAsync(671))!.Email.Should().Be("p2@univ.fr");
+    }
+
+    [Fact]
+    public async Task ResendProfMail_ShouldReturnBadRequest_WhenOverrideEmailInvalid()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 9, Name = "Prof", Firstname = "One", Email = "prof@univ.fr", Year = "PROF", IsProfessor = true });
+        db.Sessions.Add(new Session
+        {
+            Id = 3,
+            Year = "3A",
+            Name = "Cours",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now,
+            EndTime = DateTime.Now.AddHours(1),
+            ValidationCode = "A",
+            ProfId = "9",
+            ProfSignatureToken = "token-3"
+        });
+        await db.SaveChangesAsync();
+
+        var controller = await BuildAdminControllerAsync(db);
+
+        var result = await controller.ResendProfMail(3, new SessionController.ResendProfMailModel { OverrideEmail = "pas-une-adresse" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        db.OutboxEmails.Should().BeEmpty();
     }
 
     [Fact]
@@ -396,9 +603,10 @@ public class SessionControllerEndpointsTests
     }
 
     [Fact]
-    public async Task SetProf2Email_ShouldReturnNotFound_WhenProf2IdInvalid()
+    public async Task ResendProf2Mail_ShouldUseOverrideEmail_WithoutTouchingProfessorRecord()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 204, Name = "Prof", Firstname = "Two", Email = "old2@prof.fr", Year = "PROF", IsProfessor = true });
         db.Sessions.Add(new Session
         {
             Id = 204,
@@ -409,14 +617,17 @@ public class SessionControllerEndpointsTests
             StartTime = DateTime.Now,
             EndTime = DateTime.Now.AddHours(1),
             ValidationCode = "A",
-            ProfId2 = "not-int"
+            ProfId2 = "204",
+            ProfSignatureToken2 = "token-204"
         });
         await db.SaveChangesAsync();
 
         var controller = await BuildAdminControllerAsync(db);
-        var result = await controller.SetProf2Email(204, new SessionController.SetProfEmailModel { ProfEmail = "p2@test.fr" });
+        var result = await controller.ResendProf2Mail(204, new SessionController.ResendProfMailModel { OverrideEmail = "p2@test.fr" });
 
-        result.Should().BeOfType<NotFoundObjectResult>();
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "p2@test.fr");
+        (await db.Users.FindAsync(204))!.Email.Should().Be("old2@prof.fr");
     }
 
     [Fact]
@@ -549,18 +760,18 @@ public class SessionControllerEndpointsTests
     }
 
     [Fact]
-    public async Task SetProfEmail_ShouldReturnNotFound_WhenSessionMissing()
+    public async Task ResendProfMail_ShouldReturnNotFound_WhenSessionMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         var controller = await BuildAdminControllerAsync(db);
 
-        var result = await controller.SetProfEmail(999, new SessionController.SetProfEmailModel { ProfEmail = "prof@test.fr" });
+        var result = await controller.ResendProfMail(999, new SessionController.ResendProfMailModel { OverrideEmail = "prof@test.fr" });
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
-    public async Task SetProfEmail_ShouldReturnNotFound_WhenProfIdInvalid()
+    public async Task ResendProfMail_ShouldNotQueueMail_WhenProfIdInvalid()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Sessions.Add(new Session
@@ -578,13 +789,16 @@ public class SessionControllerEndpointsTests
         await db.SaveChangesAsync();
 
         var controller = await BuildAdminControllerAsync(db);
-        var result = await controller.SetProfEmail(730, new SessionController.SetProfEmailModel { ProfEmail = "prof@test.fr" });
+        var result = await controller.ResendProfMail(730, new SessionController.ResendProfMailModel { OverrideEmail = "prof@test.fr" });
 
-        result.Should().BeOfType<NotFoundObjectResult>();
+        // Sans jeton de signature exploitable, aucun mail ne doit être mis en file,
+        // même avec une adresse de substitution valide.
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task SetProf2Email_ShouldReturnNotFound_WhenProfessorMissing()
+    public async Task ResendProf2Mail_ShouldNotQueueMail_WhenProfessorMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Sessions.Add(new Session
@@ -602,9 +816,10 @@ public class SessionControllerEndpointsTests
         await db.SaveChangesAsync();
 
         var controller = await BuildAdminControllerAsync(db);
-        var result = await controller.SetProf2Email(740, new SessionController.SetProfEmailModel { ProfEmail = "p2@test.fr" });
+        var result = await controller.ResendProf2Mail(740, new SessionController.ResendProfMailModel { OverrideEmail = "p2@test.fr" });
 
-        result.Should().BeOfType<NotFoundObjectResult>();
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().BeEmpty();
     }
 
     [Fact]
