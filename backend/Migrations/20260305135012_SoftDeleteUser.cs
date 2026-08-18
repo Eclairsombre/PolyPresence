@@ -195,10 +195,17 @@ namespace backend.Migrations
                 oldClrType: typeof(string),
                 oldType: "TEXT");
 
+            // InitialCreate ayant été généré pour SQLite (type: "TEXT"), ces colonnes sont
+            // des `text` sous Postgres : "Date" = "2025-10-24 00:00:00", "StartTime" = "11:30:00".
+            // Le modèle actuel attend un DateTime COMPLET (ImportController fait Date.Date + Start,
+            // et FindCurrentEnrolledSessionAsync compare StartTime/EndTime à DateTime.Now).
+            // On recompose donc date + heure : un 'epoch' + heure donnerait 1970-01-01 et
+            // aucune session ne serait plus jamais détectée comme "en cours".
+            // Le ::text:: intermédiaire rend le cast valable que la colonne soit text ou interval.
             migrationBuilder.Sql(
                 "DO $$ BEGIN " +
                 "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='StartTime' AND data_type<>'timestamp without time zone') THEN " +
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"StartTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"StartTime\"; " +
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"StartTime\" TYPE timestamp without time zone USING \"Date\"::text::timestamp + \"StartTime\"::text::interval; " +
                 "END IF; END $$;");
 
             migrationBuilder.AlterColumn<string>(
@@ -306,13 +313,16 @@ namespace backend.Migrations
             migrationBuilder.Sql(
                 "DO $$ BEGIN " +
                 "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='EndTime' AND data_type<>'timestamp without time zone') THEN " +
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"EndTime\"; " +
+                // Même recomposition date + heure que pour StartTime (voir commentaire plus haut).
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"EndTime\" TYPE timestamp without time zone USING \"Date\"::text::timestamp + \"EndTime\"::text::interval; " +
                 "END IF; END $$;");
 
             migrationBuilder.Sql(
                 "DO $$ BEGIN " +
                 "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Sessions' AND column_name='Date' AND data_type<>'timestamp without time zone') THEN " +
-                "ALTER TABLE \"Sessions\" ALTER COLUMN \"Date\" TYPE timestamp without time zone USING 'epoch'::timestamp + \"Date\"; " +
+                // "Date" porte déjà une date complète ("2025-10-24 00:00:00") : simple cast,
+                // surtout pas 'epoch' + valeur. Converti APRÈS StartTime/EndTime, qui le lisent.
+                "ALTER TABLE \"Sessions\" ALTER COLUMN \"Date\" TYPE timestamp without time zone USING \"Date\"::text::timestamp without time zone; " +
                 "END IF; END $$;");
 
             migrationBuilder.AlterColumn<int>(
