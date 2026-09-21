@@ -275,12 +275,25 @@ namespace backend.Controllers
         {
             var session = await _context.Sessions
                 .Include(s => s.Specialization)
+                .Include(s => s.SessionGroups)
+                    .ThenInclude(sg => sg.Group)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (session == null)
             {
                 return NotFound();
             }
+
+            // Groupes visés par la séance : c'est ce qui explique QUI figure sur la feuille
+            // d'émargement. Une liste vide signifie "toute la promotion" (séance créée à la
+            // main, ou import antérieur aux groupes). Trié pour un affichage stable.
+            var targetGroups = session.SessionGroups
+                .Select(sg => sg.Group)
+                .Where(g => g != null)
+                .OrderBy(g => g.Type)
+                .ThenBy(g => g.Label, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new { g.Id, g.Label, g.DisplayName, g.Type })
+                .ToList();
 
             // Détection admin/délégué basée sur la base (cohérent avec GetSessions/GetSessionsByYear).
             // L'ancienne détection par claim ("role"/"isDelegate") était fragile car la validation
@@ -317,7 +330,8 @@ namespace backend.Controllers
                     session.IsMailSent2,
                     session.SpecializationId,
                     SpecializationName = session.Specialization?.Name,
-                    SpecializationCode = session.Specialization?.Code
+                    SpecializationCode = session.Specialization?.Code,
+                    Groups = targetGroups
                 });
             }
 
@@ -344,7 +358,8 @@ namespace backend.Controllers
                 session.IsMerged,
                 session.SpecializationId,
                 SpecializationName = session.Specialization?.Name,
-                SpecializationCode = session.Specialization?.Code
+                SpecializationCode = session.Specialization?.Code,
+                Groups = targetGroups
             });
         }
 
@@ -683,16 +698,39 @@ namespace backend.Controllers
             var now = DateTime.Now;
             var today = now.Date;
 
+            // Groupes de langue de l'étudiant : ils servent à départager un chevauchement.
+            var lvSlots = await db.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.Lv1GroupId, u.Lv2GroupId })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var lvGroupIds = new[] { lvSlots?.Lv1GroupId, lvSlots?.Lv2GroupId }
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+
             // Sessions du jour où l'étudiant est inscrit (a une ligne de présence).
             var sessionsToday = await db.Sessions
                 .AsNoTracking()
                 .Include(s => s.Specialization)
                 .Where(s => s.Date == today &&
                             db.Attendances.Any(a => a.SessionId == s.Id && a.StudentId == userId))
+                .Select(s => new
+                {
+                    Session = s,
+                    IsLanguage = s.SessionGroups.Any(sg => lvGroupIds.Contains(sg.GroupId))
+                })
                 .ToListAsync(cancellationToken);
 
             // Filtre horaire en mémoire (cohérent avec le comportement historique).
-            return sessionsToday.FirstOrDefault(s => s.StartTime <= now && s.EndTime >= now);
+            // En cas de chevauchement, la séance du sous-groupe prime sur celle de langue :
+            // un étudiant peut être inscrit aux deux sur le même créneau.
+            return sessionsToday
+                .Where(x => x.Session.StartTime <= now && x.Session.EndTime >= now)
+                .OrderBy(x => x.IsLanguage ? 1 : 0)
+                .Select(x => x.Session)
+                .FirstOrDefault();
         }
 
         /**

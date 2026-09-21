@@ -89,6 +89,7 @@
             <th class="hide-mobile">N° étudiant</th>
             <th class="hide-mobile">Email</th>
             <th>Année</th>
+            <th v-if="yearFilter !== 'ADMIN'" class="hide-mobile">Groupes</th>
             <th v-if="yearFilter !== 'ADMIN'">Délégué</th>
             <th>Actions</th>
           </tr>
@@ -103,6 +104,20 @@
             <td class="hide-mobile cell-email">{{ student.email }}</td>
             <td>
               <span class="year-badge">{{ student.year }}</span>
+            </td>
+            <td v-if="yearFilter !== 'ADMIN'" class="hide-mobile cell-groups">
+              <span v-if="student.subGroupLabel" class="group-badge">
+                {{ student.subGroupLabel }}
+              </span>
+              <span v-else class="group-none" title="Reçoit tous les cours de sa promotion">
+                promo entière
+              </span>
+              <span v-if="student.lv1GroupLabel" class="group-badge lv">
+                LV1 : {{ student.lv1GroupLabel }}
+              </span>
+              <span v-if="student.lv2GroupLabel" class="group-badge lv">
+                LV2 : {{ student.lv2GroupLabel }}
+              </span>
             </td>
             <td v-if="yearFilter !== 'ADMIN'">
               <span v-if="student.isDelegate" class="delegate-badge">Oui</span>
@@ -681,5 +696,34 @@ code {
     padding: 7px 10px;
     font-size: 0.82rem;
   }
+}
+
+.cell-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.group-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e8eef7;
+  color: #2c3e50;
+  font-size: 0.78em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.group-badge.lv {
+  background: #e6f4ec;
+  color: #1e7a45;
+}
+
+.group-none {
+  font-size: 0.78em;
+  color: #8a94a2;
+  font-style: italic;
 }
 </style>

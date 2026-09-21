@@ -63,6 +63,43 @@
             <p class="info-detail">Année : {{ session?.year }}</p>
           </div>
         </div>
+
+        <!-- Groupes visés : c'est ce qui explique la composition de la feuille.
+             Sans ça, rien ne distingue deux TP au même créneau avec des publics
+             différents. -->
+        <div class="info-card" v-if="session && groupsKnown">
+          <div class="info-card-header">
+            Groupes concernés
+            <span v-if="namedGroups.length > 0" class="group-count">
+              {{ namedGroups.length }}
+            </span>
+          </div>
+          <div class="info-card-body">
+            <p v-if="promoGroup">
+              <strong>Promotion entière</strong>
+            </p>
+            <p v-if="promoGroup" class="info-detail">
+              {{ promoGroup.displayName || promoGroup.label }}
+            </p>
+
+            <div v-if="namedGroups.length > 0" class="group-badges">
+              <span
+                v-for="group in namedGroups"
+                :key="group.id"
+                class="group-badge"
+                :class="groupClass(group)"
+                :title="group.label"
+              >
+                {{ group.displayName || group.label }}
+              </span>
+            </div>
+
+            <p v-if="!promoGroup && namedGroups.length === 0" class="info-detail">
+              Aucun groupe ciblé : la feuille couvre toute la promotion de l'année
+              et de la filière.
+            </p>
+          </div>
+        </div>
       </div>
 
       <!-- Professors -->
@@ -239,7 +276,7 @@
 </template>
 
 <script>
-import { defineComponent, onMounted, ref, watch } from "vue";
+import { computed, defineComponent, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useStudentsStore } from "../../stores/studentsStore";
@@ -263,6 +300,40 @@ export default defineComponent({
     const toast = useToastStore();
 
     const session = ref(null);
+
+    // Valeurs de GroupType côté backend : 0 sous-groupe, 1 promotion, 2 LV1, 3 LV2.
+    const GROUP_TYPE = { SUB: 0, PROMO: 1, LV1: 2, LV2: 3 };
+
+    // L'API sérialise avec ReferenceHandler.Preserve : les tableaux arrivent
+    // enveloppés dans { $values: [...] }.
+    const sessionGroups = computed(() => {
+      const raw = session.value?.groups;
+      return raw?.$values ?? (Array.isArray(raw) ? raw : []);
+    });
+
+    // Un champ ABSENT et une liste VIDE veulent dire deux choses opposees : la premiere
+    // signale un serveur qui ne renvoie pas cette information, la seconde une séance qui
+    // ne cible réellement aucun groupe. Les confondre afficherait "aucun groupe ciblé"
+    // sur des séances qui en ont huit, d'ou la carte entierement masquee dans le
+    // premier cas plutot qu'une affirmation fausse.
+    const groupsKnown = computed(
+      () => session.value != null && session.value.groups != null,
+    );
+
+    // Un libellé promo est affiché à part : il ne désigne pas un groupe d'étudiants
+    // mais toute la promotion, et le lister parmi les sous-groupes serait trompeur.
+    const promoGroup = computed(
+      () => sessionGroups.value.find((g) => g.type === GROUP_TYPE.PROMO) ?? null,
+    );
+
+    const namedGroups = computed(() =>
+      sessionGroups.value.filter((g) => g.type !== GROUP_TYPE.PROMO),
+    );
+
+    const groupClass = (group) =>
+      group.type === GROUP_TYPE.LV1 || group.type === GROUP_TYPE.LV2
+        ? "group-badge-lv"
+        : "group-badge-sub";
     const students = ref([]);
     const loading = ref(true);
     const error = ref(null);
@@ -451,6 +522,10 @@ export default defineComponent({
 
     return {
       session,
+      groupsKnown,
+      promoGroup,
+      namedGroups,
+      groupClass,
       students,
       loading,
       error,
@@ -610,6 +685,42 @@ export default defineComponent({
   font-weight: 400 !important;
   color: #6c757d !important;
   font-size: 0.92rem;
+}
+
+.group-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: #e4eaf2;
+  color: #415367;
+  font-size: 0.95em;
+}
+
+.group-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.group-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.group-badge-sub {
+  background: #eef3fa;
+  color: #2c3e50;
+}
+
+.group-badge-lv {
+  background: #e6f4ec;
+  color: #1b6b3c;
 }
 
 /* Professors */

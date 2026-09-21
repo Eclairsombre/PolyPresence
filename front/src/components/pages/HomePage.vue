@@ -92,7 +92,7 @@
 
 <script setup>
 import { computed } from "vue";
-import StudentsAttendanceSheetPage from "../Holder/SessionHolder.vue";
+import StudentsAttendanceSheetPage from "../holder/SessionHolder.vue";
 import AppIcon from "../AppIcon.vue";
 import { useAuthStore } from "../../stores/authStore";
 

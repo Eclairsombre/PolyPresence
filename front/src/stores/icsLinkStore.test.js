@@ -197,4 +197,126 @@ describe("icsLinkStore", () => {
     expect(store.message).toBe("");
     expect(store.success).toBe(false);
   });
+
+  // ---------- Type de calendrier et libelle promo ----------
+
+  it("addIcsLink transmet le type de calendrier et le libelle promo", async () => {
+    axios.post.mockResolvedValue({});
+    axios.get.mockResolvedValue({ data: { $values: [] } });
+    const store = useIcsLinkStore();
+
+    await store.addIcsLink("3A", "https://x/edt.ics", 1, 0, "Promo INFO 3A");
+
+    expect(axios.post).toHaveBeenCalledWith(expect.stringContaining("/IcsLink"), {
+      year: "3A",
+      url: "https://x/edt.ics",
+      specializationId: 1,
+      kind: 0,
+      promoLabel: "Promo INFO 3A",
+    });
+  });
+
+  it("addIcsLink retombe sur un calendrier de promo sans libelle", async () => {
+    axios.post.mockResolvedValue({});
+    axios.get.mockResolvedValue({ data: { $values: [] } });
+    const store = useIcsLinkStore();
+
+    await store.addIcsLink("3A", "https://x/edt.ics", 1);
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("/IcsLink"),
+      expect.objectContaining({ kind: 0, promoLabel: null }),
+    );
+  });
+
+  it("updateIcsLink transmet le type de calendrier", async () => {
+    axios.put.mockResolvedValue({});
+    axios.get.mockResolvedValue({ data: { $values: [] } });
+    const store = useIcsLinkStore();
+
+    await store.updateIcsLink(5, "3A", "https://x/lv1.ics", 2, 2, null);
+
+    expect(axios.put).toHaveBeenCalledWith(
+      expect.stringContaining("/IcsLink/5"),
+      expect.objectContaining({ kind: 2, promoLabel: null }),
+    );
+  });
+
+  it("importIcs transmet le type et le libelle promo", async () => {
+    axios.post.mockResolvedValue({});
+    const store = useIcsLinkStore();
+
+    await store.importIcs("https://x/edt.ics", "3A", 1, 3, null);
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Import/import-ics"),
+      expect.objectContaining({ kind: 3, promoLabel: null }),
+    );
+  });
+
+  // ---------- Analyse prealable du lien ----------
+
+  it("previewIcs expose le resume et les libelles trouves", async () => {
+    axios.post.mockResolvedValue({
+      data: {
+        eventCount: 298,
+        suggestedPromoLabel: "Promo INFO 3A",
+        labels: [{ label: "Promo INFO 3A", count: 185 }],
+      },
+    });
+    const store = useIcsLinkStore();
+
+    const result = await store.previewIcs("https://x/edt.ics");
+
+    expect(result.eventCount).toBe(298);
+    expect(result.suggestedPromoLabel).toBe("Promo INFO 3A");
+    expect(store.preview.labels).toHaveLength(1);
+    expect(store.previewLoading).toBe(false);
+  });
+
+  it("previewIcs accepte l'enveloppe $values sur les libelles", async () => {
+    axios.post.mockResolvedValue({
+      data: { eventCount: 1, labels: { $values: [{ label: "X", count: 1 }] } },
+    });
+    const store = useIcsLinkStore();
+
+    await store.previewIcs("https://x/edt.ics");
+
+    expect(store.preview.labels).toEqual([{ label: "X", count: 1 }]);
+  });
+
+  it("previewIcs gere un calendrier vide sans le confondre avec une erreur", async () => {
+    // Cas reel des emplois du temps de langues non encore publies : le lien est
+    // valide mais ne contient aucun cours. L'ecran doit pouvoir le dire.
+    axios.post.mockResolvedValue({ data: { eventCount: 0, labels: [] } });
+    const store = useIcsLinkStore();
+
+    const result = await store.previewIcs("https://x/lv1.ics");
+
+    expect(result).not.toBeNull();
+    expect(result.eventCount).toBe(0);
+    expect(result.labels).toEqual([]);
+  });
+
+  it("previewIcs renvoie null et un message en cas d'erreur", async () => {
+    axios.post.mockRejectedValue({
+      response: { data: { message: "URL ICS non autorisee." } },
+    });
+    const store = useIcsLinkStore();
+
+    const result = await store.previewIcs("http://127.0.0.1/x.ics");
+
+    expect(result).toBeNull();
+    expect(store.success).toBe(false);
+    expect(store.message).toContain("non autorisee");
+    expect(store.previewLoading).toBe(false);
+  });
+
+  it("resetPreview efface l'analyse", async () => {
+    const store = useIcsLinkStore();
+    store.preview = { eventCount: 3 };
+
+    store.resetPreview();
+    expect(store.preview).toBeNull();
+  });
 });

@@ -47,6 +47,24 @@
               placeholder="nom.prenom@etu.univ-lyon1.fr"
             />
           </div>
+          <div v-if="studentData.year !== 'ADMIN'" class="form-group">
+            <label for="specialization">Filière <span class="required">*</span></label>
+            <select id="specialization" v-model="studentData.specializationId" required>
+              <option :value="null" disabled>Sélectionner une filière</option>
+              <option v-for="spec in specializations" :key="spec.id" :value="spec.id">
+                {{ spec.name }} ({{ spec.code }})
+              </option>
+            </select>
+          </div>
+
+          <GroupSlotFields
+            v-if="studentData.year !== 'ADMIN'"
+            v-model:subGroupId="studentData.subGroupId"
+            v-model:lv1GroupId="studentData.lv1GroupId"
+            v-model:lv2GroupId="studentData.lv2GroupId"
+            :specializationId="studentData.specializationId"
+          />
+
           <div class="form-group">
             <label>
               <input type="checkbox" v-model="studentData.isDelegate" />
@@ -69,10 +87,13 @@
 
 <script>
 import { useStudentsStore } from '../../stores/studentsStore.js';
-import { ref, watch, toRefs } from 'vue';
+import { useSpecializationStore } from '../../stores/specializationStore.js';
+import GroupSlotFields from '../inputs/GroupSlotFields.vue';
+import { computed, onMounted, ref, watch, toRefs } from 'vue';
 
 export default {
   name: 'PopUpEditStudent',
+  components: { GroupSlotFields },
   props: {
     student: {
       type: Object,
@@ -82,6 +103,10 @@ export default {
   emits: ['close', 'student-updated'],
   setup(props, { emit }) {
     const studentsStore = useStudentsStore();
+    const specializationStore = useSpecializationStore();
+    const specializations = computed(() => specializationStore.activeSpecializations);
+    onMounted(() => specializationStore.fetchSpecializations());
+
     const studentData = ref({ ...props.student });
     watch(() => props.student, (newVal) => {
       studentData.value = { ...newVal };
@@ -109,6 +134,7 @@ export default {
 
     return {
       studentData,
+      specializations,
       isSubmitting,
       errorMessage,
       successMessage,

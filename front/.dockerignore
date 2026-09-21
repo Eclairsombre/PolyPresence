@@ -1,0 +1,15 @@
+# node_modules de l'hôte (Windows) : écraserait le résultat du `npm ci` fait
+# dans l'image Linux, et ralentit énormément le contexte de build.
+node_modules
+dist
+
+# Les .env locaux ne doivent pas être embarqués dans l'image : Vite inline les
+# VITE_* au build, ce qui figerait l'URL d'API du poste de dev dans le bundle.
+# Sans VITE_API_URL, le code retombe sur "/api", proxifié par nginx.
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+*.log

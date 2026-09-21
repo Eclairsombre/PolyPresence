@@ -98,6 +98,9 @@
               >
                 Filières
               </router-link>
+              <router-link to="/admin/groups" @click="showAdminMenu = false">
+                Groupes
+              </router-link>
               <router-link
                 to="/mail-preferences"
                 @click="showAdminMenu = false"

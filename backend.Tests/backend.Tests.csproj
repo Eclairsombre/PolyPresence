@@ -25,4 +25,11 @@
     <ProjectReference Include="..\backend\backend.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ICS de test (EDT de promo + LV1 + LV2), lus tels quels par les tests d'import. -->
+    <Content Include="Fixtures\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

@@ -75,6 +75,14 @@
             </select>
           </div>
 
+          <GroupSlotFields
+            v-if="year !== 'ADMIN'"
+            v-model:subGroupId="student.subGroupId"
+            v-model:lv1GroupId="student.lv1GroupId"
+            v-model:lv2GroupId="student.lv2GroupId"
+            :specializationId="student.specializationId"
+          />
+
           <div v-if="year !== 'ADMIN'" class="form-group">
             <label>
               <input type="checkbox" v-model="student.isDelegate" />
@@ -103,10 +111,12 @@
 <script>
 import { useStudentsStore } from "../../stores/studentsStore.js";
 import { useSpecializationStore } from "../../stores/specializationStore.js";
+import GroupSlotFields from "../inputs/GroupSlotFields.vue";
 import { computed, onMounted, ref } from "vue";
 
 export default {
   name: "PopUpAddStudent",
+  components: { GroupSlotFields },
   props: {
     year: {
       type: String,
@@ -145,6 +155,9 @@ export default {
       group: "",
       isDelegate: false,
       specializationId: initialSpecializationId,
+      subGroupId: null,
+      lv1GroupId: null,
+      lv2GroupId: null,
     });
 
     const isSubmitting = ref(false);
@@ -165,6 +178,9 @@ export default {
         if (student.value.year === "ADMIN") {
           student.value.specializationId = null;
           student.value.isDelegate = false;
+          student.value.subGroupId = null;
+          student.value.lv1GroupId = null;
+          student.value.lv2GroupId = null;
         }
 
         await studentsStore.addStudent(student.value);

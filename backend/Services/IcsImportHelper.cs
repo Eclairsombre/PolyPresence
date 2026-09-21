@@ -11,7 +11,17 @@ namespace backend.Services
         public TimeSpan End { get; set; }
         public string Name { get; set; } = "";
         public string Room { get; set; } = "";
-        public string TargetGroup { get; set; } = "";
+
+        /// <summary>UID ADE de l'occurrence : clé de rapprochement entre deux imports.</summary>
+        public string Uid { get; set; } = "";
+
+        /// <summary>
+        /// Libellés de groupe lus VERBATIM dans la description (ex. "INFO 1-A",
+        /// "Diplôme d'Ingénieur POLYTECH 3A (Informatique)", "A-PL9004TR-BE91").
+        /// Leur résolution en groupes de la base est faite par l'appelant.
+        /// </summary>
+        public List<string> GroupLabels { get; set; } = new();
+
         public List<(string Name, string Firstname)> Professors { get; set; } = new();
     }
 
@@ -28,7 +38,21 @@ namespace backend.Services
         public string ProfId { get; set; } = "";
         public string ProfId2 { get; set; } = "";
         public string Year { get; set; } = "";
-        public string TargetGroup { get; set; } = "";
+
+        /// <summary>UID ADE (le plus petit en ordre ordinal si la séance résulte d'une fusion).</summary>
+        public string Uid { get; set; } = "";
+
+        /// <summary>Libellés de groupe visés, non résolus.</summary>
+        public List<string> GroupLabels { get; set; } = new();
+
+        /// <summary>
+        /// Identité du public visé, utilisée comme clé de regroupement : deux séances qui ne
+        /// visent pas exactement les mêmes groupes ne doivent jamais fusionner.
+        /// </summary>
+        public string GroupKey =>
+            string.Join("|", GroupLabels.Distinct(StringComparer.OrdinalIgnoreCase)
+                                        .OrderBy(l => l, StringComparer.OrdinalIgnoreCase));
+
         public bool IsMerged { get; set; }
     }
 
@@ -88,6 +112,8 @@ namespace backend.Services
         /// Une ligne de professeur dans un export ADE est en MAJUSCULES ("NOM PRENOM"),
         /// sans chiffre, en 2 mots minimum. Cela écarte les promos ("Ingénieur POLYTECH 5A"),
         /// les groupes ("INFO 1-A", "3A-1"), les codes, "(Exporté le...)" et "Groupe Pro".
+        /// Les enseignants non affectés (".", "???", "??? - 50%") ne passent pas ce test :
+        /// ils sont écartés séparément par <see cref="IsPlaceholderLine"/>.
         /// </summary>
         public static bool IsProfessorLine(string? line)
         {
@@ -132,22 +158,56 @@ namespace backend.Services
         }
 
         /// <summary>
-        /// Identifie un sous-groupe cible du type "3A-1 Apprentissage". Si un seul groupe
-        /// est présent → séance de sous-groupe ; sinon (0 ou plusieurs) → toute la promotion.
+        /// Une ligne "placeholder" ne porte aucune information : marqueurs d'enseignant non
+        /// affecté (".", "???", "??? - 50%") ou identifiant numérique ADE en tête de
+        /// description. Sans ce filtre, "???" deviendrait un groupe (23 occurrences sur les
+        /// calendriers INFO 3A + MECA 3A) et polluerait la liste des groupes.
         /// </summary>
-        public static string ExtractTargetGroup(string? description)
+        public static bool IsPlaceholderLine(string? line)
         {
-            if (string.IsNullOrWhiteSpace(description)) return "";
+            if (string.IsNullOrWhiteSpace(line)) return true;
+            line = line.Trim();
+            if (line.StartsWith("(Exporté le", StringComparison.OrdinalIgnoreCase)) return true;
+            if (!line.Any(char.IsLetter)) return true;   // "???", ".", "??? - 50%", "1787834880149"
+            return false;
+        }
 
-            var groups = description.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim())
-                .Select(l => Regex.Match(l, @"^(\d+[A-Z]-\d+)\s+Apprentissage"))
-                .Where(m => m.Success)
-                .Select(m => m.Groups[1].Value)
-                .Distinct()
-                .ToList();
+        /// <summary>
+        /// Extrait les libellés de groupe d'une description ADE, VERBATIM.
+        ///
+        /// La description n'étiquette rien : c'est une liste de lignes dont la structure est
+        /// purement positionnelle — identifiant numérique, puis les groupes, puis
+        /// éventuellement le nom du cours (identique au SUMMARY, cas des LV), puis les
+        /// enseignants en suffixe. Vérifié sur 728 événements réels (INFO 3A, MECA 3A, LV2) :
+        /// les enseignants forment toujours un suffixe et aucun événement n'est sans groupe.
+        ///
+        /// On ne cherche donc AUCUN motif de nommage : les conventions ADE changent d'une promo
+        /// à l'autre ("INFO 1-A", "INFO5 A", "MAT5 A", "MECA5 1-A", "GBM5A groupe 07 [Ing]",
+        /// "A-PL9004TR-BE91"), et un libellé inconnu est remonté tel quel pour que l'import
+        /// crée le groupe correspondant.
+        /// </summary>
+        /// <param name="description">DESCRIPTION du VEVENT.</param>
+        /// <param name="summary">SUMMARY du VEVENT : une ligne qui lui est identique est le
+        /// nom du cours, pas un groupe (systématique dans les ICS de langues).</param>
+        public static List<string> ExtractGroupLabels(string? description, string? summary = null)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(description)) return result;
 
-            return groups.Count == 1 ? groups[0] : "";
+            var courseName = (summary ?? "").Trim();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var raw in description.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var line = raw.Trim();
+                if (IsPlaceholderLine(line)) continue;
+                if (IsProfessorLine(line)) continue;
+                if (courseName.Length > 0 && string.Equals(line, courseName, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!seen.Add(line)) continue;
+                result.Add(line);
+            }
+
+            return result;
         }
 
         /// <summary>Fuseau horaire de l'établissement (Europe/Paris), avec repli Windows.</summary>
@@ -186,7 +246,8 @@ namespace backend.Services
                     End = end.TimeOfDay,
                     Name = NormalizeCourseName(component.Summary),
                     Room = component.Location ?? "",
-                    TargetGroup = ExtractTargetGroup(component.Description),
+                    Uid = component.Uid ?? "",
+                    GroupLabels = ExtractGroupLabels(component.Description, component.Summary),
                     Professors = ExtractProfessors(component.Description)
                 });
             }
@@ -196,12 +257,14 @@ namespace backend.Services
 
         /// <summary>
         /// Applique les règles métier jour par jour :
-        ///  1. recolle les créneaux contigus d'un MÊME cours (par identité nom/salle/prof/groupe),
-        ///     ce qui reconstitue par groupe un cours de 3h découpé en 2×1h30 ;
-        ///  2. regroupe les groupes parallèles UNIQUEMENT sur un créneau strictement identique
-        ///     (même début ET même fin) → une seule séance "A / B" à 2 profs.
-        /// On n'utilise PAS le simple chevauchement (un cours long "pontait" à tort deux cours
-        /// courts différents en un seul bloc, ex. 25/09 Intro 3h + Init BD 1h30 + Python 1h30).
+        ///  1. recolle les créneaux contigus d'un MÊME cours pour un MÊME public,
+        ///     ce qui reconstitue un cours de 3h découpé en 2×1h30 ;
+        ///  2. fusionne deux entrées qui occupent le même créneau ET visent exactement les
+        ///     mêmes groupes (doublons ADE : même public, deux salles).
+        ///
+        /// Des groupes DIFFERENTS ne fusionnent jamais, même à cheval sur le même créneau :
+        /// les 3 TP parallèles de MECA 3A (5/6/5 sous-groupes, 3 salles, 3 profs) doivent
+        /// rester 3 séances, donc 3 feuilles d'émargement distinctes.
         /// </summary>
         public static List<ImportedSession> ApplyBusinessRules(List<ImportedSession> input)
         {
@@ -209,10 +272,6 @@ namespace backend.Services
             foreach (var dayGroup in input.GroupBy(s => s.Date))
             {
                 var daySessions = MergeConsecutiveSessions(dayGroup.ToList());
-                // Cas particulier : une séance longue d'un sous-groupe recouverte par plusieurs
-                // séances consécutives d'un AUTRE sous-groupe → on la découpe pour l'aligner
-                // (ex. 25/09 : Intro 3h du G2 vs Init BD 1h30 + Python 1h30 du G1).
-                daySessions = SplitAlignedLongSessions(daySessions);
                 daySessions = MergeSameWindowSessions(daySessions);
                 result.AddRange(daySessions);
             }
@@ -220,13 +279,14 @@ namespace backend.Services
         }
 
         // Recolle les créneaux contigus (≤ 15 min) d'un même cours. Le regroupement par identité
-        // (nom de base, salle, profs, groupe) garantit que les créneaux d'un même cours sont
-        // recollés même s'ils sont entrelacés dans le temps avec ceux d'un autre groupe.
+        // (nom de base, salle, profs, ENSEMBLE de groupes visés) garantit que les créneaux d'un
+        // même cours sont recollés même s'ils sont entrelacés dans le temps avec ceux d'un
+        // autre groupe, et qu'on ne recolle jamais deux publics différents.
         private static List<ImportedSession> MergeConsecutiveSessions(List<ImportedSession> sessions)
         {
             var result = new List<ImportedSession>();
 
-            foreach (var group in sessions.GroupBy(s => (s.Name, s.Room, s.ProfId, s.ProfId2, s.TargetGroup)))
+            foreach (var group in sessions.GroupBy(s => (s.Name, s.Room, s.ProfId, s.ProfId2, s.GroupKey)))
             {
                 var ordered = group.OrderBy(s => s.Start).ToList();
                 var current = ordered[0];
@@ -237,6 +297,7 @@ namespace backend.Services
                     if (next.Start <= current.End.Add(TimeSpan.FromMinutes(15)))
                     {
                         if (next.End > current.End) current.End = next.End;
+                        current.Uid = SmallestUid(current.Uid, next.Uid);
                         current.IsMerged = true;
                     }
                     else
@@ -251,84 +312,15 @@ namespace backend.Services
             return result;
         }
 
-        // Cas ciblé (et uniquement celui-ci) : une séance longue d'un sous-groupe est recouverte
-        // par une suite de séances consécutives d'un AUTRE sous-groupe. On découpe alors la séance
-        // longue pour l'aligner sur chaque morceau de l'autre groupe (la pause éventuelle de
-        // l'autre groupe devient aussi la pause de la séance longue). Ainsi le créneau se résout
-        // ensuite en N séances "A / B" à 2 profs, au lieu d'un bloc unique fourre-tout.
-        private static List<ImportedSession> SplitAlignedLongSessions(List<ImportedSession> sessions)
-        {
-            var tolerance = TimeSpan.FromMinutes(15);
-            var result = new List<ImportedSession>();
-
-            foreach (var current in sessions)
-            {
-                // On ne découpe qu'une séance de sous-groupe identifié.
-                if (string.IsNullOrEmpty(current.TargetGroup))
-                {
-                    result.Add(current);
-                    continue;
-                }
-
-                // Piste d'un autre sous-groupe (≥ 2 séances consécutives) qui recouvre 'current'.
-                var track = sessions
-                    .Where(o => !ReferenceEquals(o, current)
-                                && !string.IsNullOrEmpty(o.TargetGroup)
-                                && o.TargetGroup != current.TargetGroup
-                                && o.Start < current.End && current.Start < o.End)
-                    .GroupBy(o => o.TargetGroup)
-                    .Select(g => g.OrderBy(o => o.Start).ToList())
-                    .FirstOrDefault(seq => seq.Count >= 2 && CoversWindow(seq, current, tolerance));
-
-                if (track == null)
-                {
-                    result.Add(current);
-                    continue;
-                }
-
-                foreach (var piece in track)
-                {
-                    var start = piece.Start > current.Start ? piece.Start : current.Start;
-                    var end = piece.End < current.End ? piece.End : current.End;
-                    if (end <= start) continue;
-
-                    result.Add(new ImportedSession
-                    {
-                        Date = current.Date,
-                        Start = start,
-                        End = end,
-                        Name = current.Name,
-                        Room = current.Room,
-                        ProfId = current.ProfId,
-                        ProfId2 = current.ProfId2,
-                        Year = current.Year,
-                        TargetGroup = current.TargetGroup,
-                        IsMerged = true
-                    });
-                }
-            }
-
-            return result;
-        }
-
-        // Vrai si les séances 'seq' (triées) recouvrent tout le créneau de 'target' de façon
-        // contiguë (trous ≤ tolérance) : début avant/au début de target, fin après/à la fin.
-        private static bool CoversWindow(List<ImportedSession> seq, ImportedSession target, TimeSpan tolerance)
-        {
-            if (seq[0].Start > target.Start) return false;
-            if (seq[^1].End < target.End) return false;
-            for (int i = 1; i < seq.Count; i++)
-                if (seq[i].Start > seq[i - 1].End.Add(tolerance)) return false;
-            return true;
-        }
-
-        // Regroupe les séances qui occupent EXACTEMENT le même créneau (groupes parallèles) :
-        // "A / B", salles combinées, profs dédupliqués (2 max), groupe = promo entière.
+        // Fusionne les séances qui occupent EXACTEMENT le même créneau ET visent exactement les
+        // mêmes groupes : noms/salles combinés, profs dédupliqués (2 max). Des publics
+        // différents restent des séances distinctes — c'est ce qui donne une feuille
+        // d'émargement par sous-groupe.
         private static List<ImportedSession> MergeSameWindowSessions(List<ImportedSession> sessions)
         {
             var result = new List<ImportedSession>();
 
-            foreach (var window in sessions.GroupBy(s => (s.Start, s.End)))
+            foreach (var window in sessions.GroupBy(s => (s.Start, s.End, s.GroupKey)))
             {
                 var items = window.ToList();
                 var current = items[0];
@@ -344,13 +336,23 @@ namespace backend.Services
                     current.ProfId = allProfs.Count > 0 ? allProfs[0] : "";
                     current.ProfId2 = allProfs.Count > 1 ? allProfs[1] : "";
 
-                    if (current.TargetGroup != other.TargetGroup) current.TargetGroup = "";
+                    current.Uid = SmallestUid(current.Uid, other.Uid);
                     current.IsMerged = true;
                 }
                 result.Add(current);
             }
 
             return result;
+        }
+
+        // Une séance fusionnée provient de plusieurs événements ADE : on retient le plus petit
+        // UID en ordre ordinal pour que la clé de rapprochement reste stable d'un import à
+        // l'autre, indépendamment de l'ordre de lecture du fichier.
+        private static string SmallestUid(string a, string b)
+        {
+            if (string.IsNullOrEmpty(a)) return b ?? "";
+            if (string.IsNullOrEmpty(b)) return a;
+            return string.CompareOrdinal(a, b) <= 0 ? a : b;
         }
 
         private static string CombineStrings(string s1, string s2)

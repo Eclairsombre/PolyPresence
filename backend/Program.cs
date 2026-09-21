@@ -240,12 +240,22 @@ using (var scope = app.Services.CreateScope())
 
         // Schéma déjà présent (base historiquement créée via EnsureCreated) mais AUCUNE
         // migration enregistrée : on "adopte" les migrations en marquant comme déjà appliquées
-        // toutes celles correspondant au schéma existant (toutes sauf la dernière : indexes +
-        // drop TargetGroup), puis Migrate() applique la dernière. Sans ça, Migrate rejouerait
-        // InitialCreate sur des tables existantes ("relation already exists").
+        // toutes celles correspondant au schéma existant, puis Migrate() applique les autres.
+        // Sans ça, Migrate rejouerait InitialCreate sur des tables existantes
+        // ("relation already exists").
+        //
+        // La borne est NOMMÉE et non "toutes sauf la dernière" : cette dernière formulation
+        // se décalait à chaque nouvelle migration et aurait fini par marquer comme appliquée
+        // une migration qui ne l'était pas. FirstMigrationAfterEnsureCreated est la première
+        // migration que le schéma hérité d'EnsureCreated n'a jamais vue : tout ce qui la
+        // précède est déjà dans la base, tout ce qui suit doit être appliqué.
         if (applied.Count == 0 && TableExists(dbContext, "Sessions"))
         {
-            var toBaseline = all.Take(all.Count - 1).ToList();
+            const string FirstMigrationAfterEnsureCreated = "20260706063831_AddSessionIndexesDropTargetGroup";
+
+            var toBaseline = all
+                .TakeWhile(id => string.CompareOrdinal(id, FirstMigrationAfterEnsureCreated) < 0)
+                .ToList();
 
             logger.LogWarning(
                 "Base sans historique EF (héritée d'EnsureCreated) : baseline de {Count} migration(s), puis application des nouvelles.",

@@ -39,6 +39,8 @@ namespace backend.Controllers
                 l.Id,
                 l.Year,
                 l.Url,
+                l.Kind,
+                l.PromoLabel,
                 l.SpecializationId,
                 SpecializationName = l.Specialization?.Name,
                 SpecializationCode = l.Specialization?.Code
@@ -60,6 +62,7 @@ namespace backend.Controllers
                     link.SpecializationId = defaultSpec.Id;
             }
 
+            link.PromoLabel = string.IsNullOrWhiteSpace(link.PromoLabel) ? null : link.PromoLabel.Trim();
             _context.IcsLinks.Add(link);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetAll), new { id = link.Id }, link);
@@ -80,6 +83,8 @@ namespace backend.Controllers
 
             existing.Year = link.Year;
             existing.Url = link.Url;
+            existing.Kind = link.Kind;
+            existing.PromoLabel = string.IsNullOrWhiteSpace(link.PromoLabel) ? null : link.PromoLabel.Trim();
             if (link.SpecializationId != 0)
                 existing.SpecializationId = link.SpecializationId;
 

@@ -6,9 +6,10 @@ const getAccessToken = () => {
   return localStorage.getItem("access_token");
 };
 
-const apiClient = axios.create({
-  baseURL: `${API_URL}`,
-});
+// Pas de baseURL ici : tous les appels préfixent déjà `${API_URL}` eux-mêmes.
+// En mettre un produirait "/api/api/..." dès que API_URL est relatif (axios ne
+// concatène le baseURL que si l'URL n'est pas absolue).
+const apiClient = axios.create();
 
 apiClient.interceptors.request.use(
   (config) => {

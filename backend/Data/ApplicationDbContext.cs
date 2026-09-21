@@ -19,6 +19,8 @@ namespace backend.Data
         public DbSet<IcsLink> IcsLinks { get; set; }
         public DbSet<Specialization> Specializations { get; set; } = null!;
         public DbSet<OutboxEmail> OutboxEmails { get; set; } = null!;
+        public DbSet<Group> Groups { get; set; } = null!;
+        public DbSet<SessionGroup> SessionGroups { get; set; } = null!;
 
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -59,6 +61,7 @@ namespace backend.Data
             modelBuilder.Entity<Session>().HasIndex(s => s.ProfSignatureToken2);
             modelBuilder.Entity<Session>().HasIndex(s => s.ProfId);               // sessions d'un prof
             modelBuilder.Entity<Session>().HasIndex(s => s.ProfId2);
+            modelBuilder.Entity<Session>().HasIndex(s => s.IcsUid);         // rapprochement des imports
 
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Specialization)
@@ -72,9 +75,79 @@ namespace backend.Data
                 .HasForeignKey(l => l.SpecializationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Un lien par (filière, année, nature) : la filière LANGUES porte à la fois
+            // le lien LV1 et le lien LV2 pour une même année, d'où le Kind dans la clé.
             modelBuilder.Entity<IcsLink>()
-                .HasIndex(l => new { l.SpecializationId, l.Year })
+                .HasIndex(l => new { l.SpecializationId, l.Year, l.Kind })
                 .IsUnique();
+
+            // ---------- Groupes ----------
+
+            // Le libellé ADE est l'identité du groupe : c'est sur lui que l'import fait
+            // la correspondance, donc il doit être unique et indexé.
+            modelBuilder.Entity<Group>()
+                .HasIndex(g => g.Label)
+                .IsUnique();
+
+            modelBuilder.Entity<Group>()
+                .HasOne(g => g.ParentGroup)
+                .WithMany()
+                .HasForeignKey(g => g.ParentGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Group>()
+                .HasOne(g => g.Specialization)
+                .WithMany()
+                .HasForeignKey(g => g.SpecializationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Group>()
+                .HasIndex(g => new { g.SpecializationId, g.Year, g.Type });
+
+            // Les 3 emplacements de groupe d'un étudiant. SetNull plutôt que Cascade :
+            // supprimer un groupe ne doit jamais supprimer des étudiants.
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.SubGroup)
+                .WithMany()
+                .HasForeignKey(u => u.SubGroupId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Lv1Group)
+                .WithMany()
+                .HasForeignKey(u => u.Lv1GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Lv2Group)
+                .WithMany()
+                .HasForeignKey(u => u.Lv2GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Index de la requête d'émargement : "quels étudiants sont dans ces groupes ?"
+            modelBuilder.Entity<User>().HasIndex(u => u.SubGroupId);
+            modelBuilder.Entity<User>().HasIndex(u => u.Lv1GroupId);
+            modelBuilder.Entity<User>().HasIndex(u => u.Lv2GroupId);
+
+            // ---------- Groupes visés par une séance (n↔n) ----------
+
+            modelBuilder.Entity<SessionGroup>()
+                .HasKey(sg => new { sg.SessionId, sg.GroupId });
+
+            modelBuilder.Entity<SessionGroup>()
+                .HasOne(sg => sg.Session)
+                .WithMany(s => s.SessionGroups)
+                .HasForeignKey(sg => sg.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SessionGroup>()
+                .HasOne(sg => sg.Group)
+                .WithMany()
+                .HasForeignKey(sg => sg.GroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SessionGroup>()
+                .HasIndex(sg => sg.GroupId);
 
             // Index pour la requête de poll du worker d'envoi d'emails.
             modelBuilder.Entity<OutboxEmail>()

@@ -130,25 +130,9 @@ public class IcsImportHelperTests
         profs[0].Should().Be(("DE", "MEYER LUCAS"));
     }
 
-    // ---------- Groupe cible ----------
-
-    [Fact]
-    public void ExtractTargetGroup_SingleGroup()
-    {
-        var desc = "\nINFO 1-A\nINFO 1-B\n3A-1 Apprentissage Informatique\nBASTIEN JEROME\n";
-        IcsImportHelper.ExtractTargetGroup(desc).Should().Be("3A-1");
-    }
-
-    [Fact]
-    public void ExtractTargetGroup_MultipleGroups_ReturnsEmpty()
-    {
-        var desc = "\n3A-1 Apprentissage Informatique\n3A-2 Apprentissage Informatique\nMORGE MAXIME\n";
-        IcsImportHelper.ExtractTargetGroup(desc).Should().BeEmpty();
-    }
-
     // ---------- Fusion des séances (règles métier) ----------
 
-    private static ImportedSession Slot(string name, string room, string prof, int startH, int startM, int endH, int endM, string group = "")
+    private static ImportedSession Slot(string name, string room, string prof, int startH, int startM, int endH, int endM, params string[] groups)
         => new()
         {
             Date = new DateTime(2025, 9, 24),
@@ -157,7 +141,7 @@ public class IcsImportHelperTests
             Name = name,
             Room = room,
             ProfId = prof,
-            TargetGroup = group
+            GroupLabels = groups.ToList()
         };
 
     [Fact]
@@ -195,8 +179,8 @@ public class IcsImportHelperTests
     {
         var input = new List<ImportedSession>
         {
-            Slot("Fondts math.", "ISTIL 17", "3", 7, 45, 9, 15, group: "3A-1"),
-            Slot("Fondts math.", "ISTIL 17", "3", 9, 30, 11, 0, group: "3A-2"),
+            Slot("Fondts math.", "ISTIL 17", "3", 7, 45, 9, 15, "3A-1"),
+            Slot("Fondts math.", "ISTIL 17", "3", 9, 30, 11, 0, "3A-2"),
         };
 
         IcsImportHelper.ApplyBusinessRules(input).Should().HaveCount(2);
@@ -214,64 +198,80 @@ public class IcsImportHelperTests
         IcsImportHelper.ApplyBusinessRules(input).Should().HaveCount(2);
     }
 
-    // ---------- Groupes parallèles (le cœur de la question) ----------
+    // ---------- Groupes parallèles ----------
+    //
+    // Règle : des publics différents ne fusionnent JAMAIS, même sur un créneau identique.
+    // Chaque sous-groupe a son prof, sa salle et donc sa propre feuille d'émargement.
+    // Avant l'introduction des groupes, ces séances étaient recombinées en une seule
+    // "A / B" à deux profs, faute de savoir qui était vraiment concerné.
 
     [Fact]
-    public void ApplyBusinessRules_ParallelGroups_DifferentCourses_MergeIntoOneWithBothNamesAndProfs()
+    public void ApplyBusinessRules_ParallelGroups_DifferentCourses_StayTwoSessions()
     {
         // Même créneau : groupe 1 fait "Fondts math." (salle 17, prof 10),
         // groupe 2 fait "Python" (salle 126, prof 20).
         var input = new List<ImportedSession>
         {
-            Slot("Fondts math.", "ISTIL 17", "10", 9, 45, 11, 15, group: "3A-1"),
-            Slot("Python", "ISTIL 126", "20", 9, 45, 11, 15, group: "3A-2"),
+            Slot("Fondts math.", "ISTIL 17", "10", 9, 45, 11, 15, "3A-1"),
+            Slot("Python", "ISTIL 126", "20", 9, 45, 11, 15, "3A-2"),
         };
 
         var result = IcsImportHelper.ApplyBusinessRules(input);
 
-        result.Should().ContainSingle();
-        var s = result[0];
-        s.Name.Should().Contain("Fondts math.").And.Contain("Python").And.Contain(" / ");
-        new[] { s.ProfId, s.ProfId2 }.Should().BeEquivalentTo(new[] { "10", "20" });
-        s.Room.Should().Contain("ISTIL 17").And.Contain("ISTIL 126");
-        s.TargetGroup.Should().BeEmpty(); // couvre les 2 groupes → toute la promo
-        s.IsMerged.Should().BeTrue();
+        result.Should().HaveCount(2);
+        result.Select(r => r.Name).Should().BeEquivalentTo(new[] { "Fondts math.", "Python" });
+        result.Should().OnlyContain(r => !r.IsMerged);
     }
 
     [Fact]
-    public void ApplyBusinessRules_ParallelGroups_SameCourse_NameNotDuplicated_TwoProfs()
+    public void ApplyBusinessRules_ParallelGroups_SameCourse_StayTwoSessions()
     {
-        // Même cours pour les 2 groupes en parallèle, 2 salles, 2 profs.
+        // Même cours pour les 2 groupes en parallèle, 2 salles, 2 profs : c'est le cas
+        // des TP de MECA 3A, où le nom normalisé est identique et seuls les groupes
+        // distinguent les séances.
         var input = new List<ImportedSession>
         {
-            Slot("Réseaux et systèmes de communication", "ISTIL 17", "10", 9, 45, 11, 15, group: "3A-1"),
-            Slot("Réseaux et systèmes de communication", "ISTIL 126", "20", 9, 45, 11, 15, group: "3A-2"),
+            Slot("Réseaux et systèmes de communication", "ISTIL 17", "10", 9, 45, 11, 15, "3A-1"),
+            Slot("Réseaux et systèmes de communication", "ISTIL 126", "20", 9, 45, 11, 15, "3A-2"),
+        };
+
+        var result = IcsImportHelper.ApplyBusinessRules(input);
+
+        result.Should().HaveCount(2);
+        result.Select(r => r.ProfId).Should().BeEquivalentTo(new[] { "10", "20" });
+        result.Select(r => r.Room).Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public void ApplyBusinessRules_ThreeParallelGroups_StayThreeSessions()
+    {
+        var input = new List<ImportedSession>
+        {
+            Slot("A", "R1", "1", 9, 0, 11, 0, "3A-1"),
+            Slot("B", "R2", "2", 9, 0, 11, 0, "3A-2"),
+            Slot("C", "R3", "3", 9, 0, 11, 0, "3A-3"),
+        };
+
+        IcsImportHelper.ApplyBusinessRules(input).Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void ApplyBusinessRules_SameWindowAndSameAudience_IsStillMerged()
+    {
+        // Seul cas de fusion restant sur un créneau identique : même public exact, deux
+        // entrées ADE (deux salles pour un même cours). Là, une seule feuille suffit.
+        var input = new List<ImportedSession>
+        {
+            Slot("Anglais", "ISTIL 17", "10", 9, 45, 11, 15, "3A-1", "3A-2"),
+            Slot("Anglais", "ISTIL 126", "20", 9, 45, 11, 15, "3A-2", "3A-1"),
         };
 
         var result = IcsImportHelper.ApplyBusinessRules(input);
 
         result.Should().ContainSingle();
-        result[0].Name.Should().Be("Réseaux et systèmes de communication"); // pas "X / X"
+        result[0].Room.Should().Contain("ISTIL 17").And.Contain("ISTIL 126");
         new[] { result[0].ProfId, result[0].ProfId2 }.Should().BeEquivalentTo(new[] { "10", "20" });
-    }
-
-    [Fact]
-    public void ApplyBusinessRules_ThreeParallelGroups_CombinesNamesAndRooms_KeepsTwoProfs()
-    {
-        var input = new List<ImportedSession>
-        {
-            Slot("A", "R1", "1", 9, 0, 11, 0, group: "3A-1"),
-            Slot("B", "R2", "2", 9, 0, 11, 0, group: "3A-2"),
-            Slot("C", "R3", "3", 9, 0, 11, 0, group: "3A-3"),
-        };
-
-        var result = IcsImportHelper.ApplyBusinessRules(input);
-
-        result.Should().ContainSingle();
-        result[0].Name.Split(" / ").Should().BeEquivalentTo(new[] { "A", "B", "C" });
-        result[0].Room.Split(" / ").Should().HaveCount(3);
-        new[] { result[0].ProfId, result[0].ProfId2 }.Where(p => p != "").Should().HaveCount(2); // modèle = 2 profs max
-        result[0].TargetGroup.Should().BeEmpty();
+        result[0].IsMerged.Should().BeTrue();
     }
 
     [Fact]
@@ -281,42 +281,43 @@ public class IcsImportHelperTests
         // (émargements distincts par groupe).
         var input = new List<ImportedSession>
         {
-            Slot("Init. BD", "ISTIL 128", "5", 8, 0, 10, 0, group: "3A-1"),
-            Slot("Init. BD", "ISTIL 128", "5", 10, 0, 12, 0, group: "3A-2"),
+            Slot("Init. BD", "ISTIL 128", "5", 8, 0, 10, 0, "3A-1"),
+            Slot("Init. BD", "ISTIL 128", "5", 10, 0, 12, 0, "3A-2"),
         };
 
         IcsImportHelper.ApplyBusinessRules(input).Should().HaveCount(2);
     }
 
     [Fact]
-    public void ApplyBusinessRules_25Sep_LongCourseSplitOnOtherGroupPause_TwoSessionsTwoProfs()
+    public void ApplyBusinessRules_LongCourseOfAnotherGroup_IsNoLongerSplit()
     {
         // Cas réel 25/09 après-midi :
         //   Groupe 2 : Intro. prog. objet, un seul bloc de 3h15 (14:00-17:15), prof 9.
         //   Groupe 1 : Init. BD 14:00-15:30 (prof 13) PUIS Python 15:45-17:15 (prof 8), pause 15 min.
-        // Attendu : 2 sessions, chacune à 2 profs, le cours long du G2 étant découpé sur la pause du G1.
+        //
+        // L'ancien code découpait le bloc long du G2 sur la pause du G1 pour pouvoir ensuite
+        // recombiner les deux groupes en séances "A / B" à 2 profs. Cette heuristique n'avait
+        // de sens que faute de connaître le public réel : maintenant que chaque séance porte
+        // ses groupes, chacune reste telle qu'ADE la publie.
         var input = new List<ImportedSession>
         {
-            Slot("Intro. prog. objet", "ISTIL 240", "9", 14, 0, 17, 15, group: "3A-2"),
-            Slot("Init. BD", "ISTIL 128", "13", 14, 0, 15, 30, group: "3A-1"),
-            Slot("Python", "ISTIL 128", "8", 15, 45, 17, 15, group: "3A-1"),
+            Slot("Intro. prog. objet", "ISTIL 240", "9", 14, 0, 17, 15, "3A-2"),
+            Slot("Init. BD", "ISTIL 128", "13", 14, 0, 15, 30, "3A-1"),
+            Slot("Python", "ISTIL 128", "8", 15, 45, 17, 15, "3A-1"),
         };
 
-        var r = IcsImportHelper.ApplyBusinessRules(input).OrderBy(s => s.Start).ToList();
+        var r = IcsImportHelper.ApplyBusinessRules(input).OrderBy(s => s.Start).ThenBy(s => s.Name).ToList();
 
-        r.Should().HaveCount(2);
+        r.Should().HaveCount(3);
+        r.Should().OnlyContain(x => !x.Name.Contains(" / "));
 
-        r[0].Start.Should().Be(new TimeSpan(14, 0, 0));
-        r[0].End.Should().Be(new TimeSpan(15, 30, 0));
-        r[0].Name.Split(" / ").Should().BeEquivalentTo(new[] { "Init. BD", "Intro. prog. objet" });
-        new[] { r[0].ProfId, r[0].ProfId2 }.Should().BeEquivalentTo(new[] { "13", "9" });
-        r[0].TargetGroup.Should().BeEmpty();
+        var longOne = r.Single(x => x.Name == "Intro. prog. objet");
+        longOne.Start.Should().Be(new TimeSpan(14, 0, 0));
+        longOne.End.Should().Be(new TimeSpan(17, 15, 0));
+        longOne.GroupLabels.Should().Equal("3A-2");
 
-        r[1].Start.Should().Be(new TimeSpan(15, 45, 0));
-        r[1].End.Should().Be(new TimeSpan(17, 15, 0));
-        r[1].Name.Split(" / ").Should().BeEquivalentTo(new[] { "Python", "Intro. prog. objet" });
-        new[] { r[1].ProfId, r[1].ProfId2 }.Should().BeEquivalentTo(new[] { "8", "9" });
-        r[1].TargetGroup.Should().BeEmpty();
+        r.Single(x => x.Name == "Init. BD").GroupLabels.Should().Equal("3A-1");
+        r.Single(x => x.Name == "Python").GroupLabels.Should().Equal("3A-1");
     }
 
     [Fact]
@@ -326,8 +327,8 @@ public class IcsImportHelperTests
         // → pas de découpage, et créneaux différents → pas de fusion. Chaque groupe garde sa séance.
         var input = new List<ImportedSession>
         {
-            Slot("X", "R1", "A", 8, 0, 9, 30, group: "3A-1"),
-            Slot("Y", "R2", "B", 8, 0, 11, 0, group: "3A-2"),
+            Slot("X", "R1", "A", 8, 0, 9, 30, "3A-1"),
+            Slot("Y", "R2", "B", 8, 0, 11, 0, "3A-2"),
         };
 
         var r = IcsImportHelper.ApplyBusinessRules(input).OrderBy(s => s.End).ToList();

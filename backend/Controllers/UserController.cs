@@ -294,6 +294,28 @@ namespace backend.Controllers
             existingUser.Email = user.Email;
             existingUser.Year = user.Year;
             existingUser.IsDelegate = user.IsDelegate;
+
+            // Filière et groupes : réservés aux admins. Un étudiant qui pourrait changer son
+            // propre sous-groupe choisirait les feuilles d'émargement sur lesquelles il apparaît.
+            var audienceChanged = false;
+            if (isAdmin)
+            {
+                var (groupError, resolved) = await ValidateGroupSlotsAsync(user);
+                if (groupError != null) return groupError;
+
+                audienceChanged =
+                    existingUser.SpecializationId != user.SpecializationId ||
+                    existingUser.SubGroupId != resolved.SubGroupId ||
+                    existingUser.Lv1GroupId != resolved.Lv1GroupId ||
+                    existingUser.Lv2GroupId != resolved.Lv2GroupId ||
+                    existingUser.Year != user.Year;
+
+                existingUser.SpecializationId = user.SpecializationId;
+                existingUser.SubGroupId = resolved.SubGroupId;
+                existingUser.Lv1GroupId = resolved.Lv1GroupId;
+                existingUser.Lv2GroupId = resolved.Lv2GroupId;
+            }
+
             try
             {
                 await _context.SaveChangesAsync();
@@ -302,6 +324,13 @@ namespace backend.Controllers
             {
                 return StatusCode(500, "Erreur lors de la mise à jour de l'utilisateur.");
             }
+
+            // Changer de groupe change le public des séances à venir : sans ce recalcul,
+            // l'étudiant resterait sur les feuilles de son ancien groupe et manquerait
+            // celles du nouveau.
+            if (audienceChanged)
+                await SyncFutureAttendancesAsync(existingUser);
+
             return NoContent();
         }
 
@@ -388,7 +417,10 @@ namespace backend.Controllers
         // soit plusieurs Mo par page + fuite de données sensibles sur un endpoint public).
         public sealed record StudentListItemDto(
             int Id, string Name, string Firstname, string StudentNumber,
-            string Email, string Year, bool IsDelegate, int? SpecializationId);
+            string Email, string Year, bool IsDelegate, int? SpecializationId,
+            int? SubGroupId, string? SubGroupLabel,
+            int? Lv1GroupId, string? Lv1GroupLabel,
+            int? Lv2GroupId, string? Lv2GroupLabel);
 
         [HttpGet("year/{year}")]
         public async Task<ActionResult<object>> GetUserByYear(
@@ -417,8 +449,13 @@ namespace backend.Controllers
 
             query = query.OrderBy(u => u.Name).ThenBy(u => u.Firstname);
 
+            // Les libellés accompagnent les identifiants : la liste et le formulaire
+            // d'édition doivent pouvoir afficher "INFO 1-A" sans requête supplémentaire.
             var projected = query.Select(u => new StudentListItemDto(
-                u.Id, u.Name, u.Firstname, u.StudentNumber, u.Email, u.Year, u.IsDelegate, u.SpecializationId));
+                u.Id, u.Name, u.Firstname, u.StudentNumber, u.Email, u.Year, u.IsDelegate, u.SpecializationId,
+                u.SubGroupId, u.SubGroup != null ? u.SubGroup.DisplayName : null,
+                u.Lv1GroupId, u.Lv1Group != null ? u.Lv1Group.DisplayName : null,
+                u.Lv2GroupId, u.Lv2Group != null ? u.Lv2Group.DisplayName : null));
 
             // Mode paginé (page fourni) : enveloppe { items, total, page, pageSize, totalPages }.
             if (page.HasValue)
@@ -1245,6 +1282,9 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
             {
                 user.SpecializationId = null;
                 user.IsDelegate = false;
+                user.SubGroupId = null;
+                user.Lv1GroupId = null;
+                user.Lv2GroupId = null;
             }
             else
             {
@@ -1258,6 +1298,9 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                 {
                     return BadRequest(new { error = true, message = "Filière invalide ou inactive." });
                 }
+
+                var (groupError, _) = await ValidateGroupSlotsAsync(user);
+                if (groupError != null) return groupError;
             }
 
             // Vérifie si un compte actif existe déjà
@@ -1278,22 +1321,16 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                 deletedUser.IsAdmin = user.IsAdmin;
                 deletedUser.IsDelegate = user.IsDelegate;
                 deletedUser.SpecializationId = user.SpecializationId;
+                deletedUser.SubGroupId = user.SubGroupId;
+                deletedUser.Lv1GroupId = user.Lv1GroupId;
+                deletedUser.Lv2GroupId = user.Lv2GroupId;
                 deletedUser.IsDeleted = false;
                 deletedUser.DeletedAt = null;
                 deletedUser.RegisterToken = null;
                 deletedUser.RegisterTokenExpiration = null;
                 deletedUser.RegisterMailSent = false;
 
-                var reactivationToday = DateTime.Now.Date;
-                var reactivationSessionsQuery = _context.Sessions
-                    .Where(s => s.Year == deletedUser.Year && s.Date >= reactivationToday);
-
-                if (deletedUser.SpecializationId.HasValue)
-                {
-                    reactivationSessionsQuery = reactivationSessionsQuery.Where(s => s.SpecializationId == deletedUser.SpecializationId.Value);
-                }
-
-                var reactivationSessions = await reactivationSessionsQuery.ToListAsync();
+                var reactivationSessionIds = await FindFutureSessionIdsForStudentAsync(deletedUser);
 
                 // Une seule requête pour connaître les présences déjà existantes de l'étudiant
                 // (évite un AnyAsync par séance → N+1), puis insertion groupée.
@@ -1302,11 +1339,11 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                     .Select(a => a.SessionId)
                     .ToListAsync()).ToHashSet();
 
-                _context.Attendances.AddRange(reactivationSessions
-                    .Where(s => !existingSessionIds.Contains(s.Id))
-                    .Select(s => new Attendance
+                _context.Attendances.AddRange(reactivationSessionIds
+                    .Where(id => !existingSessionIds.Contains(id))
+                    .Select(id => new Attendance
                     {
-                        SessionId = s.Id,
+                        SessionId = id,
                         StudentId = deletedUser.Id,
                         Status = AttendanceStatus.Absent
                     }));
@@ -1319,29 +1356,141 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Utiliser DateTime.Now (heure locale CET) car les dates sont stockées en heure locale
-            var today = DateTime.Now.Date;
-            var futureSessionsQuery = _context.Sessions
-                .Where(s => s.Year == user.Year && s.Date >= today);
-
-            if (user.SpecializationId.HasValue)
-            {
-                futureSessionsQuery = futureSessionsQuery.Where(s => s.SpecializationId == user.SpecializationId.Value);
-            }
-
-            var futureSessions = await futureSessionsQuery.ToListAsync();
+            var futureSessionIds = await FindFutureSessionIdsForStudentAsync(user);
 
             // L'utilisateur vient d'être créé : il n'a aucune présence existante, donc pas
             // besoin de vérifier séance par séance (ancien N+1). Insertion groupée directe.
-            _context.Attendances.AddRange(futureSessions.Select(session => new Attendance
+            _context.Attendances.AddRange(futureSessionIds.Select(sessionId => new Attendance
             {
-                SessionId = session.Id,
+                SessionId = sessionId,
                 StudentId = user.Id,
                 Status = AttendanceStatus.Absent
             }));
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+        }
+
+        /// <summary>
+        /// Vérifie que les trois emplacements de groupe pointent vers des groupes existants
+        /// ET du bon type : un code de LV2 dans la case sous-groupe donnerait un étudiant
+        /// inscrit à des séances qui ne le concernent pas, sans erreur visible.
+        /// </summary>
+        private async Task<(IActionResult? Error, (int? SubGroupId, int? Lv1GroupId, int? Lv2GroupId) Slots)>
+            ValidateGroupSlotsAsync(User user)
+        {
+            var wanted = new[]
+            {
+                (Id: user.SubGroupId, Expected: GroupType.Sub, Label: "sous-groupe"),
+                (Id: user.Lv1GroupId, Expected: GroupType.Lv1, Label: "LV1"),
+                (Id: user.Lv2GroupId, Expected: GroupType.Lv2, Label: "LV2"),
+            };
+
+            var ids = wanted.Where(w => w.Id.HasValue).Select(w => w.Id!.Value).Distinct().ToList();
+            var groups = ids.Count == 0
+                ? new List<Group>()
+                : await _context.Groups.Where(g => ids.Contains(g.Id)).ToListAsync();
+
+            foreach (var slot in wanted)
+            {
+                if (!slot.Id.HasValue) continue;
+
+                var group = groups.FirstOrDefault(g => g.Id == slot.Id.Value);
+                if (group == null)
+                    return (BadRequest(new { error = true, message = $"Groupe de {slot.Label} introuvable." }), default);
+                if (group.Type != slot.Expected)
+                    return (BadRequest(new
+                    {
+                        error = true,
+                        message = $"Le groupe '{group.DisplayName}' n'est pas un groupe de {slot.Label}."
+                    }), default);
+            }
+
+            return (null, (user.SubGroupId, user.Lv1GroupId, user.Lv2GroupId));
+        }
+
+        /// <summary>
+        /// Aligne les présences à venir d'un étudiant sur son affectation courante.
+        /// Les présences retirées se limitent aux séances futures encore vierges : on ne
+        /// détruit jamais un émargement déjà saisi ni un commentaire.
+        /// </summary>
+        private async Task SyncFutureAttendancesAsync(User user)
+        {
+            var today = DateTime.Now.Date;
+            var wanted = (await FindFutureSessionIdsForStudentAsync(user)).ToHashSet();
+
+            var current = await _context.Attendances
+                .Where(a => a.StudentId == user.Id && a.Session.Date >= today)
+                .ToListAsync();
+
+            var currentIds = current.Select(a => a.SessionId).ToHashSet();
+
+            var toRemove = current
+                .Where(a => !wanted.Contains(a.SessionId)
+                            && a.Status == AttendanceStatus.Absent
+                            && string.IsNullOrEmpty(a.Comment))
+                .ToList();
+
+            var toAdd = wanted
+                .Where(id => !currentIds.Contains(id))
+                .Select(id => new Attendance { SessionId = id, StudentId = user.Id, Status = AttendanceStatus.Absent })
+                .ToList();
+
+            if (toRemove.Count > 0) _context.Attendances.RemoveRange(toRemove);
+            if (toAdd.Count > 0) _context.Attendances.AddRange(toAdd);
+
+            if (toRemove.Count > 0 || toAdd.Count > 0)
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation(
+                    $"Émargements à venir resynchronisés pour {user.StudentNumber} : +{toAdd.Count} / -{toRemove.Count}");
+            }
+        }
+
+        /// <summary>
+        /// Séances à venir sur lesquelles l'étudiant doit émarger, en appliquant les mêmes
+        /// règles d'audience que l'import (sous-groupe, LV1/LV2, libellé promo, ou repli
+        /// année + filière tant que l'étudiant n'a pas de sous-groupe).
+        ///
+        /// Le pré-filtre SQL est volontairement large — sa filière/année, plus toute séance
+        /// visant explicitement un de ses groupes, ce qui rattrape les cours de langue donnés
+        /// sous la filière LANGUES — et le tri fin est fait par <see cref="SessionAudience"/>.
+        /// </summary>
+        private async Task<List<int>> FindFutureSessionIdsForStudentAsync(User user)
+        {
+            var today = DateTime.Now.Date;
+
+            var studentGroupIds = new[] { user.SubGroupId, user.Lv1GroupId, user.Lv2GroupId }
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+
+            var candidates = await _context.Sessions
+                .AsNoTracking()
+                .Where(s => s.Date >= today
+                            && ((s.Year == user.Year && s.SpecializationId == user.SpecializationId)
+                                || s.SessionGroups.Any(sg => studentGroupIds.Contains(sg.GroupId))))
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Year,
+                    s.SpecializationId,
+                    Groups = s.SessionGroups
+                        .Select(sg => new AudienceGroup(sg.Group.Id, sg.Group.Type, sg.Group.SpecializationId, sg.Group.Year))
+                        .ToList()
+                })
+                .ToListAsync();
+
+            var self = new[]
+            {
+                new AudienceStudent(user.Id, user.Year, user.SpecializationId,
+                                    user.SubGroupId, user.Lv1GroupId, user.Lv2GroupId)
+            };
+
+            return candidates
+                .Where(c => SessionAudience.Match(self, c.Groups, c.Year, c.SpecializationId).Count > 0)
+                .Select(c => c.Id)
+                .ToList();
         }
 
         /**

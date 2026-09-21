@@ -1,0 +1,51 @@
+# Stack locale : backend + postgres uniquement (pas de tunnel Cloudflare).
+# Le frontend tourne hors Docker, en Vite dev : cd front && npm run dev
+# Vite (5173) proxifie /api vers le backend publié ici sur 5000.
+#   docker compose -f docker-compose.local.yaml up -d --build
+services:
+    backend:
+        build: backend
+        restart: unless-stopped
+        env_file: backend/.env
+        environment:
+            - TZ=Europe/Paris
+            - ASPNETCORE_ENVIRONMENT=Development
+            - FRONTEND_URL=http://localhost:5173
+        depends_on:
+            postgres:
+                condition: service_healthy
+        networks:
+            - app_network
+        ports:
+            - "5000:8080"
+        volumes:
+            - ./backend_data:/data
+
+    postgres:
+        image: postgres:16
+        restart: unless-stopped
+        environment:
+            - POSTGRES_DB=polypresence
+            - POSTGRES_USER=polypresence
+            - POSTGRES_PASSWORD=polypresence
+            - TZ=Europe/Paris
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+            - ./pg_conf/postgresql.conf:/etc/postgresql/postgresql.conf
+        networks:
+            - app_network
+        ports:
+            - "5433:5433"
+        command: -c config_file=/etc/postgresql/postgresql.conf
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U polypresence -d polypresence -p 5433"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+networks:
+    app_network:
+        driver: bridge
+
+volumes:
+    pgdata:

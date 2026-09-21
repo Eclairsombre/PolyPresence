@@ -76,6 +76,12 @@ const routes = [
     meta: { requiresAdmin: true },
   },
   {
+    path: "/admin/groups",
+    name: "AdminGroups",
+    component: () => import("../components/pages/GroupListPage.vue"),
+    beforeEnter: requiresAdmin,
+  },
+  {
     path: "/admin/specializations",
     name: "AdminSpecializations",
     component: () => import("../components/pages/SpecializationListPage.vue"),

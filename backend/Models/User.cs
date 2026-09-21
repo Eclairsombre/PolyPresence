@@ -48,5 +48,21 @@ namespace backend.Models
 
         public int? SpecializationId { get; set; }
         public Specialization? Specialization { get; set; }
+
+        /// <summary>
+        /// Sous-groupe de promotion de l'étudiant (ex. "INFO 1-C"). Null = non affecté :
+        /// l'étudiant reçoit alors TOUTES les séances de son année et de sa filière, comme
+        /// avant l'introduction des groupes. C'est ce qui rend la migration transparente.
+        /// </summary>
+        public int? SubGroupId { get; set; }
+        public Group? SubGroup { get; set; }
+
+        /// <summary>Groupe de LV1 (facultatif : tous les étudiants n'ont pas de LV1).</summary>
+        public int? Lv1GroupId { get; set; }
+        public Group? Lv1Group { get; set; }
+
+        /// <summary>Groupe de LV2 (facultatif).</summary>
+        public int? Lv2GroupId { get; set; }
+        public Group? Lv2Group { get; set; }
     }
 }

@@ -131,6 +131,12 @@ export const useStudentsStore = defineStore("students", {
           signature: student.signature,
           isDelegate: student.isDelegate ?? false,
           specializationId: student.specializationId ?? null,
+          subGroupId: student.subGroupId ?? null,
+          subGroupLabel: student.subGroupLabel ?? null,
+          lv1GroupId: student.lv1GroupId ?? null,
+          lv1GroupLabel: student.lv1GroupLabel ?? null,
+          lv2GroupId: student.lv2GroupId ?? null,
+          lv2GroupLabel: student.lv2GroupLabel ?? null,
         }));
 
         this.students = formattedStudents;
@@ -211,6 +217,10 @@ export const useStudentsStore = defineStore("students", {
             year: student.year,
             signature: student.signature,
             isDelegate: student.isDelegate ?? false,
+            specializationId: student.specializationId ?? null,
+            subGroupId: student.subGroupId ?? null,
+            lv1GroupId: student.lv1GroupId ?? null,
+            lv2GroupId: student.lv2GroupId ?? null,
           };
         } else {
           console.debug(

@@ -168,7 +168,7 @@ public class ImportControllerTests
             new()
             {
                 Date = DateTime.Today, Start = TimeSpan.FromHours(8), End = TimeSpan.FromHours(10),
-                Name = "Algo", Room = "A1", ProfId = "11", ProfId2 = "", Year = "3A", TargetGroup = "3A-1"
+                Name = "Algo", Room = "A1", ProfId = "11", ProfId2 = "", Year = "3A"
             }
         };
 
@@ -215,7 +215,7 @@ public class ImportControllerTests
             {
                 Date = date, Start = TimeSpan.FromHours(8), End = TimeSpan.FromHours(10),
                 Name = "Updated", Room = "R9", ProfId = "9", ProfId2 = "10", Year = "3A",
-                TargetGroup = "3A-2", IsMerged = true
+                IsMerged = true
             }
         };
 
@@ -237,7 +237,8 @@ public class ImportControllerTests
     {
         var sync = typeof(ImportController).GetMethod("SyncWithDatabase", BindingFlags.NonPublic | BindingFlags.Instance);
         sync.Should().NotBeNull();
-        var task = (Task)sync!.Invoke(controller, new object[] { imported, year, specializationId })!;
+        var task = (Task)sync!.Invoke(controller,
+            new object?[] { imported, year, specializationId, GroupType.Sub, null })!;
         await task;
     }
 }

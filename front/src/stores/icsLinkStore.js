@@ -16,6 +16,8 @@ export const useIcsLinkStore = defineStore("icsLink", {
     success: false,
     timers: null,
     autoImportEnabled: true,
+    preview: null,
+    previewLoading: false,
   }),
   actions: {
     /**
@@ -41,11 +43,17 @@ export const useIcsLinkStore = defineStore("icsLink", {
      * @param {string} url - ICS calendar URL
      * @param {number} specializationId - Specialization ID
      */
-    async addIcsLink(year, url, specializationId) {
+    async addIcsLink(year, url, specializationId, kind = 0, promoLabel = null) {
       this.loading = true;
       this.error = null;
       try {
-        await axios.post(`${API_URL}/IcsLink`, { year, url, specializationId });
+        await axios.post(`${API_URL}/IcsLink`, {
+          year,
+          url,
+          specializationId,
+          kind,
+          promoLabel,
+        });
         this.message = "Lien ajouté !";
         this.success = true;
         await this.fetchIcsLinks();
@@ -65,7 +73,14 @@ export const useIcsLinkStore = defineStore("icsLink", {
      * @param {string} url - ICS calendar URL
      * @param {number} specializationId - Specialization ID
      */
-    async updateIcsLink(id, year, url, specializationId) {
+    async updateIcsLink(
+      id,
+      year,
+      url,
+      specializationId,
+      kind = 0,
+      promoLabel = null,
+    ) {
       this.loading = true;
       this.error = null;
       try {
@@ -74,6 +89,8 @@ export const useIcsLinkStore = defineStore("icsLink", {
           year,
           url,
           specializationId,
+          kind,
+          promoLabel,
         });
         this.message = "Lien modifié !";
         this.success = true;
@@ -116,7 +133,13 @@ export const useIcsLinkStore = defineStore("icsLink", {
      * @param {string} year - Academic year to associate with imported sessions
      * @param {number} specializationId - Specialization ID
      */
-    async importIcs(icsUrl, year, specializationId) {
+    async importIcs(
+      icsUrl,
+      year,
+      specializationId,
+      kind = 0,
+      promoLabel = null,
+    ) {
       this.loading = true;
       this.error = null;
       try {
@@ -124,6 +147,8 @@ export const useIcsLinkStore = defineStore("icsLink", {
           icsUrl,
           year,
           specializationId,
+          kind,
+          promoLabel,
         });
         this.message = "Import effectué !";
         this.success = true;
@@ -134,6 +159,44 @@ export const useIcsLinkStore = defineStore("icsLink", {
       } finally {
         this.loading = false;
       }
+    },
+
+    /**
+     * Analyse un lien ICS sans rien enregistrer : nombre d'evenements, periode
+     * couverte et libelles de groupe qu'il contient.
+     *
+     * Sert a deux choses a la saisie : choisir le libelle promo dans une liste
+     * plutot que le retaper au caractere pres, et voir immediatement qu'un
+     * calendrier est vide (cas des emplois du temps de langues non publies).
+     *
+     * @param {string} icsUrl
+     * @returns {Promise<Object|null>} { eventCount, firstDate, lastDate, suggestedPromoLabel, labels }
+     */
+    async previewIcs(icsUrl) {
+      this.previewLoading = true;
+      this.preview = null;
+      try {
+        const res = await axios.post(`${API_URL}/Import/preview-ics`, {
+          icsUrl,
+        });
+        this.preview = {
+          ...res.data,
+          labels: res.data.labels?.$values || res.data.labels || [],
+        };
+        return this.preview;
+      } catch (e) {
+        this.message =
+          e.response?.data?.message || "Impossible d'analyser ce lien.";
+        this.success = false;
+        return null;
+      } finally {
+        this.previewLoading = false;
+      }
+    },
+
+    /** Efface l'analyse courante (changement d'URL, annulation d'edition). */
+    resetPreview() {
+      this.preview = null;
     },
 
     /**
