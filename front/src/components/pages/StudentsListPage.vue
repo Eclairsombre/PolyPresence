@@ -112,11 +112,13 @@
               <span v-else class="group-none" title="Reçoit tous les cours de sa promotion">
                 promo entière
               </span>
+              <!-- Deux emplacements, pas deux catégories : les étiqueter « LV1 » et
+                   « LV2 » ferait croire à un classement que rien ne fonde. -->
               <span v-if="student.lv1GroupLabel" class="group-badge lv">
-                LV1 : {{ student.lv1GroupLabel }}
+                Langue : {{ student.lv1GroupLabel }}
               </span>
               <span v-if="student.lv2GroupLabel" class="group-badge lv">
-                LV2 : {{ student.lv2GroupLabel }}
+                Langue : {{ student.lv2GroupLabel }}
               </span>
             </td>
             <td v-if="yearFilter !== 'ADMIN'">
@@ -215,8 +217,10 @@ const selectedSpecializationId = ref("");
 const studentsStore = useStudentsStore();
 const authStore = useAuthStore();
 const specializationStore = useSpecializationStore();
+// Pas de « Langues » ici : aucun étudiant n'appartient à cette filière, la
+// choisir ne renverrait jamais qu'une liste vide.
 const specializations = computed(
-  () => specializationStore.activeSpecializations,
+  () => specializationStore.academicSpecializations,
 );
 const showImportPopup = ref(false);
 const showAddPopup = ref(false);

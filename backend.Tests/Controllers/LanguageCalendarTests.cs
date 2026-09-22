@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace backend.Tests.Controllers;
 
 /// <summary>
-/// Emplois du temps de langues, sur deux calendriers :
+/// Emplois du temps de langues, à partir de deux échantillons :
 ///
 /// <b>lv1_reel_3a.ics</b> — export ADE réel de la LV1 3A (anglais), récupéré le 16/09/2026 :
 /// 146 cours, 10 groupes <c>A-I3002TR-AR5x</c> (2 cours/semaine) et <c>AN5x</c> (1/semaine).
@@ -21,6 +21,11 @@ namespace backend.Tests.Controllers;
 /// <b>lv2_mock_3a.ics</b> — LV2 fictive calquée sur cet export : même structure de description
 /// (sans recopie du SUMMARY), même période, même trou de Toussaint, même changement d'heure,
 /// un événement multi-groupes et un cours publié en 2×1h30. Codes, profs et créneaux inventés.
+///
+/// <b>Attention à la forme réelle</b> : ADE ne publie PAS deux calendriers. Il en publie un
+/// seul, où les deux familles de codes cohabitent — c'est ce que vérifient les tests de la
+/// section « calendrier unique », qui recollent les deux échantillons. Les tests par
+/// échantillon restent utiles pour isoler une régression de parsing sur une moitié.
 /// </summary>
 public class LanguageCalendarTests
 {
@@ -33,10 +38,12 @@ public class LanguageCalendarTests
     private static string Read(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name), Encoding.UTF8);
 
-    private static List<ParsedIcsEvent> Parse(string name) => IcsImportHelper.ParseCalendar(Read(name));
+    private static List<ParsedIcsEvent> ParseText(string ics) => IcsImportHelper.ParseCalendar(ics);
 
-    private static List<ImportedSession> Load(string name) =>
-        IcsImportHelper.ApplyBusinessRules(Parse(name)
+    private static List<ParsedIcsEvent> Parse(string name) => ParseText(Read(name));
+
+    private static List<ImportedSession> LoadText(string ics) =>
+        IcsImportHelper.ApplyBusinessRules(ParseText(ics)
             .Select(ev => new ImportedSession
             {
                 Date = ev.Date,
@@ -54,7 +61,27 @@ public class LanguageCalendarTests
             })
             .ToList());
 
-    private static async Task SyncAsync(backend.Data.ApplicationDbContext db, string fixture, GroupType kind)
+    private static List<ImportedSession> Load(string name) => LoadText(Read(name));
+
+    /// <summary>
+    /// Recolle les deux échantillons en UN calendrier : c'est la forme réellement publiée
+    /// par ADE — un seul export où toutes les langues cohabitent.
+    /// </summary>
+    private static string SingleLanguageCalendar()
+    {
+        var host = Read(RealLv1);
+        var guest = Read(MockLv2);
+
+        var start = guest.IndexOf("BEGIN:VEVENT", StringComparison.Ordinal);
+        var end = guest.LastIndexOf("END:VCALENDAR", StringComparison.Ordinal);
+        var events = guest[start..end];
+
+        var insertAt = host.LastIndexOf("END:VCALENDAR", StringComparison.Ordinal);
+        return host[..insertAt] + events + host[insertAt..];
+    }
+
+    private static async Task SyncAsync(
+        backend.Data.ApplicationDbContext db, List<ImportedSession> sessions, GroupType kind)
     {
         var services = new ServiceCollection();
         services.AddHttpClient();
@@ -67,8 +94,11 @@ public class LanguageCalendarTests
             provider.GetRequiredService<IHttpClientFactory>());
 
         var sync = typeof(ImportController).GetMethod("SyncWithDatabase", BindingFlags.NonPublic | BindingFlags.Instance);
-        await (Task)sync!.Invoke(controller, new object?[] { Load(fixture), "3A", LanguesSpecId, kind, null })!;
+        await (Task)sync!.Invoke(controller, new object?[] { sessions, "3A", LanguesSpecId, kind, null })!;
     }
+
+    private static Task SyncAsync(backend.Data.ApplicationDbContext db, string fixture, GroupType kind) =>
+        SyncAsync(db, Load(fixture), kind);
 
     private static async Task<backend.Data.ApplicationDbContext> CreateDbAsync()
     {
@@ -174,14 +204,14 @@ public class LanguageCalendarTests
     }
 
     [Fact]
-    public async Task RealLv1_Import_CreatesTenLv1Groups_WithTheirExactSessionCounts()
+    public async Task RealLv1_Import_CreatesTenLanguageGroups_WithTheirExactSessionCounts()
     {
         await using var db = await CreateDbAsync();
-        await SyncAsync(db, RealLv1, GroupType.Lv1);
+        await SyncAsync(db, RealLv1, GroupType.Language);
 
         (await db.Sessions.CountAsync()).Should().Be(145);
         (await db.Groups.CountAsync()).Should().Be(10);
-        (await db.Groups.AllAsync(g => g.Type == GroupType.Lv1)).Should().BeTrue();
+        (await db.Groups.AllAsync(g => g.Type == GroupType.Language)).Should().BeTrue();
 
         // Anglais renforcé : 2 cours/semaine, moins les semaines incomplètes de l'export.
         (await SessionCountForGroupAsync(db, "A-I3002TR-AR51")).Should().Be(20);
@@ -200,16 +230,16 @@ public class LanguageCalendarTests
     {
         await using var db = await CreateDbAsync();
 
-        var ar51 = await DeclareGroupAsync(db, "A-I3002TR-AR51", GroupType.Lv1);
-        var ar52 = await DeclareGroupAsync(db, "A-I3002TR-AR52", GroupType.Lv1);
-        var ar53 = await DeclareGroupAsync(db, "A-I3002TR-AR53", GroupType.Lv1);
+        var ar51 = await DeclareGroupAsync(db, "A-I3002TR-AR51", GroupType.Language);
+        var ar52 = await DeclareGroupAsync(db, "A-I3002TR-AR52", GroupType.Language);
+        var ar53 = await DeclareGroupAsync(db, "A-I3002TR-AR53", GroupType.Language);
 
         db.Users.AddRange(
             new User { Id = 1, StudentNumber = "p1", Name = "Dans", Firstname = "AR52", Email = "a@x.fr", Year = "3A", SpecializationId = 1, Lv1GroupId = ar52, Signature = "" },
             new User { Id = 2, StudentNumber = "p2", Name = "Dans", Firstname = "AR53", Email = "b@x.fr", Year = "3A", SpecializationId = 1, Lv1GroupId = ar53, Signature = "" });
         await db.SaveChangesAsync();
 
-        await SyncAsync(db, RealLv1, GroupType.Lv1);
+        await SyncAsync(db, RealLv1, GroupType.Language);
 
         // Les groupes déclarés à la main sont réutilisés, pas dupliqués.
         (await db.Groups.CountAsync()).Should().Be(10);
@@ -279,66 +309,134 @@ public class LanguageCalendarTests
     public async Task MockLv2_Import_GivesEachGroupTenSessions()
     {
         await using var db = await CreateDbAsync();
-        await SyncAsync(db, MockLv2, GroupType.Lv2);
+        await SyncAsync(db, MockLv2, GroupType.Language);
 
         (await db.Sessions.CountAsync()).Should().Be(69);
-        (await db.Groups.AllAsync(g => g.Type == GroupType.Lv2)).Should().BeTrue();
+        (await db.Groups.AllAsync(g => g.Type == GroupType.Language)).Should().BeTrue();
 
         // ES51 et ES52 : 9 cours + l'oral blanc commun. CH51 : le cours coupé compte pour un.
         foreach (var code in new[] { "ES51", "ES52", "ES53", "AL51", "AL52", "IT51", "CH51" })
             (await SessionCountForGroupAsync(db, $"A-I3004TR-{code}")).Should().Be(10, code);
     }
 
-    // ================================================================== LV1 + LV2 ensemble
+    // ============================================================= calendrier unique
 
     [Fact]
-    public async Task Lv1AndLv2_ImportedUnderTheSameSpecialization_NeverEraseEachOther()
+    public void SingleCalendar_CarriesBothFamiliesOfCodes_AndKeepsThemApart()
     {
-        // Les deux liens partagent la filière LANGUES et l'année 3A : sans le périmètre par
-        // calendrier, l'import LV2 supprimait toutes les séances LV1.
-        await using var db = await CreateDbAsync();
+        // Les deux familles cohabitent dans le même export, sans rien qui les distingue
+        // hormis le code lui-même. C'est précisément pourquoi l'import ne classe plus
+        // les groupes en LV1 / LV2 : l'information n'est nulle part.
+        var sessions = LoadText(SingleLanguageCalendar());
 
-        await SyncAsync(db, RealLv1, GroupType.Lv1);
-        await SyncAsync(db, MockLv2, GroupType.Lv2);
-        (await db.Sessions.CountAsync()).Should().Be(145 + 69);
+        sessions.Should().HaveCount(145 + 69);
 
-        // Réimport de la LV1 (import automatique de nuit) : la LV2 reste intacte.
-        await SyncAsync(db, RealLv1, GroupType.Lv1);
-        (await db.Sessions.CountAsync(s => s.IcsKind == GroupType.Lv1)).Should().Be(145);
-        (await db.Sessions.CountAsync(s => s.IcsKind == GroupType.Lv2)).Should().Be(69);
+        var labels = sessions.SelectMany(s => s.GroupLabels).Distinct().ToList();
+        labels.Should().HaveCount(17);
+        labels.Count(l => l.StartsWith("A-I3002TR-")).Should().Be(10);
+        labels.Count(l => l.StartsWith("A-I3004TR-")).Should().Be(7);
+
+        // Un cours d'anglais et un cours d'espagnol au même créneau restent deux séances :
+        // les recoller parce qu'ils viennent du même fichier serait le piège de la fusion.
+        sessions
+            .Where(s => s.Date == new DateTime(2026, 9, 8) && s.Start == new TimeSpan(9, 45, 0))
+            .Should().HaveCount(3);
     }
 
     [Fact]
-    public async Task Lv1AndLv2_EachStudentGetsExactlyTheSessionsOfTheirTwoLanguages()
+    public async Task SingleCalendar_Import_TypesEveryGroupAsLanguage_WithItsExactSessionCounts()
     {
         await using var db = await CreateDbAsync();
+        await SyncAsync(db, LoadText(SingleLanguageCalendar()), GroupType.Language);
 
-        var ar54 = await DeclareGroupAsync(db, "A-I3002TR-AR54", GroupType.Lv1);
-        var an51 = await DeclareGroupAsync(db, "A-I3002TR-AN51", GroupType.Lv1);
-        var ar52 = await DeclareGroupAsync(db, "A-I3002TR-AR52", GroupType.Lv1);
-        var es53 = await DeclareGroupAsync(db, "A-I3004TR-ES53", GroupType.Lv2);
-        var ch51 = await DeclareGroupAsync(db, "A-I3004TR-CH51", GroupType.Lv2);
+        (await db.Sessions.CountAsync()).Should().Be(145 + 69);
+        (await db.Groups.CountAsync()).Should().Be(17);
+
+        // Aucun tri LV1 / LV2 : un seul type, et donc aucun geste manuel attendu de l'admin.
+        (await db.Groups.AllAsync(g => g.Type == GroupType.Language)).Should().BeTrue();
+
+        // Les comptes par groupe sont ceux des deux exports pris séparément : réunir les
+        // calendriers ne doit rien changer à ce que reçoit un groupe donné.
+        (await SessionCountForGroupAsync(db, "A-I3002TR-AR51")).Should().Be(20);
+        (await SessionCountForGroupAsync(db, "A-I3002TR-AR52")).Should().Be(19);
+        (await SessionCountForGroupAsync(db, "A-I3002TR-AR55")).Should().Be(18);
+        foreach (var n in new[] { 1, 2, 3, 4, 5 })
+            (await SessionCountForGroupAsync(db, $"A-I3002TR-AN5{n}")).Should().Be(10);
+        foreach (var code in new[] { "ES51", "ES52", "ES53", "AL51", "AL52", "IT51", "CH51" })
+            (await SessionCountForGroupAsync(db, $"A-I3004TR-{code}")).Should().Be(10, code);
+    }
+
+    [Fact]
+    public async Task SingleCalendar_EachStudentGetsTheSessionsOfTheirGroups_WhicheverSlotHoldsThem()
+    {
+        // Le cœur de la bascule : ce qui compte est l'appartenance de l'étudiant à ses
+        // groupes de langue, pas l'emplacement qui la porte. L'étudiant 2 a volontairement
+        // ses deux groupes dans l'ordre inverse de l'étudiant 1.
+        await using var db = await CreateDbAsync();
+
+        var ar54 = await DeclareGroupAsync(db, "A-I3002TR-AR54", GroupType.Language);
+        var an51 = await DeclareGroupAsync(db, "A-I3002TR-AN51", GroupType.Language);
+        var ar52 = await DeclareGroupAsync(db, "A-I3002TR-AR52", GroupType.Language);
+        var es53 = await DeclareGroupAsync(db, "A-I3004TR-ES53", GroupType.Language);
+        var ch51 = await DeclareGroupAsync(db, "A-I3004TR-CH51", GroupType.Language);
 
         db.Users.AddRange(
-            // Anglais renforcé + espagnol.
+            // Anglais renforcé puis espagnol.
             new User { Id = 1, StudentNumber = "p1", Name = "A", Firstname = "A", Email = "1@x.fr", Year = "3A", SpecializationId = 1, Signature = "",
                        Lv1GroupId = ar54, Lv2GroupId = es53 },
-            // Anglais non renforcé + chinois (dont le cours coupé en deux).
+            // Chinois (dont le cours coupé en deux) puis anglais : ordre inverse, même résultat.
             new User { Id = 2, StudentNumber = "p2", Name = "B", Firstname = "B", Email = "2@x.fr", Year = "3A", SpecializationId = 1, Signature = "",
-                       Lv1GroupId = an51, Lv2GroupId = ch51 },
-            // LV1 seule, dans un groupe concerné par le TOEIC commun.
+                       Lv1GroupId = ch51, Lv2GroupId = an51 },
+            // Un seul groupe, concerné par le TOEIC commun à AR51 et AR52.
             new User { Id = 3, StudentNumber = "p3", Name = "C", Firstname = "C", Email = "3@x.fr", Year = "3A", SpecializationId = 1, Signature = "",
                        Lv1GroupId = ar52 },
-            // Aucune langue : ne doit rien recevoir de ces calendriers.
+            // Aucun groupe de langue : ne doit rien recevoir de ce calendrier.
             new User { Id = 4, StudentNumber = "p4", Name = "D", Firstname = "D", Email = "4@x.fr", Year = "3A", SpecializationId = 1, Signature = "" });
         await db.SaveChangesAsync();
 
-        await SyncAsync(db, RealLv1, GroupType.Lv1);
-        await SyncAsync(db, MockLv2, GroupType.Lv2);
+        await SyncAsync(db, LoadText(SingleLanguageCalendar()), GroupType.Language);
+
+        // Les groupes déclarés à la main sont réutilisés, pas dupliqués.
+        (await db.Groups.CountAsync()).Should().Be(17);
 
         (await db.Attendances.CountAsync(a => a.StudentId == 1)).Should().Be(20 + 10);
         (await db.Attendances.CountAsync(a => a.StudentId == 2)).Should().Be(10 + 10);
         (await db.Attendances.CountAsync(a => a.StudentId == 3)).Should().Be(19);
         (await db.Attendances.CountAsync(a => a.StudentId == 4)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SingleCalendar_Reimported_DoesNotDuplicateAnything()
+    {
+        // L'import automatique de nuit repasse sur le même lien : il doit rapprocher les
+        // séances par UID, pas en recréer une deuxième série.
+        await using var db = await CreateDbAsync();
+        var sessions = LoadText(SingleLanguageCalendar());
+
+        await SyncAsync(db, sessions, GroupType.Language);
+        await SyncAsync(db, LoadText(SingleLanguageCalendar()), GroupType.Language);
+
+        (await db.Sessions.CountAsync()).Should().Be(145 + 69);
+        (await db.Groups.CountAsync()).Should().Be(17);
+    }
+
+    [Fact]
+    public async Task LanguageCalendar_AndPromoCalendar_NeverEraseEachOther()
+    {
+        // Le calendrier de langues et celui d'une promo partagent l'année 3A. Sans le
+        // périmètre par calendrier (Session.IcsKind), le second import viderait le premier.
+        await using var db = await CreateDbAsync();
+
+        await SyncAsync(db, Load("edt_info3a.ics"), GroupType.Sub);
+        var promoSessions = await db.Sessions.CountAsync(s => s.IcsKind == GroupType.Sub);
+        promoSessions.Should().BeGreaterThan(0);
+
+        await SyncAsync(db, LoadText(SingleLanguageCalendar()), GroupType.Language);
+
+        // Ré-import des langues : l'emploi du temps de promo reste intact.
+        await SyncAsync(db, LoadText(SingleLanguageCalendar()), GroupType.Language);
+
+        (await db.Sessions.CountAsync(s => s.IcsKind == GroupType.Sub)).Should().Be(promoSessions);
+        (await db.Sessions.CountAsync(s => s.IcsKind == GroupType.Language)).Should().Be(145 + 69);
     }
 }

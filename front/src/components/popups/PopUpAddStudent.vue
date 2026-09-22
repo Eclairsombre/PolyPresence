@@ -132,7 +132,7 @@ export default {
     const studentsStore = useStudentsStore();
     const specializationStore = useSpecializationStore();
     const specializations = computed(
-      () => specializationStore.activeSpecializations,
+      () => specializationStore.academicSpecializations,
     );
 
     onMounted(async () => {

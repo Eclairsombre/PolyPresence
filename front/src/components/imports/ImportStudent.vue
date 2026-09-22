@@ -35,7 +35,7 @@
 import { ref } from "vue";
 import * as XLSX from "xlsx";
 import { useStudentsStore } from "../../stores/studentsStore.js";
-import { useGroupStore, GROUP_TYPE } from "../../stores/groupStore.js";
+import { useGroupStore } from "../../stores/groupStore.js";
 import type { Student } from "../../types";
 
 const props = defineProps({
@@ -92,8 +92,20 @@ const COLUMNS = [
     required: false,
     aliases: ["sousgroupe", "groupe", "sousgroupetd"],
   },
-  { key: "lv1", required: false, aliases: ["lv1", "languevivante1"] },
-  { key: "lv2", required: false, aliases: ["lv2", "languevivante2"] },
+  // Deux colonnes pour les deux groupes de langue d'un étudiant. Les en-têtes "LV1"
+  // et "LV2" restent acceptés parce que c'est ainsi que les fichiers existants sont
+  // intitulés, mais ils ne désignent plus une catégorie : ce sont deux emplacements
+  // interchangeables, et le contenu de la colonne est un libellé de groupe ADE.
+  {
+    key: "lang1",
+    required: false,
+    aliases: ["lv1", "languevivante1", "langue1", "groupelangue1", "langue", "groupelangue"],
+  },
+  {
+    key: "lang2",
+    required: false,
+    aliases: ["lv2", "languevivante2", "langue2", "groupelangue2"],
+  },
 ] as const;
 
 const HEADER_LABELS: Record<string, string> = {
@@ -118,15 +130,22 @@ const mapHeaders = (headerRow: unknown[]) => {
   return mapping;
 };
 
-/** Retrouve un groupe par son libellé ADE ou son nom d'affichage. */
-const findGroup = (raw: unknown, type: number) => {
+/**
+ * Retrouve un groupe par son libellé ADE ou son nom d'affichage, parmi ceux du type
+ * attendu pour la colonne.
+ *
+ * Les deux colonnes de langue partagent le MÊME vivier : un seul calendrier ADE porte
+ * toutes les langues, donc aucun groupe n'est « la LV1 ». Exiger qu'un groupe soit
+ * typé LV1 pour être accepté en colonne LV1 obligeait l'admin à classer chaque groupe
+ * à la main, sur une information que personne n'a.
+ */
+const findGroup = (raw: unknown, candidates: any[]) => {
   const wanted = normalize(raw);
   if (!wanted) return null;
   return (
-    groupStore.groups.find(
+    candidates.find(
       (g: any) =>
-        g.type === type &&
-        (normalize(g.label) === wanted || normalize(g.displayName) === wanted),
+        normalize(g.label) === wanted || normalize(g.displayName) === wanted,
     ) ?? null
   );
 };
@@ -174,6 +193,11 @@ const handleFileUpload = async (event: Event) => {
 
   await groupStore.fetchGroups();
 
+  // Les deux colonnes de langue tapent dans le même vivier : ce sont deux
+  // emplacements pour l'étudiant, pas deux catégories de groupe.
+  const subGroupCandidates = groupStore.subGroups;
+  const languageCandidates = groupStore.languageGroups;
+
   // On valide TOUT avant d'écrire quoi que ce soit : l'import remplace la promotion
   // entière, donc échouer à mi-parcours laisserait la liste amputée.
   const cell = (row: unknown[], key: string) => {
@@ -206,15 +230,30 @@ const handleFileUpload = async (event: Event) => {
     };
 
     const groupColumns = [
-      { key: "subGroup", slot: "subGroupId", type: GROUP_TYPE.SUB, label: "sous-groupe" },
-      { key: "lv1", slot: "lv1GroupId", type: GROUP_TYPE.LV1, label: "LV1" },
-      { key: "lv2", slot: "lv2GroupId", type: GROUP_TYPE.LV2, label: "LV2" },
+      {
+        key: "subGroup",
+        slot: "subGroupId",
+        candidates: subGroupCandidates,
+        label: "sous-groupe",
+      },
+      {
+        key: "lang1",
+        slot: "lv1GroupId",
+        candidates: languageCandidates,
+        label: "groupe de langue",
+      },
+      {
+        key: "lang2",
+        slot: "lv2GroupId",
+        candidates: languageCandidates,
+        label: "groupe de langue",
+      },
     ];
 
     for (const column of groupColumns) {
       const raw = cell(row, column.key);
       if (!raw) continue;
-      const group = findGroup(raw, column.type);
+      const group = findGroup(raw, column.candidates);
       if (!group) {
         validationErrors.push(
           `Ligne ${line} : ${column.label} « ${raw} » inconnu. ` +

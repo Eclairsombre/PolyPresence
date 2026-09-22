@@ -4,6 +4,13 @@ import { useAuthStore } from "./authStore";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
+/**
+ * « Langues » n'est pas une filière au sens des étudiants : c'est l'étagère sous
+ * laquelle on range les groupes et les séances du calendrier de langues, qui
+ * mélange volontairement toutes les promos. Aucun étudiant ne lui appartient.
+ */
+export const LANGUAGE_SPECIALIZATION_CODE = "LANGUES";
+
 export const useSpecializationStore = defineStore("specialization", {
   state: () => ({
     specializations: [],
@@ -15,6 +22,22 @@ export const useSpecializationStore = defineStore("specialization", {
     activeSpecializations: (state) => {
       return state.specializations.filter((s) => s.isActive);
     },
+
+    /**
+     * Filières auxquelles un étudiant peut réellement appartenir : « Langues » en est
+     * exclue. La proposer dans un écran d'étudiants n'aboutit qu'à une liste vide.
+     */
+    academicSpecializations: (state) =>
+      state.specializations.filter(
+        (s) =>
+          s.isActive &&
+          s.code?.toUpperCase() !== LANGUAGE_SPECIALIZATION_CODE,
+      ),
+
+    languageSpecialization: (state) =>
+      state.specializations.find(
+        (s) => s.code?.toUpperCase() === LANGUAGE_SPECIALIZATION_CODE,
+      ) ?? null,
   },
 
   actions: {

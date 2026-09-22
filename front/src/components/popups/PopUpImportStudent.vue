@@ -2,7 +2,7 @@
   <div class="popup-import-student">
     <div class="popup-content">
       <div class="popup-header">
-        <h2>Importer des étudiants - {{ year }}</h2>
+        <h2>Importer des étudiants - {{ targetYear }}</h2>
         <button class="close-button" @click="closePopup">&times;</button>
       </div>
       <div class="popup-body">
@@ -10,6 +10,17 @@
           Pour importer des étudiants, veuillez télécharger le modèle et le
           remplir avec les informations requises.
         </p>
+        <!-- L'année est un choix explicite et non l'onglet ouvert derrière la
+             popup : l'import écrase une promotion entière, et se tromper de
+             promo est la seule erreur ici qu'on ne peut pas rattraper. -->
+        <div v-if="year !== 'ADMIN'" class="form-group">
+          <label for="import-year">Année à importer</label>
+          <select id="import-year" v-model="targetYear">
+            <option v-for="option in YEARS" :key="option" :value="option">
+              {{ option }}
+            </option>
+          </select>
+        </div>
         <div v-if="year !== 'ADMIN'" class="form-group">
           <label for="import-specialization">Filière à importer</label>
           <select
@@ -28,12 +39,12 @@
         </div>
         <p class="warning">
           Attention, cette action écrasera les données existantes pour les
-          {{ year }} de la filière sélectionnée.
+          {{ targetYear }} de la filière sélectionnée.
         </p>
         <DownloadPreset />
         <div class="import-section">
           <ImportStudent
-            :year="year"
+            :year="targetYear"
             :specialization-id="selectedSpecializationIdInternal"
           />
         </div>
@@ -68,6 +79,10 @@ export default {
   },
   data() {
     return {
+      YEARS: ["3A", "4A", "5A"],
+      // Pré-rempli avec l'onglet d'où vient la popup : c'est presque toujours le
+      // bon, mais il reste modifiable.
+      targetYear: this.year,
       selectedSpecializationIdInternal: this.selectedSpecializationId
         ? Number(this.selectedSpecializationId)
         : "",
@@ -75,7 +90,7 @@ export default {
   },
   computed: {
     specializations() {
-      return this.specializationStore.activeSpecializations;
+      return this.specializationStore.academicSpecializations;
     },
   },
   async mounted() {

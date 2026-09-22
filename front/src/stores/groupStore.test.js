@@ -31,13 +31,20 @@ const groups = [
     id: 4,
     label: "A-PL9003TR-BE91",
     displayName: "Anglais A",
-    type: GROUP_TYPE.LV1,
+    type: GROUP_TYPE.LANGUAGE,
   },
   {
     id: 5,
     label: "A-PL9004TR-BE91",
     displayName: "Espagnol A",
-    type: GROUP_TYPE.LV2,
+    type: GROUP_TYPE.LANGUAGE,
+  },
+  // Groupe enregistré avant l'unification, encore typé LV2 (3) en base.
+  {
+    id: 6,
+    label: "A-PL9005TR-BE91",
+    displayName: "Allemand A",
+    type: 3,
   },
 ];
 
@@ -53,7 +60,7 @@ describe("groupStore", () => {
 
     await store.fetchGroups();
 
-    expect(store.groups).toHaveLength(5);
+    expect(store.groups).toHaveLength(6);
     expect(store.loading).toBe(false);
   });
 
@@ -63,7 +70,7 @@ describe("groupStore", () => {
 
     await store.fetchGroups();
 
-    expect(store.groups).toHaveLength(5);
+    expect(store.groups).toHaveLength(6);
   });
 
   it("fetchGroups vide la liste en cas d'erreur", async () => {
@@ -84,7 +91,7 @@ describe("groupStore", () => {
     await store.fetchGroups({
       specializationId: 2,
       year: "3A",
-      type: GROUP_TYPE.LV1,
+      type: GROUP_TYPE.LANGUAGE,
       includeInactive: true,
       search: "anglais",
     });
@@ -93,7 +100,7 @@ describe("groupStore", () => {
       params: {
         specializationId: 2,
         year: "3A",
-        type: GROUP_TYPE.LV1,
+        type: GROUP_TYPE.LANGUAGE,
         includeInactive: true,
         search: "anglais",
       },
@@ -133,10 +140,18 @@ describe("groupStore", () => {
       "INFO 1-A",
       "INFO 1-B",
     ]);
-    expect(store.lv1Groups).toHaveLength(1);
-    expect(store.lv2Groups).toHaveLength(1);
+    // Les groupes de langue forment un seul vivier : les deux emplacements d'un
+    // étudiant y puisent tous les deux, il n'y a pas de groupe "LV1" ni "LV2".
+    expect(store.languageGroups.map((g) => g.displayName)).toEqual([
+      "Anglais A",
+      "Espagnol A",
+      "Allemand A",
+    ]);
     // Le libellé promo n'est proposé dans aucun emplacement d'affectation.
     expect(store.subGroups.some((g) => g.type === GROUP_TYPE.PROMO)).toBe(false);
+    expect(store.languageGroups.some((g) => g.type === GROUP_TYPE.PROMO)).toBe(
+      false,
+    );
   });
 
   it("createGroup envoie le jeton admin", async () => {

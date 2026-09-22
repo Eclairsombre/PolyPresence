@@ -16,11 +16,27 @@ namespace backend.Models
         /// </summary>
         Promo = 1,
 
-        /// <summary>Groupe de langue vivante 1 (code ADE opaque, ex. "A-PL9004TR-BE91").</summary>
+        /// <summary>
+        /// Groupe de langue vivante 1 (code ADE opaque, ex. "A-PL9004TR-BE91").
+        /// N'est plus posé à l'import — voir <see cref="Language"/> — mais reste
+        /// utilisable quand l'admin veut expliciter le créneau d'un groupe.
+        /// </summary>
         Lv1 = 2,
 
-        /// <summary>Groupe de langue vivante 2.</summary>
+        /// <summary>Groupe de langue vivante 2. Même remarque que <see cref="Lv1"/>.</summary>
         Lv2 = 3,
+
+        /// <summary>
+        /// Groupe de langue vivante, sans préjuger du créneau. C'est le type posé à l'import
+        /// d'un calendrier de langues : un seul export ADE porte la LV1 ET la LV2, et rien
+        /// dans l'ICS ne dit laquelle des deux un code désigne ("A-I3002TR-AR51" est de
+        /// l'anglais, "A-I3004TR-ES51" de l'espagnol — la différence n'est lisible nulle part).
+        ///
+        /// Le créneau est donc porté par l'étudiant, via <c>User.Lv1GroupId</c> et
+        /// <c>User.Lv2GroupId</c> : c'est le fichier d'import des étudiants qui tranche,
+        /// et un même groupe peut légitimement être la LV1 de l'un et la LV2 de l'autre.
+        /// </summary>
+        Language = 4,
     }
 
     /// <summary>

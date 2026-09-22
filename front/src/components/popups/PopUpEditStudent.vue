@@ -104,7 +104,7 @@ export default {
   setup(props, { emit }) {
     const studentsStore = useStudentsStore();
     const specializationStore = useSpecializationStore();
-    const specializations = computed(() => specializationStore.activeSpecializations);
+    const specializations = computed(() => specializationStore.academicSpecializations);
     onMounted(() => specializationStore.fetchSpecializations());
 
     const studentData = ref({ ...props.student });

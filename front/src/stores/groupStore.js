@@ -11,16 +11,27 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 export const GROUP_TYPE = {
   SUB: 0, // sous-groupe de promotion ("INFO 1-A")
   PROMO: 1, // libellé désignant la promotion entière
-  LV1: 2,
-  LV2: 3,
+  LANGUAGE: 4, // groupe de langue ("A-I3002TR-AR51")
 };
 
 export const GROUP_TYPE_LABEL = {
   [GROUP_TYPE.SUB]: "Sous-groupe",
   [GROUP_TYPE.PROMO]: "Promotion entière",
-  [GROUP_TYPE.LV1]: "LV1",
-  [GROUP_TYPE.LV2]: "LV2",
+  [GROUP_TYPE.LANGUAGE]: "Langue",
 };
+
+/**
+ * Anciens types LV1 (2) et LV2 (3). ADE publie un export UNIQUE pour toutes les
+ * langues : classer un groupe dans l'un ou l'autre créneau demandait une information
+ * que ni l'ICS ni l'admin n'ont. Il n'y a plus qu'un type « Langue », et le lien qui
+ * compte est celui entre un étudiant et ses groupes de langue.
+ * Ces valeurs ne sont plus écrites — seulement relues, pour les groupes enregistrés
+ * avant la bascule.
+ */
+const LEGACY_LANGUAGE_TYPES = [2, 3];
+
+export const isLanguageType = (type) =>
+  type === GROUP_TYPE.LANGUAGE || LEGACY_LANGUAGE_TYPES.includes(type);
 
 /**
  * Store des groupes d'étudiants.
@@ -42,8 +53,13 @@ export const useGroupStore = defineStore("group", {
 
     subGroups: (state) =>
       state.groups.filter((g) => g.type === GROUP_TYPE.SUB),
-    lv1Groups: (state) => state.groups.filter((g) => g.type === GROUP_TYPE.LV1),
-    lv2Groups: (state) => state.groups.filter((g) => g.type === GROUP_TYPE.LV2),
+
+    /**
+     * Groupes de langue, tous confondus. Un étudiant dispose de deux emplacements
+     * (Lv1GroupId / Lv2GroupId), mais ils puisent dans cette même liste : ce sont
+     * deux emplacements, pas deux catégories de groupe.
+     */
+    languageGroups: (state) => state.groups.filter((g) => isLanguageType(g.type)),
   },
 
   actions: {

@@ -232,7 +232,7 @@ const actionError = ref("");
 const newGroup = ref({
   label: "",
   displayName: "",
-  type: GROUP_TYPE.LV1,
+  type: GROUP_TYPE.LANGUAGE,
   specializationId: null,
   year: null,
 });
@@ -309,7 +309,7 @@ const submitCreate = async () => {
     newGroup.value = {
       label: "",
       displayName: "",
-      type: GROUP_TYPE.LV1,
+      type: GROUP_TYPE.LANGUAGE,
       specializationId: null,
       year: null,
     };

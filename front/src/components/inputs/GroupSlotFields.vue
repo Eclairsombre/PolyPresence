@@ -14,24 +14,32 @@
       </p>
     </div>
 
+    <!-- Deux emplacements, pas deux catégories : un seul calendrier ADE porte toutes
+         les langues, donc rien ne permet de dire qu'un groupe est « la » LV1. Les deux
+         listes proposent les mêmes groupes et l'ordre n'a aucune conséquence — seule
+         compte l'appartenance de l'étudiant au groupe. -->
     <div class="form-group">
-      <label for="lv1-group">LV1</label>
-      <select id="lv1-group" :value="lv1GroupId ?? ''" @change="emitSlot('lv1GroupId', $event)">
-        <option value="">Aucune</option>
-        <option v-for="group in lv1Groups" :key="group.id" :value="group.id">
+      <label for="lang1-group">Groupe de langue 1</label>
+      <select id="lang1-group" :value="lv1GroupId ?? ''" @change="emitSlot('lv1GroupId', $event)">
+        <option value="">Aucun</option>
+        <option v-for="group in languageGroups" :key="group.id" :value="group.id">
           {{ group.displayName }}
         </option>
       </select>
     </div>
 
     <div class="form-group">
-      <label for="lv2-group">LV2</label>
-      <select id="lv2-group" :value="lv2GroupId ?? ''" @change="emitSlot('lv2GroupId', $event)">
-        <option value="">Aucune</option>
-        <option v-for="group in lv2Groups" :key="group.id" :value="group.id">
+      <label for="lang2-group">Groupe de langue 2</label>
+      <select id="lang2-group" :value="lv2GroupId ?? ''" @change="emitSlot('lv2GroupId', $event)">
+        <option value="">Aucun</option>
+        <option v-for="group in languageGroups" :key="group.id" :value="group.id">
           {{ group.displayName }}
         </option>
       </select>
+      <p class="slot-hint">
+        Les deux emplacements sont interchangeables : l'étudiant reçoit les séances
+        des groupes choisis, quel que soit l'ordre.
+      </p>
     </div>
 
     <p v-if="noGroupsAtAll" class="slot-warning">
@@ -44,7 +52,7 @@
 
 <script setup>
 import { computed, onMounted } from "vue";
-import { useGroupStore, GROUP_TYPE } from "../../stores/groupStore.js";
+import { useGroupStore } from "../../stores/groupStore.js";
 
 const props = defineProps({
   subGroupId: { type: [Number, String], default: null },
@@ -74,15 +82,13 @@ const subGroups = computed(() => {
   );
 });
 
-const lv1Groups = computed(() => groupStore.lv1Groups);
-const lv2Groups = computed(() => groupStore.lv2Groups);
+const languageGroups = computed(() => groupStore.languageGroups);
 
 const noGroupsAtAll = computed(
   () =>
     !groupStore.loading &&
     subGroups.value.length === 0 &&
-    lv1Groups.value.length === 0 &&
-    lv2Groups.value.length === 0,
+    languageGroups.value.length === 0,
 );
 
 const emitSlot = (slot, event) => {

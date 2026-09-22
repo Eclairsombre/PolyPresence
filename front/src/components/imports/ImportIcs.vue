@@ -378,7 +378,10 @@
 import { ref, onMounted, computed } from "vue";
 import AppIcon from "../AppIcon.vue";
 import { useIcsLinkStore } from "../../stores/icsLinkStore.js";
-import { useSpecializationStore } from "../../stores/specializationStore.js";
+import {
+  useSpecializationStore,
+  LANGUAGE_SPECIALIZATION_CODE,
+} from "../../stores/specializationStore.js";
 import { useConfirmStore } from "../../stores/confirmStore";
 
 const icsLinkStore = useIcsLinkStore();
@@ -386,7 +389,12 @@ const specializationStore = useSpecializationStore();
 const confirmer = useConfirmStore();
 
 // Valeurs alignees sur l'enumeration GroupType du backend.
-const KIND = { SUB: 0, LV1: 2, LV2: 3 };
+// Il n'y a PAS de calendrier "LV1" et de calendrier "LV2" : ADE publie un export
+// unique ou figurent toutes les seances de langue, les deux creneaux confondus.
+const KIND = { SUB: 0, LANGUAGE: 4 };
+
+// Anciens liens enregistres quand la page demandait encore de choisir LV1 ou LV2.
+const LEGACY_LANGUAGE_KINDS = [2, 3];
 
 const kindOptions = [
   {
@@ -394,11 +402,17 @@ const kindOptions = [
     title: "Emploi du temps",
     hint: "Cours d'une promotion et de ses sous-groupes",
   },
-  { value: KIND.LV1, title: "Langue vivante 1", hint: "Groupes de LV1" },
-  { value: KIND.LV2, title: "Langue vivante 2", hint: "Groupes de LV2" },
+  {
+    value: KIND.LANGUAGE,
+    title: "Langues",
+    hint: "Toutes les seances de LV1 et de LV2",
+  },
 ];
 
-const LANGUAGE_SPECIALIZATION_CODE = "LANGUES";
+// Un lien enregistre en LV1 ou LV2 designe le meme calendrier de langues : on le
+// ramene au type unique pour que le formulaire ne reste pas sans option active.
+const normalizeKind = (value) =>
+  LEGACY_LANGUAGE_KINDS.includes(value) ? KIND.LANGUAGE : (value ?? KIND.SUB);
 
 const icsUrl = ref("");
 const year = ref("");
@@ -407,8 +421,10 @@ const kind = ref(KIND.SUB);
 const promoLabel = ref(null);
 const showAllLabels = ref(false);
 const creatingLanguageSpec = ref(false);
+// Un emploi du temps de promo se rattache a une vraie filiere : « Langues » est
+// impose automatiquement plus bas, jamais choisi dans cette liste.
 const specializations = computed(
-  () => specializationStore.activeSpecializations,
+  () => specializationStore.academicSpecializations,
 );
 const message = computed(() => icsLinkStore.message);
 const success = computed(() => icsLinkStore.success);
@@ -421,14 +437,10 @@ const autoImportEnabled = computed(() => icsLinkStore.autoImportEnabled);
 const preview = computed(() => icsLinkStore.preview);
 const previewLoading = computed(() => icsLinkStore.previewLoading);
 
-const isLanguage = computed(
-  () => kind.value === KIND.LV1 || kind.value === KIND.LV2,
-);
+const isLanguage = computed(() => kind.value === KIND.LANGUAGE);
 
-const languageSpecialization = computed(() =>
-  specializations.value.find(
-    (spec) => spec.code?.toUpperCase() === LANGUAGE_SPECIALIZATION_CODE,
-  ),
+const languageSpecialization = computed(
+  () => specializationStore.languageSpecialization,
 );
 
 // Pour un calendrier de langues, la filiere n'est pas un choix : elle est imposee.
@@ -447,10 +459,10 @@ const canSubmit = computed(
 );
 
 const kindLabel = (value) =>
-  ({ [KIND.LV1]: "LV1", [KIND.LV2]: "LV2" })[value] ?? "EDT";
+  normalizeKind(value) === KIND.LANGUAGE ? "Langues" : "EDT";
 
 const kindClass = (value) =>
-  ({ [KIND.LV1]: "kind-lv1", [KIND.LV2]: "kind-lv2" })[value] ?? "kind-edt";
+  normalizeKind(value) === KIND.LANGUAGE ? "kind-lang" : "kind-edt";
 
 const formatDate = (value) =>
   value ? new Date(value).toLocaleDateString("fr-FR") : "";
@@ -557,7 +569,7 @@ const editLink = (link) => {
   year.value = link.year;
   icsUrl.value = link.url;
   selectedSpecializationId.value = link.specializationId || "";
-  kind.value = link.kind ?? KIND.SUB;
+  kind.value = normalizeKind(link.kind);
   promoLabel.value = link.promoLabel ?? null;
   showAllLabels.value = false;
   icsLinkStore.resetPreview();
@@ -1155,14 +1167,9 @@ onMounted(fetchAll);
   color: #2c3e50;
 }
 
-.kind-lv1 {
+.kind-lang {
   background: #e6f4ec;
   color: #1e7a45;
-}
-
-.kind-lv2 {
-  background: #fdf0e3;
-  color: #9a5b12;
 }
 
 /* ========== Champ automatique (filiere des langues) ========== */

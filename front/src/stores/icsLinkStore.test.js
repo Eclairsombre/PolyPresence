@@ -234,11 +234,11 @@ describe("icsLinkStore", () => {
     axios.get.mockResolvedValue({ data: { $values: [] } });
     const store = useIcsLinkStore();
 
-    await store.updateIcsLink(5, "3A", "https://x/lv1.ics", 2, 2, null);
+    await store.updateIcsLink(5, "3A", "https://x/langues.ics", 2, 4, null);
 
     expect(axios.put).toHaveBeenCalledWith(
       expect.stringContaining("/IcsLink/5"),
-      expect.objectContaining({ kind: 2, promoLabel: null }),
+      expect.objectContaining({ kind: 4, promoLabel: null }),
     );
   });
 
@@ -246,11 +246,11 @@ describe("icsLinkStore", () => {
     axios.post.mockResolvedValue({});
     const store = useIcsLinkStore();
 
-    await store.importIcs("https://x/edt.ics", "3A", 1, 3, null);
+    await store.importIcs("https://x/langues.ics", "3A", 2, 4, null);
 
     expect(axios.post).toHaveBeenCalledWith(
       expect.stringContaining("/Import/import-ics"),
-      expect.objectContaining({ kind: 3, promoLabel: null }),
+      expect.objectContaining({ kind: 4, promoLabel: null }),
     );
   });
 

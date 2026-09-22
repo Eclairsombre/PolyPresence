@@ -284,6 +284,7 @@ import SignatureDisplay from "../signature/SignatureDisplay.vue";
 import { useMailPreferencesStore } from "../../stores/mailPreferencesStore.js";
 import { useProfessorStore } from "../../stores/professorStore";
 import { useToastStore } from "../../stores/toastStore";
+import { GROUP_TYPE, isLanguageType } from "../../stores/groupStore.js";
 
 export default defineComponent({
   name: "ListAttendancePerSession",
@@ -300,9 +301,6 @@ export default defineComponent({
     const toast = useToastStore();
 
     const session = ref(null);
-
-    // Valeurs de GroupType côté backend : 0 sous-groupe, 1 promotion, 2 LV1, 3 LV2.
-    const GROUP_TYPE = { SUB: 0, PROMO: 1, LV1: 2, LV2: 3 };
 
     // L'API sérialise avec ReferenceHandler.Preserve : les tableaux arrivent
     // enveloppés dans { $values: [...] }.
@@ -331,9 +329,7 @@ export default defineComponent({
     );
 
     const groupClass = (group) =>
-      group.type === GROUP_TYPE.LV1 || group.type === GROUP_TYPE.LV2
-        ? "group-badge-lv"
-        : "group-badge-sub";
+      isLanguageType(group.type) ? "group-badge-lv" : "group-badge-sub";
     const students = ref([]);
     const loading = ref(true);
     const error = ref(null);

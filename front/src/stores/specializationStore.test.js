@@ -37,6 +37,29 @@ describe("specializationStore", () => {
     expect(store.activeSpecializations[0].name).toBe("Info");
   });
 
+  it("academicSpecializations ecarte la filiere Langues", () => {
+    // « Langues » n'est qu'une étagère pour les groupes et séances du calendrier
+    // de langues : aucun étudiant ne lui appartient, donc la proposer dans un
+    // écran d'étudiants ne peut mener qu'à une liste vide.
+    const store = useSpecializationStore();
+    store.specializations = [
+      { id: 1, isActive: true, name: "Info", code: "INFO" },
+      { id: 2, isActive: true, name: "Langues", code: "LANGUES" },
+      { id: 3, isActive: false, name: "GC", code: "GC" },
+    ];
+
+    expect(store.academicSpecializations.map((s) => s.code)).toEqual(["INFO"]);
+    // Le getter dédié reste le seul moyen d'atteindre cette filière.
+    expect(store.languageSpecialization?.id).toBe(2);
+  });
+
+  it("languageSpecialization vaut null tant que la filiere n'existe pas", () => {
+    const store = useSpecializationStore();
+    store.specializations = [{ id: 1, isActive: true, name: "Info", code: "INFO" }];
+
+    expect(store.languageSpecialization).toBeNull();
+  });
+
   it("fetchSpecializations charge la liste depuis l'API", async () => {
     axios.get.mockResolvedValue({ data: [{ id: 1, isActive: true }] });
 
