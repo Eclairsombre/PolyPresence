@@ -256,11 +256,25 @@ namespace backend.Services
         }
 
         /// <summary>
+        /// Heure à partir de laquelle une séance n'est plus importée : aucun cours ne
+        /// commence le soir, et les entrées ADE de cette tranche sont des réservations de
+        /// salle ou des événements parasites qui produiraient des feuilles d'émargement
+        /// que personne ne signe.
+        ///
+        /// Le filtre porte sur l'heure de DÉBUT : un cours de 18h à 20h reste un cours de
+        /// 18h, on ne le tronque pas. Et il s'applique APRÈS les fusions, donc sur la
+        /// séance telle qu'elle existera vraiment — un cours de 18h publié en 2×1h30 est
+        /// d'abord recollé en 18h–21h, puis conservé pour son début à 18h.
+        /// </summary>
+        public static readonly TimeSpan EveningCutOff = new(19, 0, 0);
+
+        /// <summary>
         /// Applique les règles métier jour par jour :
         ///  1. recolle les créneaux contigus d'un MÊME cours pour un MÊME public,
         ///     ce qui reconstitue un cours de 3h découpé en 2×1h30 ;
         ///  2. fusionne deux entrées qui occupent le même créneau ET visent exactement les
-        ///     mêmes groupes (doublons ADE : même public, deux salles).
+        ///     mêmes groupes (doublons ADE : même public, deux salles) ;
+        ///  3. écarte les séances commençant à <see cref="EveningCutOff"/> ou après.
         ///
         /// Des groupes DIFFERENTS ne fusionnent jamais, même à cheval sur le même créneau :
         /// les 3 TP parallèles de MECA 3A (5/6/5 sous-groupes, 3 salles, 3 profs) doivent
@@ -275,7 +289,10 @@ namespace backend.Services
                 daySessions = MergeSameWindowSessions(daySessions);
                 result.AddRange(daySessions);
             }
-            return result;
+
+            // Un ré-import purge aussi celles déjà en base : SyncWithDatabase supprime
+            // les séances absentes de l'import.
+            return result.Where(s => s.Start < EveningCutOff).ToList();
         }
 
         // Recolle les créneaux contigus (≤ 15 min) d'un même cours. Le regroupement par identité

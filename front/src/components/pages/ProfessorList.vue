@@ -10,6 +10,11 @@
           enregistré{{ professors.length > 1 ? "s" : "" }}
         </p>
       </div>
+      <div class="page-actions">
+        <button class="btn btn-outline" @click="showImportPopup = true">
+          Importer
+        </button>
+      </div>
     </div>
 
     <div class="create-card">
@@ -109,6 +114,12 @@
     <div v-else class="empty-state">
       <p>Aucun professeur trouvé.</p>
     </div>
+
+    <PopUpImportProfessor
+      v-if="showImportPopup"
+      @close="showImportPopup = false"
+      @imported="refreshProfessors"
+    />
   </div>
 </template>
 
@@ -118,12 +129,14 @@ import AppIcon from "../AppIcon.vue";
 import { useProfessorStore } from "../../stores/professorStore";
 import { useToastStore } from "../../stores/toastStore";
 import { useConfirmStore } from "../../stores/confirmStore";
+import PopUpImportProfessor from "../popups/PopUpImportProfessor.vue";
 
 const professorStore = useProfessorStore();
 const toast = useToastStore();
 const confirmer = useConfirmStore();
 const professors = ref([]);
 const isCreating = ref(false);
+const showImportPopup = ref(false);
 const newProfessor = ref({
   firstname: "",
   name: "",
@@ -227,6 +240,16 @@ async function removeProfessor(prof) {
 
 .page-header {
   margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .page-title h1 {
@@ -411,6 +434,16 @@ tbody tr:last-child td {
 .btn-ghost {
   background: transparent;
   color: #6c757d;
+}
+
+.btn-outline {
+  background: #fff;
+  color: #1f78c8;
+  border: 1px solid #1f78c8;
+}
+
+.btn-outline:hover {
+  background: #eef6ff;
 }
 
 .btn-ghost:hover {

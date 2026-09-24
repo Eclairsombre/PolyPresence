@@ -760,6 +760,105 @@ public class UserControllerTests
     }
 
     [Fact]
+    public async Task PostUser_ShouldReactivateDeletedUserFoundByEmail_WhenStudentNumberChanged()
+    {
+        // Ré-import d'une promotion dont le numéro étudiant a changé de format
+        // ("12614088" devenu "p2614088"). La suppression étant logique, l'ancienne
+        // ligne garde son email et occupe toujours l'index unique : sans le repli sur
+        // l'email, l'insertion partait en doublon et remontait en 500.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO", IsActive = true });
+        db.Users.AddRange(
+            new User { Id = 1, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "a@b.c", Year = "ADMIN", IsAdmin = true },
+            new User { Id = 40, StudentNumber = "12614088", Name = "Ancien", Firstname = "Format", Email = "eleve@etu.univ-lyon1.fr", Year = "3A", IsDeleted = true, SpecializationId = 1 });
+        await db.SaveChangesAsync();
+
+        var adminTokenService = new AdminTokenService();
+        var controller = BuildController(db, principal: PrincipalWithUserId(1), adminTokenService: adminTokenService);
+        controller.Request.Headers["Admin-Token"] = adminTokenService.GenerateToken(1);
+
+        var result = await controller.PostUser(new User
+        {
+            StudentNumber = "p2614088",
+            Name = "Ancien",
+            Firstname = "Format",
+            Email = "eleve@etu.univ-lyon1.fr",
+            Year = "3A",
+            SpecializationId = 1
+        });
+
+        result.Should().BeOfType<CreatedAtActionResult>();
+
+        // La MÊME ligne est réactivée, avec son nouveau numéro : ni doublon, ni
+        // perte de l'historique attaché à cet identifiant.
+        db.Users.Count(u => u.Email == "eleve@etu.univ-lyon1.fr").Should().Be(1);
+        var revived = await db.Users.FirstAsync(u => u.Id == 40);
+        revived.IsDeleted.Should().BeFalse();
+        revived.StudentNumber.Should().Be("p2614088");
+    }
+
+    [Fact]
+    public async Task PostUser_ShouldReturnConflict_WhenEmailBelongsToAnotherActiveUser()
+    {
+        // Le cas remontait en 500 depuis SaveChanges : l'import n'avait aucun moyen
+        // de dire quelle ligne posait problème.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO", IsActive = true });
+        db.Users.AddRange(
+            new User { Id = 1, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "a@b.c", Year = "ADMIN", IsAdmin = true },
+            new User { Id = 41, StudentNumber = "S41", Name = "Autre", Firstname = "Actif", Email = "pris@x.fr", Year = "4A", IsDeleted = false, SpecializationId = 1 });
+        await db.SaveChangesAsync();
+
+        var adminTokenService = new AdminTokenService();
+        var controller = BuildController(db, principal: PrincipalWithUserId(1), adminTokenService: adminTokenService);
+        controller.Request.Headers["Admin-Token"] = adminTokenService.GenerateToken(1);
+
+        var result = await controller.PostUser(new User
+        {
+            StudentNumber = "S42",
+            Name = "Nouveau",
+            Firstname = "Venu",
+            Email = "pris@x.fr",
+            Year = "3A",
+            SpecializationId = 1
+        });
+
+        result.Should().BeOfType<ConflictObjectResult>();
+        db.Users.Count(u => u.Email == "pris@x.fr").Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PostUser_ShouldStillCreate_WhenNoDeletedAccountSharesTheEmail()
+    {
+        // Garde-fou : le repli sur l'email ne doit pas happer un compte sans rapport.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO", IsActive = true });
+        db.Users.AddRange(
+            new User { Id = 1, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "a@b.c", Year = "ADMIN", IsAdmin = true },
+            new User { Id = 50, StudentNumber = "S50", Name = "Supprime", Firstname = "Autre", Email = "autre@x.fr", Year = "3A", IsDeleted = true, SpecializationId = 1 });
+        await db.SaveChangesAsync();
+
+        var adminTokenService = new AdminTokenService();
+        var controller = BuildController(db, principal: PrincipalWithUserId(1), adminTokenService: adminTokenService);
+        controller.Request.Headers["Admin-Token"] = adminTokenService.GenerateToken(1);
+
+        var result = await controller.PostUser(new User
+        {
+            StudentNumber = "S51",
+            Name = "Vrai",
+            Firstname = "Nouveau",
+            Email = "nouveau@x.fr",
+            Year = "3A",
+            SpecializationId = 1
+        });
+
+        result.Should().BeOfType<CreatedAtActionResult>();
+        db.Users.Should().Contain(u => u.StudentNumber == "S51" && !u.IsDeleted);
+        // Le compte supprimé sans rapport n'a pas été détourné.
+        (await db.Users.FirstAsync(u => u.Id == 50)).IsDeleted.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GenerateAdminToken_ShouldReturnNotFound_WhenUserMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();

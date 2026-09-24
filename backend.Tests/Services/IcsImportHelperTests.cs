@@ -162,6 +162,66 @@ public class IcsImportHelperTests
         result[0].IsMerged.Should().BeTrue();
     }
 
+    // ------------------------------------------------- coupure du soir (19h)
+
+    [Fact]
+    public void ApplyBusinessRules_DropsSessionsStartingAtOrAfterSevenPm()
+    {
+        var input = new List<ImportedSession>
+        {
+            Slot("Cours du soir", "ISTIL 240", "7", 19, 0, 21, 0),
+            Slot("Réservation", "ISTIL 16", "8", 20, 30, 22, 0),
+        };
+
+        IcsImportHelper.ApplyBusinessRules(input).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ApplyBusinessRules_KeepsACourseThatMerelyRunsPastSevenPm()
+    {
+        // Le filtre porte sur le DÉBUT : un cours de 18h à 20h reste un cours de 18h.
+        // Le tronquer fabriquerait une séance qui n'existe nulle part.
+        var input = new List<ImportedSession>
+        {
+            Slot("Projet", "ISTIL 240", "7", 18, 0, 20, 0),
+        };
+
+        var result = IcsImportHelper.ApplyBusinessRules(input);
+
+        result.Should().ContainSingle();
+        result[0].End.Should().Be(new TimeSpan(20, 0, 0));
+    }
+
+    [Fact]
+    public void ApplyBusinessRules_JudgesTheCutOffAfterMerging()
+    {
+        // Publié en 2×1h30 à cheval sur 19h : une fois recollé, le cours commence à
+        // 18h et doit être gardé. Filtrer avant la fusion aurait supprimé la seconde
+        // moitié et laissé un cours amputé.
+        var input = new List<ImportedSession>
+        {
+            Slot("Projet", "ISTIL 240", "7", 18, 0, 19, 30),
+            Slot("Projet", "ISTIL 240", "7", 19, 45, 21, 0),
+        };
+
+        var result = IcsImportHelper.ApplyBusinessRules(input);
+
+        result.Should().ContainSingle();
+        result[0].Start.Should().Be(new TimeSpan(18, 0, 0));
+        result[0].End.Should().Be(new TimeSpan(21, 0, 0));
+    }
+
+    [Fact]
+    public void ApplyBusinessRules_KeepsAnAfternoonCourseEndingExactlyAtSevenPm()
+    {
+        var input = new List<ImportedSession>
+        {
+            Slot("TP", "ISTIL 240", "7", 17, 30, 19, 0),
+        };
+
+        IcsImportHelper.ApplyBusinessRules(input).Should().ContainSingle();
+    }
+
     [Fact]
     public void ApplyBusinessRules_DoesNotMerge_WhenDifferentRoom()
     {

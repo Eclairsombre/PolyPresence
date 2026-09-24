@@ -85,6 +85,81 @@ public class UserControllerEndpointsTests
     }
 
     [Fact]
+    public async Task PutUser_ShouldReturnConflict_WhenEmailIsTakenByAnotherAccount()
+    {
+        // Sans ce test, corriger une adresse déjà prise remontait en 500 depuis
+        // SaveChanges : la popup d'édition n'avait rien d'affichable à l'admin.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.AddRange(
+            new User { Id = 1, StudentNumber = "S1", Name = "Moi", Firstname = "Meme", Email = "moi@test.fr", Year = "3A" },
+            new User { Id = 2, StudentNumber = "S2", Name = "Autre", Firstname = "Compte", Email = "pris@test.fr", Year = "3A" });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db, principal: PrincipalWithId(1));
+
+        var result = await controller.PutUser("S1", new User
+        {
+            StudentNumber = "S1",
+            Name = "Moi",
+            Firstname = "Meme",
+            Email = "pris@test.fr",
+            Year = "3A"
+        });
+
+        result.Should().BeOfType<ConflictObjectResult>();
+        db.Users.Single(u => u.Id == 1).Email.Should().Be("moi@test.fr");
+    }
+
+    [Fact]
+    public async Task PutUser_ShouldReturnConflict_WhenEmailIsHeldByADeletedAccount()
+    {
+        // La suppression est logique : la ligne désactivée occupe toujours l'index
+        // unique, donc reprendre son adresse échouerait aussi en base.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.AddRange(
+            new User { Id = 1, StudentNumber = "S1", Name = "Moi", Firstname = "Meme", Email = "moi@test.fr", Year = "3A" },
+            new User { Id = 2, StudentNumber = "S2", Name = "Parti", Firstname = "Compte", Email = "ancien@test.fr", Year = "3A", IsDeleted = true });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db, principal: PrincipalWithId(1));
+
+        var result = await controller.PutUser("S1", new User
+        {
+            StudentNumber = "S1",
+            Name = "Moi",
+            Firstname = "Meme",
+            Email = "ancien@test.fr",
+            Year = "3A"
+        });
+
+        result.Should().BeOfType<ConflictObjectResult>();
+    }
+
+    [Fact]
+    public async Task PutUser_ShouldAllowKeepingOwnEmail()
+    {
+        // Garde-fou : le test d'unicité ne doit pas se déclencher sur soi-même,
+        // sinon plus aucune modification (nom, filière…) ne passerait.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "Ancien", Firstname = "Nom", Email = "moi@test.fr", Year = "3A" });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db, principal: PrincipalWithId(1));
+
+        var result = await controller.PutUser("S1", new User
+        {
+            StudentNumber = "S1",
+            Name = "Nouveau",
+            Firstname = "Nom",
+            Email = "moi@test.fr",
+            Year = "3A"
+        });
+
+        result.Should().BeOfType<NoContentResult>();
+        db.Users.Single(u => u.Id == 1).Name.Should().Be("Nouveau");
+    }
+
+    [Fact]
     public async Task DeleteUser_ShouldReturnUnauthorized_WhenClaimMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();

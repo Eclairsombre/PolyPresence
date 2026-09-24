@@ -1,25 +1,31 @@
 <template>
   <div class="import-container">
     <div class="file-upload-container">
-      <label for="file-upload" class="file-upload-label">
+      <label
+        for="file-upload"
+        class="file-upload-label"
+        :class="{ disabled: !canImport }"
+      >
         <span class="upload-icon">&#x21E7;</span>
         <span>Choisir un fichier Excel</span>
       </label>
       <input
         id="file-upload"
         type="file"
+        :disabled="!canImport"
         @change="handleFileUpload"
         accept=".xlsx, .xls"
       />
-      <span class="file-format">.xlsx, .xls</span>
+      <span v-if="canImport" class="file-format">.xlsx, .xls</span>
+      <span v-else class="file-blocked">Choisissez d'abord une filière.</span>
     </div>
 
     <p v-if="statusMessage" class="status-message">{{ statusMessage }}</p>
     <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
 
-    <div v-if="errors.length > 0" class="error-panel">
+    <div v-if="errorTitle" class="error-panel">
       <p class="error-title">{{ errorTitle }}</p>
-      <ul>
+      <ul v-if="errors.length > 0">
         <li v-for="(error, index) in errors.slice(0, 12)" :key="index">
           {{ error }}
         </li>
@@ -32,10 +38,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import * as XLSX from "xlsx";
 import { useStudentsStore } from "../../stores/studentsStore.js";
-import { useGroupStore } from "../../stores/groupStore.js";
+import { useGroupStore, GROUP_TYPE } from "../../stores/groupStore.js";
+import { useSpecializationStore } from "../../stores/specializationStore.js";
+import { normalizeStudentNumber } from "../../utils/studentNumber.js";
+import {
+  findGroup,
+  normalize,
+  SHORT_CODE_LENGTH,
+} from "../../utils/groupLookup.js";
 import type { Student } from "../../types";
 
 const props = defineProps({
@@ -51,6 +64,7 @@ const props = defineProps({
 
 const studentStore = useStudentsStore();
 const groupStore = useGroupStore();
+const specializationStore = useSpecializationStore();
 
 const successMessage = ref("");
 const statusMessage = ref("");
@@ -65,13 +79,11 @@ const normalizedSpecializationId = () => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-/** Compare des libellés sans se soucier de la casse, des accents ni des espaces. */
-const normalize = (value: unknown) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+/** Sans filière, l'import n'a nulle part où écrire : on bloque le champ plutôt
+ *  que de laisser choisir un fichier pour ne rien en faire. */
+const canImport = computed(
+  () => props.year === "ADMIN" || normalizedSpecializationId() !== null,
+);
 
 /**
  * Colonnes reconnues. La lecture se fait par EN-TÊTE et non par position : un
@@ -130,26 +142,6 @@ const mapHeaders = (headerRow: unknown[]) => {
   return mapping;
 };
 
-/**
- * Retrouve un groupe par son libellé ADE ou son nom d'affichage, parmi ceux du type
- * attendu pour la colonne.
- *
- * Les deux colonnes de langue partagent le MÊME vivier : un seul calendrier ADE porte
- * toutes les langues, donc aucun groupe n'est « la LV1 ». Exiger qu'un groupe soit
- * typé LV1 pour être accepté en colonne LV1 obligeait l'admin à classer chaque groupe
- * à la main, sur une information que personne n'a.
- */
-const findGroup = (raw: unknown, candidates: any[]) => {
-  const wanted = normalize(raw);
-  if (!wanted) return null;
-  return (
-    candidates.find(
-      (g: any) =>
-        normalize(g.label) === wanted || normalize(g.displayName) === wanted,
-    ) ?? null
-  );
-};
-
 const reset = () => {
   successMessage.value = "";
   statusMessage.value = "";
@@ -160,15 +152,32 @@ const reset = () => {
 const handleFileUpload = async (event: Event) => {
   reset();
 
+  const fileInput = event.target as HTMLInputElement;
+  if (!fileInput.files || fileInput.files.length === 0) return;
+
   if (props.year !== "ADMIN" && !normalizedSpecializationId()) {
     errorTitle.value = "Aucune filière sélectionnée pour l'import.";
     return;
   }
 
-  const fileInput = event.target as HTMLInputElement;
-  if (!fileInput.files || fileInput.files.length === 0) return;
-  const file = fileInput.files[0];
+  try {
+    await importFile(fileInput.files[0]);
+  } catch (error: any) {
+    // Sans ce filet, une exception (fichier illisible, appel réseau qui casse)
+    // partait dans la console et l'écran ne montrait strictement rien.
+    console.debug("Import des étudiants interrompu", error);
+    statusMessage.value = "";
+    errorTitle.value =
+      "L'import a échoué : " +
+      (error?.response?.data?.message || error?.message || "erreur inattendue") +
+      ".";
+  } finally {
+    // Permet de re-sélectionner le même fichier après correction.
+    fileInput.value = "";
+  }
+};
 
+const importFile = async (file: File) => {
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: "array" });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -191,7 +200,20 @@ const handleFileUpload = async (event: Event) => {
     return;
   }
 
-  await groupStore.fetchGroups();
+  // Les colonnes de groupes sont facultatives : un en-tête mal orthographié était donc
+  // ignoré SANS rien dire, et l'import se terminait « avec succès » en laissant tous
+  // les étudiants sans groupe. On relève ce qui n'a été rattaché à aucune colonne
+  // connue pour pouvoir le signaler à la fin.
+  const knownIndexes = new Set(Object.values(mapping));
+  const unmatchedHeaders = (rows[0] ?? [])
+    .map((header, index) => ({ header: String(header ?? "").trim(), index }))
+    .filter(({ header, index }) => header.length > 0 && !knownIndexes.has(index))
+    .map(({ header }) => header);
+
+  await Promise.all([
+    groupStore.fetchGroups(),
+    specializationStore.fetchSpecializations(),
+  ]);
 
   // Les deux colonnes de langue tapent dans le même vivier : ce sont deux
   // emplacements pour l'étudiant, pas deux catégories de groupe.
@@ -209,13 +231,19 @@ const handleFileUpload = async (event: Event) => {
   const parsed: Student[] = [];
   const validationErrors: string[] = [];
 
+  // Groupes de langue à déclarer, dédoublonnés sur le libellé normalisé, et les
+  // emplacements qui les attendent. On ne crée rien tant que le fichier n'est pas
+  // intégralement validé : une erreur ailleurs ne doit laisser aucun groupe orphelin.
+  const pendingGroups = new Map<string, string>();
+  const deferredSlots: { index: number; slot: string; raw: string }[] = [];
+
   rows.slice(1).forEach((row, offset) => {
     const line = offset + 2; // +1 pour l'en-tête, +1 pour être en base 1
     if (row.every((value) => String(value ?? "").trim() === "")) return;
 
     const name = cell(row, "name");
     const firstname = cell(row, "firstname");
-    const studentNumber = cell(row, "studentNumber");
+    const studentNumber = normalizeStudentNumber(cell(row, "studentNumber"));
     const email = cell(row, "email");
 
     if (!name || !firstname || !studentNumber || !email) {
@@ -236,32 +264,75 @@ const handleFileUpload = async (event: Event) => {
         candidates: subGroupCandidates,
         label: "sous-groupe",
       },
+      // Les deux colonnes de langue partagent le MÊME vivier : un seul calendrier
+      // ADE porte toutes les langues, donc aucun groupe n'est « la LV1 ».
+      // shortCode : un fichier qui ne reprend que « AR51 » retrouve « A-I3002TR-AR51 ».
       {
         key: "lang1",
         slot: "lv1GroupId",
         candidates: languageCandidates,
         label: "groupe de langue",
+        shortCode: true,
+        autoCreate: true,
       },
       {
         key: "lang2",
         slot: "lv2GroupId",
         candidates: languageCandidates,
         label: "groupe de langue",
+        shortCode: true,
+        autoCreate: true,
       },
     ];
 
     for (const column of groupColumns) {
       const raw = cell(row, column.key);
       if (!raw) continue;
-      const group = findGroup(raw, column.candidates);
-      if (!group) {
+      const { group, ambiguous } = findGroup(raw, column.candidates, {
+        shortCode: column.shortCode === true,
+      });
+
+      if (group) {
+        slots[column.slot] = group.id;
+        continue;
+      }
+
+      // Un code court qui vise plusieurs groupes ne doit surtout pas en choisir
+      // un : on demande le libellé complet plutôt que de risquer le mauvais cours.
+      if (ambiguous.length > 0) {
         validationErrors.push(
-          `Ligne ${line} : ${column.label} « ${raw} » inconnu. ` +
-            `Importez d'abord l'emploi du temps correspondant, ou déclarez le groupe.`,
+          `Ligne ${line} : le code « ${raw} » correspond à ${ambiguous.length} groupes ` +
+            `(${ambiguous.join(", ")}). Indiquez le libellé ADE complet.`,
         );
         continue;
       }
-      slots[column.slot] = group.id;
+
+      // Groupe de langue inconnu : on le déclare au lieu de bloquer. Les calendriers
+      // de langues sont publiés tard, et le libellé ADE du fichier est précisément ce
+      // qu'il faut pour que l'import de l'EDT retrouve ce groupe et lui rattache ses
+      // séances. Le sous-groupe, lui, reste une erreur : sa promo est toujours déjà
+      // importée, donc un libellé inconnu y est une faute de frappe — et un étudiant
+      // rattaché à un sous-groupe fantôme ne recevrait plus AUCUNE séance.
+      if (column.autoCreate) {
+        // ...mais jamais à partir d'un code court seul : « AR51 » n'est pas un
+        // libellé ADE, et un groupe créé sous ce nom ne serait jamais retrouvé par
+        // l'import de l'emploi du temps. Il faut le libellé complet pour la jonction.
+        if (normalize(raw).length <= SHORT_CODE_LENGTH) {
+          validationErrors.push(
+            `Ligne ${line} : le code « ${raw} » ne correspond à aucun groupe connu. ` +
+              "Indiquez le libellé ADE complet pour qu'il puisse être déclaré.",
+          );
+          continue;
+        }
+        pendingGroups.set(normalize(raw), raw);
+        deferredSlots.push({ index: parsed.length, slot: column.slot, raw });
+        continue;
+      }
+
+      validationErrors.push(
+        `Ligne ${line} : ${column.label} « ${raw} » inconnu. ` +
+          `Importez d'abord l'emploi du temps correspondant, ou déclarez le groupe.`,
+      );
     }
 
     parsed.push({
@@ -285,7 +356,57 @@ const handleFileUpload = async (event: Event) => {
     return;
   }
 
-  // Le fichier est intègre : on peut remplacer la promotion.
+  // Le fichier est intègre. Les groupes de langue absents sont déclarés maintenant :
+  // ils n'ont pas encore de séance, mais l'import de l'EDT les retrouvera par leur
+  // libellé ADE et leur rattachera ses cours — les étudiants suivront.
+  const createdGroups: string[] = [];
+  if (pendingGroups.size > 0) {
+    statusMessage.value = `Déclaration de ${pendingGroups.size} groupe(s) de langue…`;
+
+    const languageSpecId = specializationStore.languageSpecialization?.id ?? null;
+
+    for (const label of pendingGroups.values()) {
+      try {
+        await groupStore.createGroup({
+          label,
+          displayName: label,
+          type: GROUP_TYPE.LANGUAGE,
+          specializationId: languageSpecId,
+          year: props.year,
+        });
+        createdGroups.push(label);
+      } catch (error: any) {
+        validationErrors.push(
+          `Groupe « ${label} » : ` +
+            (error?.response?.data?.message ||
+              error?.message ||
+              "création impossible"),
+        );
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      statusMessage.value = "";
+      errorTitle.value =
+        `Import annulé : ${validationErrors.length} groupe(s) n'ont pas pu être ` +
+        "déclarés. Aucun étudiant n'a été modifié.";
+      errors.value = validationErrors;
+      return;
+    }
+
+    // On relit la liste pour obtenir les identifiants attribués, puis on remplit
+    // les emplacements laissés en attente.
+    await groupStore.fetchGroups();
+    const refreshed = groupStore.languageGroups;
+
+    for (const pending of deferredSlots) {
+      const { group } = findGroup(pending.raw, refreshed, { shortCode: true });
+      if (group) {
+        (parsed[pending.index] as any)[pending.slot] = group.id;
+      }
+    }
+  }
+
   statusMessage.value = `Import de ${parsed.length} étudiant(s) en cours…`;
 
   const existing = await studentStore.fetchStudents(
@@ -317,7 +438,36 @@ const handleFileUpload = async (event: Event) => {
     errorTitle.value = `${failures.length} étudiant(s) n'ont pas pu être ajoutés.`;
     errors.value = failures;
   }
-  successMessage.value = `${parsed.length - failures.length} étudiant(s) importé(s).`;
+
+  // Le décompte des groupes réellement rattachés : c'est la seule façon de voir tout
+  // de suite qu'une colonne n'a pas été lue. Un « 36 étudiants importés » sec laissait
+  // croire que tout allait bien alors qu'aucun groupe n'avait été posé.
+  const imported = parsed.length - failures.length;
+  const withSubGroup = parsed.filter((s: any) => s.subGroupId).length;
+  const withLanguage = parsed.filter((s: any) => s.lv1GroupId || s.lv2GroupId).length;
+
+  const notes: string[] = [];
+  if (mapping.subGroup !== undefined) {
+    notes.push(`${withSubGroup} avec sous-groupe`);
+  }
+  if (mapping.lang1 !== undefined || mapping.lang2 !== undefined) {
+    notes.push(`${withLanguage} avec groupe de langue`);
+  } else {
+    notes.push("aucune colonne de langue trouvée");
+  }
+  if (createdGroups.length > 0) {
+    notes.push(
+      `${createdGroups.length} groupe(s) de langue déclaré(s) : ` +
+        createdGroups.join(", "),
+    );
+  }
+  if (unmatchedHeaders.length > 0) {
+    notes.push(`colonne(s) ignorée(s) : ${unmatchedHeaders.join(", ")}`);
+  }
+
+  successMessage.value =
+    `${imported} étudiant(s) importé(s)` +
+    (notes.length > 0 ? ` — ${notes.join(", ")}.` : ".");
 };
 </script>
 
@@ -355,6 +505,23 @@ const handleFileUpload = async (event: Event) => {
 
 .file-upload-label:hover {
   background-color: #45a049;
+}
+
+/* Le champ est reellement desactive : le griser evite le clic sans effet. */
+.file-upload-label.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.file-upload-label.disabled:hover {
+  background-color: inherit;
+}
+
+.file-blocked {
+  color: #a3372e;
+  font-size: 0.8em;
+  font-weight: 500;
+  margin-top: 5px;
 }
 
 .upload-icon {

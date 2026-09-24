@@ -289,9 +289,19 @@ namespace backend.Controllers
                 return NotFound();
             }
 
+            // L'email porte un index unique (partiel : les comptes sans email en sont exclus).
+            // Sans ce test, corriger une adresse déjà prise remontait en 500 depuis
+            // SaveChanges, sans dire laquelle ni par qui elle est occupée.
+            var newEmail = (user.Email ?? string.Empty).Trim();
+            if (newEmail.Length > 0 && newEmail != existingUser.Email &&
+                await _context.Users.AnyAsync(u => u.Email == newEmail && u.Id != existingUser.Id))
+            {
+                return Conflict(new { error = true, message = $"L'adresse « {newEmail} » est déjà utilisée par un autre compte." });
+            }
+
             existingUser.Name = user.Name;
             existingUser.Firstname = user.Firstname;
-            existingUser.Email = user.Email;
+            existingUser.Email = newEmail;
             existingUser.Year = user.Year;
             existingUser.IsDelegate = user.IsDelegate;
 
@@ -1309,13 +1319,38 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                 return Conflict(new { error = true, message = "Un utilisateur avec ce numéro étudiant existe déjà." });
             }
 
-            // Vérifie si un compte désactivé (soft-deleted) existe : on le réactive au lieu d'en créer un nouveau
+            // L'email porte un index unique (partiel : les comptes sans email en sont exclus).
+            // Sans ce test, un email déjà pris par un AUTRE compte actif remontait en 500
+            // illisible depuis SaveChanges, au lieu d'un message exploitable par l'import.
+            var email = (user.Email ?? string.Empty).Trim();
+            if (email.Length > 0 &&
+                await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted && u.StudentNumber != user.StudentNumber))
+            {
+                return Conflict(new { error = true, message = $"L'adresse « {email} » est déjà utilisée par un autre compte." });
+            }
+
+            // Vérifie si un compte désactivé (soft-deleted) existe : on le réactive au lieu d'en créer un nouveau.
+            //
+            // Le rapprochement se fait sur le numéro étudiant, PUIS sur l'email : la
+            // suppression est logique, donc la ligne désactivée conserve son email et
+            // continue d'occuper l'index unique. Si le numéro de la personne a changé entre
+            // deux imports (changement de format côté scolarité, par exemple), le seul test
+            // sur le numéro ne retrouvait plus rien et l'insertion butait sur cet email
+            // toujours réservé. L'email est la deuxième identité stable de la personne :
+            // on réactive alors la même ligne en corrigeant son numéro.
             var deletedUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == user.StudentNumber && u.IsDeleted);
+            if (deletedUser == null && email.Length > 0)
+            {
+                deletedUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == email && u.IsDeleted);
+            }
+
             if (deletedUser != null)
             {
+                deletedUser.StudentNumber = user.StudentNumber;
                 deletedUser.Name = user.Name;
                 deletedUser.Firstname = user.Firstname;
-                deletedUser.Email = user.Email;
+                // Valeur normalisée : c'est elle qui est comparée à l'index unique.
+                deletedUser.Email = email;
                 deletedUser.Year = user.Year;
                 deletedUser.Signature = user.Signature;
                 deletedUser.IsAdmin = user.IsAdmin;
@@ -1353,6 +1388,7 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                 return CreatedAtAction(nameof(GetUser), new { id = deletedUser.Id }, deletedUser);
             }
 
+            user.Email = email;
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
@@ -1372,8 +1408,21 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
         }
 
         /// <summary>
+        /// Types acceptés dans les deux emplacements de langue d'un étudiant.
+        ///
+        /// Les deux acceptent les MÊMES types : un unique calendrier ADE porte toutes les
+        /// langues, donc aucun groupe n'est « un groupe de LV1 » — ce sont deux
+        /// emplacements, pas deux catégories (voir <see cref="GroupType.Language"/>).
+        /// Lv1 et Lv2 restent admis pour les groupes enregistrés avant l'unification.
+        /// </summary>
+        private static readonly GroupType[] LanguageSlotTypes =
+            { GroupType.Language, GroupType.Lv1, GroupType.Lv2 };
+
+        private static readonly GroupType[] SubSlotTypes = { GroupType.Sub };
+
+        /// <summary>
         /// Vérifie que les trois emplacements de groupe pointent vers des groupes existants
-        /// ET du bon type : un code de LV2 dans la case sous-groupe donnerait un étudiant
+        /// ET du bon type : un code de langue dans la case sous-groupe donnerait un étudiant
         /// inscrit à des séances qui ne le concernent pas, sans erreur visible.
         /// </summary>
         private async Task<(IActionResult? Error, (int? SubGroupId, int? Lv1GroupId, int? Lv2GroupId) Slots)>
@@ -1381,9 +1430,9 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
         {
             var wanted = new[]
             {
-                (Id: user.SubGroupId, Expected: GroupType.Sub, Label: "sous-groupe"),
-                (Id: user.Lv1GroupId, Expected: GroupType.Lv1, Label: "LV1"),
-                (Id: user.Lv2GroupId, Expected: GroupType.Lv2, Label: "LV2"),
+                (Id: user.SubGroupId, Accepted: SubSlotTypes, Label: "sous-groupe"),
+                (Id: user.Lv1GroupId, Accepted: LanguageSlotTypes, Label: "langue"),
+                (Id: user.Lv2GroupId, Accepted: LanguageSlotTypes, Label: "langue"),
             };
 
             var ids = wanted.Where(w => w.Id.HasValue).Select(w => w.Id!.Value).Distinct().ToList();
@@ -1398,7 +1447,7 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                 var group = groups.FirstOrDefault(g => g.Id == slot.Id.Value);
                 if (group == null)
                     return (BadRequest(new { error = true, message = $"Groupe de {slot.Label} introuvable." }), default);
-                if (group.Type != slot.Expected)
+                if (!slot.Accepted.Contains(group.Type))
                     return (BadRequest(new
                     {
                         error = true,

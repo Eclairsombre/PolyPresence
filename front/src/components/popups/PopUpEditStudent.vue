@@ -1,321 +1,230 @@
 <template>
-  <div class="popup-edit-student">
-    <div class="popup-content">
-      <div class="popup-header">
-        <h2>Modifier l'étudiant</h2>
-        <button class="close-button" @click="$emit('close')">&times;</button>
-      </div>
-      <div class="popup-body">
-        <form @submit.prevent="handleSubmit" class="edit-student-form">
-          <div class="form-group">
-            <label for="name">Nom <span class="required">*</span></label>
-            <input 
-              type="text" 
-              id="name" 
-              v-model="studentData.name" 
-              required 
-              placeholder="Nom de famille"
-            />
-          </div>
-          <div class="form-group">
-            <label for="firstname">Prénom <span class="required">*</span></label>
-            <input 
-              type="text" 
-              id="firstname" 
-              v-model="studentData.firstname" 
-              required 
+  <PopUpShell
+    title="Modifier l'étudiant"
+    size="md"
+    :busy="isSubmitting"
+    @close="$emit('close')"
+  >
+    <template #subtitle>
+      {{ student.firstname }} {{ student.name }}
+      <span class="year-chip">{{ student.year }}</span>
+    </template>
+
+    <form id="edit-student-form" @submit.prevent="handleSubmit">
+      <section class="pp-section">
+        <h3 class="pp-section-title">Identité</h3>
+
+        <div class="pp-row">
+          <div class="pp-field">
+            <label for="edit-firstname">Prénom <span class="pp-required">*</span></label>
+            <input
+              id="edit-firstname"
+              v-model.trim="form.firstname"
+              type="text"
+              required
               placeholder="Prénom"
             />
           </div>
-          <div class="form-group">
-            <label for="studentNumber">Numéro étudiant <span class="required">*</span></label>
-            <input 
-              type="text" 
-              id="studentNumber" 
-              v-model="studentData.studentNumber" 
-              required 
-              placeholder="Ex: p1234567"
+          <div class="pp-field">
+            <label for="edit-name">Nom <span class="pp-required">*</span></label>
+            <input
+              id="edit-name"
+              v-model.trim="form.name"
+              type="text"
+              required
+              placeholder="Nom de famille"
             />
           </div>
-          <div class="form-group">
-            <label for="email">Email <span class="required">*</span></label>
-            <input 
-              type="email" 
-              id="email" 
-              v-model="studentData.email" 
-              required 
-              placeholder="nom.prenom@etu.univ-lyon1.fr"
-            />
-          </div>
-          <div v-if="studentData.year !== 'ADMIN'" class="form-group">
-            <label for="specialization">Filière <span class="required">*</span></label>
-            <select id="specialization" v-model="studentData.specializationId" required>
-              <option :value="null" disabled>Sélectionner une filière</option>
-              <option v-for="spec in specializations" :key="spec.id" :value="spec.id">
-                {{ spec.name }} ({{ spec.code }})
-              </option>
-            </select>
-          </div>
+        </div>
 
-          <GroupSlotFields
-            v-if="studentData.year !== 'ADMIN'"
-            v-model:subGroupId="studentData.subGroupId"
-            v-model:lv1GroupId="studentData.lv1GroupId"
-            v-model:lv2GroupId="studentData.lv2GroupId"
-            :specializationId="studentData.specializationId"
+        <div class="pp-field">
+          <label for="edit-email">Email <span class="pp-required">*</span></label>
+          <input
+            id="edit-email"
+            v-model.trim="form.email"
+            type="email"
+            required
+            placeholder="nom.prenom@etu.univ-lyon1.fr"
           />
+        </div>
 
-          <div class="form-group">
-            <label>
-              <input type="checkbox" v-model="studentData.isDelegate" />
-              Délégué
-            </label>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="cancel-btn" @click="$emit('close')">Annuler</button>
-            <button type="submit" class="submit-btn" :disabled="isSubmitting">
-              {{ isSubmitting ? 'Enregistrement...' : 'Enregistrer' }}
-            </button>
-          </div>
-        </form>
-        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-        <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
-      </div>
-    </div>
-  </div>
+        <!-- Le numéro étudiant est la clé de l'API de mise à jour (PUT /User/{numéro})
+             ET l'identifiant du compte. Le rendre saisissable donnait un champ qui
+             échouait silencieusement en 404 : on l'affiche, on ne le modifie pas. -->
+        <div class="pp-field">
+          <label for="edit-student-number">Numéro étudiant</label>
+          <input id="edit-student-number" :value="student.studentNumber" type="text" readonly />
+        </div>
+      </section>
+
+      <section v-if="student.year !== 'ADMIN'" class="pp-section">
+        <h3 class="pp-section-title">Scolarité</h3>
+
+        <div class="pp-field">
+          <label for="edit-specialization">Filière <span class="pp-required">*</span></label>
+          <select id="edit-specialization" v-model="form.specializationId" required>
+            <option :value="null" disabled>Sélectionner une filière</option>
+            <option v-for="spec in specializations" :key="spec.id" :value="spec.id">
+              {{ spec.name }} ({{ spec.code }})
+            </option>
+          </select>
+        </div>
+
+        <label class="pp-checkbox">
+          <input v-model="form.isDelegate" type="checkbox" />
+          <span>
+            <span class="checkbox-label">Délégué</span>
+            <span class="pp-hint">
+              Peut émarger pour sa promotion et relancer les mails d'une séance.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section v-if="student.year !== 'ADMIN'" class="pp-section">
+        <h3 class="pp-section-title">Groupes</h3>
+        <GroupSlotFields
+          v-model:subGroupId="form.subGroupId"
+          v-model:lv1GroupId="form.lv1GroupId"
+          v-model:lv2GroupId="form.lv2GroupId"
+          :specializationId="form.specializationId"
+        />
+      </section>
+    </form>
+
+    <p v-if="errorMessage" class="pp-error">{{ errorMessage }}</p>
+
+    <template #footer>
+      <button
+        v-if="isDirty"
+        class="pp-btn pp-btn-link"
+        type="button"
+        :disabled="isSubmitting"
+        @click="resetForm"
+      >
+        Réinitialiser
+      </button>
+
+      <button
+        class="pp-btn pp-btn-ghost"
+        type="button"
+        :disabled="isSubmitting"
+        @click="$emit('close')"
+      >
+        Annuler
+      </button>
+      <!-- Désactivé tant que rien n'a bougé : évite l'aller-retour serveur et le
+           doute « est-ce que ma modification est partie ? » sur un simple survol. -->
+      <button
+        class="pp-btn pp-btn-primary"
+        type="submit"
+        form="edit-student-form"
+        :disabled="isSubmitting || !isDirty"
+      >
+        {{ isSubmitting ? "Enregistrement…" : "Enregistrer" }}
+      </button>
+    </template>
+  </PopUpShell>
 </template>
 
-<script>
-import { useStudentsStore } from '../../stores/studentsStore.js';
-import { useSpecializationStore } from '../../stores/specializationStore.js';
-import GroupSlotFields from '../inputs/GroupSlotFields.vue';
-import { computed, onMounted, ref, watch, toRefs } from 'vue';
+<script setup>
+import { computed, onMounted, ref, watch } from "vue";
+import { useStudentsStore } from "../../stores/studentsStore.js";
+import { useSpecializationStore } from "../../stores/specializationStore.js";
+import GroupSlotFields from "../inputs/GroupSlotFields.vue";
+import PopUpShell from "./PopUpShell.vue";
 
-export default {
-  name: 'PopUpEditStudent',
-  components: { GroupSlotFields },
-  props: {
-    student: {
-      type: Object,
-      required: true
-    }
+const props = defineProps({
+  student: { type: Object, required: true },
+});
+
+const emit = defineEmits(["close", "student-updated"]);
+
+const studentsStore = useStudentsStore();
+const specializationStore = useSpecializationStore();
+const specializations = computed(
+  () => specializationStore.academicSpecializations,
+);
+
+/** Champs réellement modifiables ici : ce sont eux, et eux seuls, qui décident de l'état « modifié ». */
+const editableFrom = (student) => ({
+  name: student.name ?? "",
+  firstname: student.firstname ?? "",
+  email: student.email ?? "",
+  specializationId: student.specializationId ?? null,
+  isDelegate: Boolean(student.isDelegate),
+  subGroupId: student.subGroupId ?? null,
+  lv1GroupId: student.lv1GroupId ?? null,
+  lv2GroupId: student.lv2GroupId ?? null,
+});
+
+const form = ref(editableFrom(props.student));
+const initial = ref(editableFrom(props.student));
+
+watch(
+  () => props.student,
+  (student) => {
+    form.value = editableFrom(student);
+    initial.value = editableFrom(student);
   },
-  emits: ['close', 'student-updated'],
-  setup(props, { emit }) {
-    const studentsStore = useStudentsStore();
-    const specializationStore = useSpecializationStore();
-    const specializations = computed(() => specializationStore.academicSpecializations);
-    onMounted(() => specializationStore.fetchSpecializations());
+);
 
-    const studentData = ref({ ...props.student });
-    watch(() => props.student, (newVal) => {
-      studentData.value = { ...newVal };
+const isSubmitting = ref(false);
+const errorMessage = ref("");
+
+const isDirty = computed(
+  () => JSON.stringify(form.value) !== JSON.stringify(initial.value),
+);
+
+const resetForm = () => {
+  form.value = { ...initial.value };
+  errorMessage.value = "";
+};
+
+const handleSubmit = async () => {
+  if (isSubmitting.value || !isDirty.value) return;
+
+  isSubmitting.value = true;
+  errorMessage.value = "";
+  try {
+    // Le numéro étudiant part tel qu'il est en base : c'est la clé de l'URL, et
+    // le backend refuse la requête si le corps ne porte pas le même.
+    await studentsStore.updateStudent({
+      ...props.student,
+      ...form.value,
+      studentNumber: props.student.studentNumber,
     });
-    const isSubmitting = ref(false);
-    const errorMessage = ref('');
-    const successMessage = ref('');
-
-    const handleSubmit = async () => {
-      isSubmitting.value = true;
-      errorMessage.value = '';
-      try {
-        await studentsStore.updateStudent(studentData.value);
-        successMessage.value = 'Étudiant modifié avec succès!';
-        setTimeout(() => {
-          emit('student-updated');
-          emit('close');
-        }, 1000);
-      } catch (error) {
-        errorMessage.value = error.message || "Une erreur est survenue lors de la modification de l'étudiant";
-      } finally {
-        isSubmitting.value = false;
-      }
-    };
-
-    return {
-      studentData,
-      specializations,
-      isSubmitting,
-      errorMessage,
-      successMessage,
-      handleSubmit
-    };
+    emit("student-updated");
+    emit("close");
+  } catch (error) {
+    // Le serveur sait ce qui coince (adresse déjà prise, filière inactive…).
+    // « Request failed with status code 409 » n'aide personne.
+    errorMessage.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Une erreur est survenue lors de la modification de l'étudiant.";
+  } finally {
+    isSubmitting.value = false;
   }
-}
+};
 
+onMounted(() => specializationStore.fetchSpecializations());
 </script>
 
 <style scoped>
-.popup-edit-student {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease-in-out;
+.year-chip {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.popup-content {
-  background: white;
-  width: 90%;
-  max-width: 500px;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-  animation: slideIn 0.3s ease-in-out;
-}
-
-@keyframes slideIn {
-  from { transform: translateY(-30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-.popup-header {
-  background: #2c3e50;
-  color: white;
-  padding: 15px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.popup-header h2 {
-  margin: 0;
-  font-size: 1.4rem;
+.checkbox-label {
+  display: block;
   font-weight: 500;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 1.8rem;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.popup-body {
-  padding: 20px;
-}
-
-.edit-student-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.form-group label {
-  font-weight: 500;
-  margin-bottom: 5px;
-  color: #333;
-}
-
-.required {
-  color: #e74c3c;
-}
-
-.form-group input {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #4caf50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.cancel-btn, .submit-btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.3s;
-}
-
-.cancel-btn {
-  background-color: #f5f5f5;
-  color: #333;
-}
-
-.cancel-btn:hover {
-  background-color: #e0e0e0;
-}
-
-.submit-btn {
-  background-color: #4caf50;
-  color: white;
-}
-
-.submit-btn:hover:not(:disabled) {
-  background-color: #45a049;
-}
-
-.submit-btn:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.error-message {
-  color: #e74c3c;
-  margin-top: 15px;
-  padding: 10px;
-  background-color: #fdecea;
-  border-radius: 4px;
-  border-left: 3px solid #e74c3c;
-}
-
-.success-message {
-  color: #2ecc71;
-  margin-top: 15px;
-  padding: 10px;
-  background-color: #e7f7ee;
-  border-radius: 4px;
-  border-left: 3px solid #2ecc71;
-}
-
-@media (max-width: 600px) {
-  .popup-content {
-    padding: 8px 2vw;
-    max-width: 98vw;
-  }
-  .popup-header h2 {
-    font-size: 1.1rem;
-  }
-  .form-group input {
-    font-size: 0.98em;
-    padding: 8px;
-  }
-  .cancel-btn, .submit-btn {
-    width: 100%;
-    padding: 8px 0;
-    font-size: 1em;
-  }
+  color: #2c3e50;
+  font-size: 0.88rem;
 }
 </style>

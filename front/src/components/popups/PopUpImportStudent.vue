@@ -1,264 +1,94 @@
 <template>
-  <div class="popup-import-student">
-    <div class="popup-content">
-      <div class="popup-header">
-        <h2>Importer des étudiants - {{ targetYear }}</h2>
-        <button class="close-button" @click="closePopup">&times;</button>
+  <PopUpShell
+    title="Importer des étudiants"
+    :subtitle="year === 'ADMIN' ? 'Administrateurs' : `Promotion ${targetYear}`"
+    size="md"
+    @close="$emit('close')"
+  >
+    <p class="pp-text">
+      Pour importer des étudiants, téléchargez le modèle et remplissez-le avec
+      les informations requises.
+    </p>
+
+    <!-- L'année est un choix explicite et non l'onglet ouvert derrière la popup :
+         l'import écrase une promotion entière, et se tromper de promo est la
+         seule erreur ici qu'on ne peut pas rattraper. -->
+    <div v-if="year !== 'ADMIN'" class="pp-row">
+      <div class="pp-field">
+        <label for="import-year">Année à importer</label>
+        <select id="import-year" v-model="targetYear">
+          <option v-for="option in YEARS" :key="option" :value="option">
+            {{ option }}
+          </option>
+        </select>
       </div>
-      <div class="popup-body">
-        <p class="instruction">
-          Pour importer des étudiants, veuillez télécharger le modèle et le
-          remplir avec les informations requises.
-        </p>
-        <!-- L'année est un choix explicite et non l'onglet ouvert derrière la
-             popup : l'import écrase une promotion entière, et se tromper de
-             promo est la seule erreur ici qu'on ne peut pas rattraper. -->
-        <div v-if="year !== 'ADMIN'" class="form-group">
-          <label for="import-year">Année à importer</label>
-          <select id="import-year" v-model="targetYear">
-            <option v-for="option in YEARS" :key="option" :value="option">
-              {{ option }}
-            </option>
-          </select>
-        </div>
-        <div v-if="year !== 'ADMIN'" class="form-group">
-          <label for="import-specialization">Filière à importer</label>
-          <select
-            id="import-specialization"
-            v-model="selectedSpecializationIdInternal"
-          >
-            <option value="" disabled>Sélectionner une filière</option>
-            <option
-              v-for="spec in specializations"
-              :key="spec.id"
-              :value="spec.id"
-            >
-              {{ spec.name }} ({{ spec.code }})
-            </option>
-          </select>
-        </div>
-        <p class="warning">
-          Attention, cette action écrasera les données existantes pour les
-          {{ targetYear }} de la filière sélectionnée.
-        </p>
-        <DownloadPreset />
-        <div class="import-section">
-          <ImportStudent
-            :year="targetYear"
-            :specialization-id="selectedSpecializationIdInternal"
-          />
-        </div>
-      </div>
-      <div class="popup-footer">
-        <button class="cancel-button" @click="closePopup">Fermer</button>
+      <div class="pp-field">
+        <label for="import-specialization">Filière à importer</label>
+        <select id="import-specialization" v-model="selectedSpecializationIdInternal">
+          <option value="" disabled>Sélectionner une filière</option>
+          <option v-for="spec in specializations" :key="spec.id" :value="spec.id">
+            {{ spec.name }} ({{ spec.code }})
+          </option>
+        </select>
       </div>
     </div>
-  </div>
+
+    <p class="pp-note pp-note-danger">
+      <span>
+        Cette action écrasera les données existantes pour les
+        <strong>{{ targetYear }}</strong> de la filière sélectionnée.
+      </span>
+    </p>
+
+    <DownloadPreset />
+
+    <ImportStudent :year="targetYear" :specialization-id="selectedSpecializationIdInternal" />
+
+    <template #footer>
+      <button class="pp-btn pp-btn-ghost" type="button" @click="$emit('close')">
+        Fermer
+      </button>
+    </template>
+  </PopUpShell>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, ref } from "vue";
 import ImportStudent from "../imports/ImportStudent.vue";
 import DownloadPreset from "../imports/DownloadPreset.vue";
+import PopUpShell from "./PopUpShell.vue";
 import { useSpecializationStore } from "../../stores/specializationStore.js";
 
-export default {
-  name: "PopUpImportStudent",
-  components: {
-    DownloadPreset,
-    ImportStudent,
-  },
-  props: {
-    year: {
-      type: String,
-      required: true,
-    },
-    selectedSpecializationId: {
-      type: [String, Number],
-      default: "",
-    },
-  },
-  data() {
-    return {
-      YEARS: ["3A", "4A", "5A"],
-      // Pré-rempli avec l'onglet d'où vient la popup : c'est presque toujours le
-      // bon, mais il reste modifiable.
-      targetYear: this.year,
-      selectedSpecializationIdInternal: this.selectedSpecializationId
-        ? Number(this.selectedSpecializationId)
-        : "",
-    };
-  },
-  computed: {
-    specializations() {
-      return this.specializationStore.academicSpecializations;
-    },
-  },
-  async mounted() {
-    if (this.year !== "ADMIN") {
-      await this.specializationStore.fetchSpecializations();
-    }
-  },
-  setup() {
-    const specializationStore = useSpecializationStore();
-    return { specializationStore };
-  },
-  methods: {
-    closePopup() {
-      this.$emit("close");
-    },
-  },
-};
+const props = defineProps({
+  year: { type: String, required: true },
+  selectedSpecializationId: { type: [String, Number], default: "" },
+});
+
+defineEmits(["close"]);
+
+const YEARS = ["3A", "4A", "5A"];
+
+const specializationStore = useSpecializationStore();
+const specializations = computed(
+  () => specializationStore.academicSpecializations,
+);
+
+// Pré-rempli avec l'onglet d'où vient la popup : c'est presque toujours le bon,
+// mais il reste modifiable.
+const targetYear = ref(props.year);
+const selectedSpecializationIdInternal = ref(
+  props.selectedSpecializationId ? Number(props.selectedSpecializationId) : "",
+);
+
+onMounted(() => {
+  if (props.year !== "ADMIN") specializationStore.fetchSpecializations();
+});
 </script>
 
 <style scoped>
-.popup-import-student {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.popup-content {
-  background: white;
-  width: 90%;
-  max-width: 600px;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-  animation: slideIn 0.3s ease-in-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(-30px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.popup-header {
-  background: #2c3e50;
-  color: white;
-  padding: 15px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.popup-header h2 {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 500;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 1.8rem;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.popup-body {
-  padding: 20px;
-}
-
-.instruction {
-  font-size: 1rem;
-  color: #333;
-  margin-bottom: 10px;
-}
-
-.warning {
-  font-size: 0.95rem;
-  color: #e74c3c;
-  margin-bottom: 20px;
-  padding: 10px;
-  background-color: #fdecea;
-  border-radius: 4px;
-  border-left: 4px solid #e74c3c;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.form-group select {
-  padding: 10px;
-  border: 1px solid #d7dce1;
-  border-radius: 4px;
-  font-size: 0.95rem;
-  background: #fff;
-}
-
-.import-section {
-  margin-top: 20px;
-}
-
-.popup-footer {
-  background: #f5f5f5;
-  padding: 15px 20px;
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid #e0e0e0;
-}
-
-.cancel-button {
-  padding: 8px 16px;
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.cancel-button:hover {
-  background-color: #5a6268;
-}
-
-@media (max-width: 600px) {
-  .popup-content {
-    padding: 8px 2vw;
-    max-width: 98vw;
-  }
-  .popup-header h2 {
-    font-size: 1.1rem;
-  }
-  .cancel-button {
-    width: 100%;
-    padding: 8px 0;
-    font-size: 1em;
-  }
+.pp-note.pp-note-danger {
+  background: #fdecea;
+  border-color: #f5c6c2;
+  color: #a3372e;
 }
 </style>

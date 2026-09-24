@@ -260,6 +260,101 @@ public class UserGroupAssignmentTests
         sessionIds.Should().BeEquivalentTo(new[] { 101, 102 });
     }
 
+    // ------------------------------------------- groupes de langue unifiés (Language)
+
+    /// <summary>
+    /// Ajoute un groupe tel que l'import le crée aujourd'hui : type <see cref="GroupType.Language"/>,
+    /// sans créneau. C'est la forme que doivent accepter les DEUX emplacements de langue.
+    /// </summary>
+    private static async Task<int> AddLanguageGroupAsync(
+        backend.Data.ApplicationDbContext db, string label)
+    {
+        var group = new Group
+        {
+            Label = label,
+            DisplayName = label,
+            Type = GroupType.Language,
+            SpecializationId = 2,
+            Year = "3A",
+        };
+        db.Groups.Add(group);
+        await db.SaveChangesAsync();
+        return group.Id;
+    }
+
+    [Fact]
+    public async Task PutUser_AcceptsAUnifiedLanguageGroup_InBothSlots()
+    {
+        // Le cas qui bloquait tout : l'import crée les groupes de langue en type
+        // Language, alors que la validation exigeait encore Lv1 pour le premier
+        // emplacement et Lv2 pour le second. Aucun étudiant ne pouvait être rattaché.
+        await using var db = await SeedAsync();
+        var anglais = await AddLanguageGroupAsync(db, "A-I3002TR-AR51");
+        var espagnol = await AddLanguageGroupAsync(db, "A-I3004TR-BE51");
+        var (controller, _) = Build(db, AdminId);
+
+        var result = await controller.PutUser("p1", Payload(db, u =>
+        {
+            u.Lv1GroupId = anglais;
+            u.Lv2GroupId = espagnol;
+        }));
+
+        result.Should().BeOfType<NoContentResult>();
+
+        var alice = await db.Users.SingleAsync(u => u.Id == Alice);
+        alice.Lv1GroupId.Should().Be(anglais);
+        alice.Lv2GroupId.Should().Be(espagnol);
+    }
+
+    [Fact]
+    public async Task PutUser_AcceptsTheSameLanguageGroup_InEitherSlot()
+    {
+        // Les deux emplacements sont interchangeables : rien ne désigne un groupe
+        // comme « celui de la LV1 ». L'ordre inverse doit passer tout autant.
+        await using var db = await SeedAsync();
+        var espagnol = await AddLanguageGroupAsync(db, "A-I3004TR-BE51");
+        var (controller, _) = Build(db, AdminId);
+
+        var result = await controller.PutUser("p1", Payload(db, u => u.Lv1GroupId = espagnol));
+
+        result.Should().BeOfType<NoContentResult>();
+        (await db.Users.SingleAsync(u => u.Id == Alice)).Lv1GroupId.Should().Be(espagnol);
+    }
+
+    [Fact]
+    public async Task PostUser_AcceptsAUnifiedLanguageGroup()
+    {
+        // Le chemin de l'import des étudiants : sans ce correctif, chaque ligne portant
+        // un groupe de langue repartait en 400 et l'étudiant arrivait sans son groupe.
+        await using var db = await SeedAsync();
+        var anglais = await AddLanguageGroupAsync(db, "A-I3002TR-AR51");
+        var (controller, _) = Build(db, AdminId);
+
+        var result = await controller.PostUser(new User
+        {
+            StudentNumber = "p9", Name = "Zoe", Firstname = "Z", Email = "z@x.fr",
+            Year = "3A", SpecializationId = 1, SubGroupId = GroupInfo1A, Lv1GroupId = anglais
+        });
+
+        result.Should().BeOfType<CreatedAtActionResult>();
+        (await db.Users.SingleAsync(u => u.StudentNumber == "p9")).Lv1GroupId.Should().Be(anglais);
+    }
+
+    [Fact]
+    public async Task PutUser_StillRejectsALanguageGroupInTheSubGroupSlot()
+    {
+        // L'assouplissement ne doit pas déborder : un groupe de langue dans la case
+        // sous-groupe inscrirait l'étudiante à des séances qui ne la concernent pas.
+        await using var db = await SeedAsync();
+        var anglais = await AddLanguageGroupAsync(db, "A-I3002TR-AR51");
+        var (controller, _) = Build(db, AdminId);
+
+        var result = await controller.PutUser("p1", Payload(db, u => u.SubGroupId = anglais));
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        (await db.Users.SingleAsync(u => u.Id == Alice)).SubGroupId.Should().Be(GroupInfo1A);
+    }
+
     [Fact]
     public async Task PostUser_RejectsAGroupOfTheWrongType()
     {
