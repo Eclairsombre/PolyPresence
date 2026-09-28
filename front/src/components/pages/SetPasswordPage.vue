@@ -21,16 +21,7 @@
       </div>
 
       <form @submit.prevent="submitPassword" class="setpwd-form">
-        <div class="requirements-card">
-          <p class="requirements-title">Exigences du mot de passe</p>
-          <ul class="requirements-list">
-            <li>Au moins 8 caractères</li>
-            <li>Une lettre majuscule</li>
-            <li>Une lettre minuscule</li>
-            <li>Un chiffre</li>
-            <li>Un caractère spécial (!@#$%^&*…)</li>
-          </ul>
-        </div>
+        <PasswordRequirements :password="password" />
 
         <div class="form-field">
           <label for="pwd">Nouveau mot de passe</label>
@@ -81,6 +72,8 @@
 import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
+import PasswordRequirements from "../inputs/PasswordRequirements.vue";
+import { checkPassword } from "../../utils/passwordRules.js";
 
 const password = ref("");
 const confirmPassword = ref("");
@@ -107,35 +100,16 @@ const submitPassword = async () => {
     return;
   }
 
-  // Valider la longueur du mot de passe
-  if (!password.value || password.value.length < 8) {
-    errorMessage.value = "Le mot de passe doit contenir au moins 8 caractères.";
+  // Mêmes règles que le serveur, via le module partagé : les cinq contrôles étaient
+  // recopiés ici, et leur jeu de caractères spéciaux avait divergé (« / » accepté par
+  // cette page, refusé par l'API). On signale la première règle non remplie.
+  const { rules, isValid } = checkPassword(password.value);
+  if (!isValid) {
+    const missing = rules.find((rule) => !rule.satisfied);
+    errorMessage.value = `Mot de passe incomplet : ${missing.label.toLowerCase()}.`;
     return;
   }
 
-  // Valider les caractères du mot de passe
-  if (!/[A-Z]/.test(password.value)) {
-    errorMessage.value =
-      "Le mot de passe doit contenir au moins une lettre majuscule.";
-    return;
-  }
-
-  if (!/[a-z]/.test(password.value)) {
-    errorMessage.value =
-      "Le mot de passe doit contenir au moins une lettre minuscule.";
-    return;
-  }
-
-  if (!/\d/.test(password.value)) {
-    errorMessage.value = "Le mot de passe doit contenir au moins un chiffre.";
-    return;
-  }
-
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\\|,.<>\/?]/.test(password.value)) {
-    errorMessage.value =
-      "Le mot de passe doit contenir au moins un caractère spécial.";
-    return;
-  }
   if (password.value !== confirmPassword.value) {
     errorMessage.value = "Les mots de passe ne correspondent pas.";
     return;
@@ -213,35 +187,6 @@ const submitPassword = async () => {
   display: flex;
   flex-direction: column;
   gap: 18px;
-}
-
-.requirements-card {
-  background: #f8f9fb;
-  border: 1px solid #e8ecf1;
-  border-radius: 10px;
-  padding: 14px 18px;
-}
-
-.requirements-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #495057;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin: 0 0 8px;
-}
-
-.requirements-list {
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.requirements-list li {
-  font-size: 0.85rem;
-  color: #6c757d;
 }
 
 .form-field {

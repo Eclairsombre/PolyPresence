@@ -109,12 +109,14 @@
             Dernière étape. Il vous servira à vous connecter à PolyPresence.
           </p>
 
+          <PasswordRequirements :password="password" />
+
           <div class="field">
             <label>Mot de passe</label>
             <input
               v-model="password"
               type="password"
-              placeholder="Au moins 8 caractères"
+              placeholder="Votre mot de passe"
               autocomplete="new-password"
             />
             <div v-if="password.length" class="strength">
@@ -168,6 +170,8 @@ import AppIcon from "../AppIcon.vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
+import PasswordRequirements from "../inputs/PasswordRequirements.vue";
+import { isPasswordValid } from "../../utils/passwordRules.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 const router = useRouter();
@@ -251,8 +255,11 @@ const strength = computed(() => {
 const confirmMismatch = computed(
   () => confirm.value.length > 0 && confirm.value !== password.value,
 );
+// Le serveur impose cinq règles, pas seulement une longueur : n'en vérifier qu'une
+// activait le bouton sur un mot de passe que l'API refusait ensuite, sans que rien
+// n'ait indiqué ce qui manquait.
 const canFinish = computed(
-  () => password.value.length >= 8 && confirm.value === password.value,
+  () => isPasswordValid(password.value) && confirm.value === password.value,
 );
 
 // --- Actions ---
