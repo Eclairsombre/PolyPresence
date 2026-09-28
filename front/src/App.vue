@@ -125,7 +125,7 @@
       <router-view />
     </main>
     <footer class="app-footer">
-      <p>&copy; 2025 PolyPresence — Polytech Lyon</p>
+      <p>&copy; {{ currentYear }} PolyPresence — Polytech Lyon</p>
     </footer>
     <ToastContainer />
     <ConfirmDialog />
@@ -142,6 +142,10 @@ import ConfirmDialog from "./components/ui/ConfirmDialog.vue";
 const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
+
+// Année du copyright. Calculée à l'affichage plutôt qu'écrite en dur : la mention
+// restait figée à 2025 et personne ne pense à la corriger au 1er janvier.
+const currentYear = new Date().getFullYear();
 
 const isAdmin = computed(() => {
   return authStore.user && authStore.user.isAdmin === true;
