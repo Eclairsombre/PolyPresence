@@ -125,6 +125,10 @@
       <router-view />
     </main>
     <footer class="app-footer">
+      <p class="footer-support">
+        Un problème ? Une question ?
+        <a :href="`mailto:${supportEmail}`">{{ supportEmail }}</a>
+      </p>
       <p>&copy; {{ currentYear }} PolyPresence — Polytech Lyon</p>
     </footer>
     <ToastContainer />
@@ -146,6 +150,12 @@ const route = useRoute();
 // Année du copyright. Calculée à l'affichage plutôt qu'écrite en dur : la mention
 // restait figée à 2025 et personne ne pense à la corriger au 1er janvier.
 const currentYear = new Date().getFullYear();
+
+// Adresse de support. Le repli n'est pas une commodité : Vite inline les VITE_* au
+// build, et si l'ARG du Dockerfile n'est pas transmis, la variable est vide — le
+// footer afficherait « Contactez » suivi de rien.
+const supportEmail =
+  import.meta.env.VITE_SUPPORT_EMAIL || "polypresence.support@univ-lyon1.fr";
 
 const isAdmin = computed(() => {
   return authStore.user && authStore.user.isAdmin === true;
@@ -443,6 +453,26 @@ textarea:focus-visible,
   padding: 16px;
   font-size: 0.82rem;
   margin-top: auto;
+}
+
+.app-footer p {
+  margin: 0;
+}
+
+.footer-support {
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 4px !important;
+}
+
+.footer-support a {
+  color: #7fb9ee;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.footer-support a:hover,
+.footer-support a:focus-visible {
+  text-decoration: underline;
 }
 
 /* ===== Utilities ===== */
