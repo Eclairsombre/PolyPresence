@@ -39,7 +39,7 @@ services:
           driver: journald
 
     postgres:
-        image: postgres:16
+        image: postgres:18
         restart: always
         environment:
             - POSTGRES_DB=polypresence
@@ -47,8 +47,11 @@ services:
             - POSTGRES_PASSWORD=polypresence
             - TZ=Europe/Paris
         volumes:
-            - pgdata:/var/lib/postgresql/data
+            - pgdata:/var/lib/postgresql
             - ./pg_conf/postgresql.conf:/etc/postgresql/postgresql.conf
+        # volumes:
+        #     - pgdata:/var/lib/postgresql/data
+        #     - ./pg_conf/postgresql.conf:/etc/postgresql/postgresql.conf
         networks:
             - app_network
         ports:
