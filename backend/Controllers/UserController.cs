@@ -714,9 +714,13 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
             {
                 // Connexion par numéro étudiant OU par email (les professeurs n'ont pas
                 // de numéro étudiant et se connectent avec leur adresse mail).
+                // L'email est comparé sans tenir compte de la casse : personne ne retape
+                // son adresse avec la casse exacte de l'import.
                 var identifier = request.StudentNumber.Trim();
+                var identifierLower = identifier.ToLower();
                 var user = await _context.Users.FirstOrDefaultAsync(
-                    u => u.StudentNumber == identifier || (u.Email != "" && u.Email == identifier));
+                    u => u.StudentNumber == identifier
+                         || (u.Email != "" && u.Email.ToLower() == identifierLower));
 
                 if (user == null || string.IsNullOrEmpty(user.PasswordHash) || user.IsDeleted)
                 {
@@ -1048,7 +1052,7 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
             // Validation des paramètres d'entrée
             if (string.IsNullOrWhiteSpace(request.StudentNumber))
             {
-                return BadRequest(new { Success = false, Message = "Numéro étudiant requis." });
+                return BadRequest(new { Success = false, Message = "Numéro étudiant ou adresse e-mail requis." });
             }
 
             // Rate limiting pour les demandes de reset
@@ -1060,13 +1064,20 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
 
             try
             {
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.StudentNumber == request.StudentNumber);
+                // Même identification que la connexion : numéro étudiant OU email. Les
+                // professeurs n'ont pas de numéro étudiant — chercher uniquement sur ce
+                // champ les privait purement et simplement de la réinitialisation.
+                var identifier = request.StudentNumber.Trim();
+                var identifierLower = identifier.ToLower();
+                var user = await _context.Users.FirstOrDefaultAsync(
+                    u => u.StudentNumber == identifier
+                         || (u.Email != "" && u.Email.ToLower() == identifierLower));
 
                 // Toujours retourner une réponse positive pour éviter l'énumération d'utilisateurs
                 if (user == null || string.IsNullOrEmpty(user.Email) || user.IsDeleted)
                 {
-                    _logger.LogWarning("Password reset attempted for non-existent user: {StudentNumber}", request.StudentNumber);
-                    return Ok(new { Success = true, Message = "Si ce numéro étudiant existe, un email de réinitialisation a été envoyé." });
+                    _logger.LogWarning("Password reset attempted for non-existent user: {Identifier}", identifier);
+                    return Ok(new { Success = true, Message = "Si ce compte existe, un email de réinitialisation a été envoyé." });
                 }
 
                 // Vérifier si un token est encore valide
@@ -1087,7 +1098,7 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                 await SendEmailAsync(user.Email, "Réinitialisation de mot de passe - PolytechPresence", body);
 
                 _logger.LogInformation("Password reset email sent to user: {StudentNumber}", user.StudentNumber);
-                return Ok(new { Success = true, Message = "Si ce numéro étudiant existe, un email de réinitialisation a été envoyé." });
+                return Ok(new { Success = true, Message = "Si ce compte existe, un email de réinitialisation a été envoyé." });
             }
             catch (Exception ex)
             {

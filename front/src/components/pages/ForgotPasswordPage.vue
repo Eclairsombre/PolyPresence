@@ -19,20 +19,25 @@
         </div>
         <h1>Mot de passe oublié</h1>
         <p class="card-subtitle">
-          Entrez votre numéro étudiant pour recevoir un lien de réinitialisation
+          Entrez votre numéro étudiant ou votre adresse e-mail pour recevoir un
+          lien de réinitialisation
         </p>
       </div>
 
       <form @submit.prevent="sendResetMail" class="forgot-form">
         <div class="form-field">
-          <label for="student-number">Numéro étudiant</label>
+          <label for="identifier">Numéro étudiant ou adresse e-mail</label>
           <input
-            v-model="studentNumber"
-            id="student-number"
+            v-model.trim="identifier"
+            id="identifier"
             type="text"
-            placeholder="p1234567"
+            placeholder="p1234567 ou prenom.nom@univ-lyon1.fr"
+            autocomplete="username"
             required
           />
+          <p class="field-hint">
+            Les professeurs utilisent leur adresse e-mail.
+          </p>
         </div>
 
         <Transition name="fade">
@@ -67,7 +72,8 @@
 <script setup>
 import { ref } from "vue";
 import axios from "axios";
-const studentNumber = ref("");
+// Numéro étudiant ou email : le backend accepte les deux, comme à la connexion.
+const identifier = ref("");
 const errorMessage = ref("");
 const successMessage = ref("");
 const loading = ref(false);
@@ -86,7 +92,7 @@ const sendResetMail = async () => {
   loading.value = true;
   try {
     const response = await axios.post(`${API_URL}/User/forgot-password`, {
-      studentNumber: studentNumber.value,
+      studentNumber: identifier.value,
     });
     const msg = response?.data?.message || "";
     if (msg.includes("déjà été envoyé")) {
@@ -175,6 +181,12 @@ const sendResetMail = async () => {
   color: #495057;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #6c757d;
 }
 
 .form-field input {

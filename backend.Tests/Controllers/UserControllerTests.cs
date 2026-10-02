@@ -978,6 +978,94 @@ public class UserControllerTests
     }
 
     [Fact]
+    public async Task ForgotPassword_ShouldFindAProfessorByEmail_WhenTheyHaveNoStudentNumber()
+    {
+        // Le cas signalé en production : un professeur se connecte avec son adresse
+        // mail mais n'a pas de numéro étudiant. Chercher uniquement sur ce champ le
+        // privait de la réinitialisation, et la réponse anti-énumération masquait
+        // l'échec — l'écran annonçait un envoi qui n'avait pas eu lieu.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User
+        {
+            Id = 61,
+            StudentNumber = "",
+            Name = "DUPONT",
+            Firstname = "Jean",
+            Email = "jean.dupont@univ-lyon1.fr",
+            Year = "PROF",
+            IsProfessor = true
+        });
+        await db.SaveChangesAsync();
+
+        var rateMock = new Mock<IRateLimitService>();
+        rateMock.Setup(r => r.IsPasswordResetAllowed(It.IsAny<string>())).Returns(true);
+        var controller = BuildController(db, rateLimitMock: rateMock);
+
+        var result = await controller.ForgotPassword(
+            new ForgotPasswordRequest { StudentNumber = "jean.dupont@univ-lyon1.fr" });
+
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "jean.dupont@univ-lyon1.fr");
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ShouldIgnoreEmailCasingAndSpaces()
+    {
+        // Personne ne retape son adresse avec la casse exacte de l'import.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User
+        {
+            Id = 62,
+            StudentNumber = "",
+            Name = "MARTIN",
+            Firstname = "Claire",
+            Email = "claire.martin@univ-lyon1.fr",
+            Year = "PROF",
+            IsProfessor = true
+        });
+        await db.SaveChangesAsync();
+
+        var rateMock = new Mock<IRateLimitService>();
+        rateMock.Setup(r => r.IsPasswordResetAllowed(It.IsAny<string>())).Returns(true);
+        var controller = BuildController(db, rateLimitMock: rateMock);
+
+        var result = await controller.ForgotPassword(
+            new ForgotPasswordRequest { StudentNumber = "  Claire.MARTIN@univ-lyon1.fr  " });
+
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().ContainSingle(e => e.ToEmail == "claire.martin@univ-lyon1.fr");
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ShouldNotMatchAccountsWithoutEmail_WhenIdentifierIsEmptyish()
+    {
+        // Garde-fou : 33 professeurs ont un StudentNumber ET un Email vides. Une
+        // comparaison trop permissive les ferait tous correspondre entre eux.
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User
+        {
+            Id = 63,
+            StudentNumber = "",
+            Name = "SANS",
+            Firstname = "Mail",
+            Email = "",
+            Year = "PROF",
+            IsProfessor = true
+        });
+        await db.SaveChangesAsync();
+
+        var rateMock = new Mock<IRateLimitService>();
+        rateMock.Setup(r => r.IsPasswordResetAllowed(It.IsAny<string>())).Returns(true);
+        var controller = BuildController(db, rateLimitMock: rateMock);
+
+        var result = await controller.ForgotPassword(
+            new ForgotPasswordRequest { StudentNumber = "inconnu@univ-lyon1.fr" });
+
+        result.Should().BeOfType<OkObjectResult>();
+        db.OutboxEmails.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ResetPassword_ShouldReturnBadRequest_WhenPayloadMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
