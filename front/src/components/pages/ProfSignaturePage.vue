@@ -33,7 +33,10 @@
           <p class="page-subtitle">
             {{
               session
-                ? formatDate(session.date || session.Date) +
+                ? (session.name || session.Name
+                    ? (session.name || session.Name) + " · "
+                    : "") +
+                  formatDate(session.date || session.Date) +
                   " · " +
                   formatTime(session.startTime || session.StartTime) +
                   " – " +
@@ -218,7 +221,10 @@
               class="btn btn-ghost btn-sm"
               :disabled="attendancesLoading"
             >
-              <AppIcon name="refresh" :class="{ spinning: attendancesLoading }" />
+              <AppIcon
+                name="refresh"
+                :class="{ spinning: attendancesLoading }"
+              />
               Rafraîchir
             </button>
           </div>
