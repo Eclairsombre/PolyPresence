@@ -439,16 +439,21 @@ namespace backend.Controllers
                 .Include(s => s.SessionGroups)
                 .ToListAsync();
 
-            // Rapprochement prioritaire par UID ADE : stable même si le créneau est déplacé,
-            // ce qui préserve les présences déjà saisies. Le rapprochement par créneau reste
-            // en repli pour les séances créées avant l'introduction de l'UID.
+            // Rapprochement prioritaire par UID ADE : stable quand un créneau est décalé dans la
+            // journée, ce qui préserve les présences déjà saisies. Le rapprochement par créneau
+            // reste en repli pour les séances créées avant l'introduction de l'UID.
+            // Attention : l'UID ADE est POSITIONNEL ("<projet>-<cours>-<rang>-0"), pas propre à
+            // une occurrence. ADE peut réattribuer un rang à une autre date du même cours : la
+            // ligne existante est alors déplacée, avec la feuille qu'elle porte.
             var byUid = new Dictionary<string, Session>(StringComparer.Ordinal);
             foreach (var s in existingSessions.Where(s => !string.IsNullOrEmpty(s.IcsUid)))
                 byUid.TryAdd(s.IcsUid!, s);
 
+            var today = DateTime.Now.Date;
             var unmatched = new List<Session>(existingSessions);
             var sessionsToAdd = new List<(Session Session, ImportedSession Imported)>();
             var groupsChanged = new List<Session>();
+            var audienceToCheck = new List<Session>();
 
             foreach (var imported in importedSessions)
             {
@@ -477,7 +482,8 @@ namespace backend.Controllers
                     if (match.ProfId != imported.ProfId) match.ProfId = imported.ProfId;
                     if (match.ProfId2 != imported.ProfId2) match.ProfId2 = imported.ProfId2;
                     if (match.IsMerged != imported.IsMerged) match.IsMerged = imported.IsMerged;
-                    if (match.Date != imported.Date.Date) match.Date = imported.Date.Date;
+                    var dateMoved = match.Date != imported.Date.Date;
+                    if (dateMoved) match.Date = imported.Date.Date;
                     if (match.StartTime != startDateTime) match.StartTime = startDateTime;
                     if (match.EndTime != endDateTime) match.EndTime = endDateTime;
                     if (string.IsNullOrEmpty(match.IcsUid) && !string.IsNullOrEmpty(imported.Uid))
@@ -486,6 +492,11 @@ namespace backend.Controllers
 
                     if (SyncSessionGroups(match, imported, groupsByLabel))
                         groupsChanged.Add(match);
+                    // Groupes inchangés ne veut pas dire public correct : une séance à venir
+                    // déplacée à une autre date, ou dont la feuille est vide (créée quand son
+                    // public n'existait pas encore), doit être recalculée avant d'avoir lieu.
+                    else if (match.Date >= today && (dateMoved || match.Attendances.Count == 0))
+                        audienceToCheck.Add(match);
 
                     unmatched.Remove(match);
                 }
@@ -528,9 +539,10 @@ namespace backend.Controllers
 
             await _context.SaveChangesAsync();
 
-            var toRefresh = sessionsToAdd.Select(t => t.Session).Concat(groupsChanged).Distinct().ToList();
+            var newSessions = sessionsToAdd.Select(t => t.Session).ToList();
+            var toRefresh = newSessions.Concat(groupsChanged).Concat(audienceToCheck).Distinct().ToList();
             if (toRefresh.Any())
-                await SyncAttendancesAsync(toRefresh);
+                await SyncAttendancesAsync(toRefresh, newSessions.Select(s => s.Id).ToHashSet());
         }
 
         /// <summary>
@@ -562,12 +574,20 @@ namespace backend.Controllers
         }
 
         /// <summary>
-        /// Recalcule les présences des séances dont le public a changé (nouvelles séances, ou
-        /// groupes visés modifiés). Les présences en trop ne sont retirées que sur les séances
-        /// à venir et encore vierges : on ne détruit jamais un émargement déjà saisi.
+        /// Recalcule les présences des séances dont le public a pu changer (nouvelles séances,
+        /// groupes visés modifiés, séances à venir déplacées ou vides).
+        /// Une feuille terminée n'est jamais modifiée : personne n'y est inscrit après coup,
+        /// sauf si la séance vient d'être créée par cet import (sa feuille naît avec son public).
+        /// Les présences en trop ne sont retirées que sur les séances à venir et encore
+        /// vierges : on ne détruit jamais un émargement déjà saisi.
         /// </summary>
-        private async Task SyncAttendancesAsync(List<Session> sessions)
+        private async Task SyncAttendancesAsync(List<Session> sessions, IReadOnlySet<int> newSessionIds)
         {
+            // Seules les feuilles à venir, ou nées de cet import, sont modifiables. Une séance
+            // créée par cet import n'a encore aucune présence : le retrait ne la concerne pas,
+            // il ne s'applique donc de fait qu'aux séances à venir.
+            var today = DateTime.Now.Date;
+            sessions = sessions.Where(s => s.Date >= today || newSessionIds.Contains(s.Id)).ToList();
             if (sessions.Count == 0) return;
 
             var students = await _context.Users
@@ -593,7 +613,6 @@ namespace backend.Controllers
                 .GroupBy(a => a.SessionId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            var today = DateTime.Now.Date;
             var toAdd = new List<Attendance>();
             var toRemove = new List<Attendance>();
 
@@ -610,13 +629,10 @@ namespace backend.Controllers
                 toAdd.AddRange(audience.Where(id => !currentIds.Contains(id))
                     .Select(id => new Attendance { SessionId = session.Id, StudentId = id, Status = AttendanceStatus.Absent }));
 
-                if (session.Date >= today)
-                {
-                    toRemove.AddRange(current.Where(a =>
-                        !audience.Contains(a.StudentId) &&
-                        a.Status == AttendanceStatus.Absent &&
-                        string.IsNullOrEmpty(a.Comment)));
-                }
+                toRemove.AddRange(current.Where(a =>
+                    !audience.Contains(a.StudentId) &&
+                    a.Status == AttendanceStatus.Absent &&
+                    string.IsNullOrEmpty(a.Comment)));
             }
 
             if (toRemove.Any()) _context.Attendances.RemoveRange(toRemove);

@@ -79,6 +79,24 @@ public class IcsGroupImportTests
     }
 
     /// <summary>
+    /// Décale toutes les séances d'un import pour qu'elles soient terminées (la plus
+    /// récente une semaine avant aujourd'hui) : sert à vérifier qu'une feuille passée
+    /// n'est jamais modifiée, quelle que soit la date réelle d'exécution des tests.
+    /// </summary>
+    private static List<ImportedSession> ShiftToPast(List<ImportedSession> sessions)
+    {
+        if (sessions.Count == 0) return sessions;
+
+        var latest = sessions.Max(s => s.Date);
+        var offset = DateTime.Today.AddDays(-7) - latest;
+
+        foreach (var session in sessions)
+            session.Date = session.Date.Add(offset);
+
+        return sessions;
+    }
+
+    /// <summary>
     /// Reproduit ce que fait <c>FetchAndParseIcs</c> après le téléchargement, sans réseau
     /// ni résolution des professeurs (testée ailleurs) : parse le fichier puis applique
     /// les règles métier de fusion.
@@ -430,5 +448,119 @@ public class IcsGroupImportTests
 
         (await db.Attendances.AnyAsync(a => a.SessionId == tpG1.Id && a.StudentId == Bob)).Should().BeTrue();
         (await db.Attendances.AnyAsync(a => a.SessionId == tpG1.Id && a.StudentId == Alice)).Should().BeFalse();
+    }
+
+    // ------------------------------------------------------------------ feuilles vides
+
+    private static async Task<List<int>> AttendeesAsync(backend.Data.ApplicationDbContext db, int sessionId)
+        => await db.Attendances
+            .Where(a => a.SessionId == sessionId)
+            .Select(a => a.StudentId)
+            .OrderBy(id => id)
+            .ToListAsync();
+
+    [Fact]
+    public async Task Reimport_UpcomingSessionWithEmptySheet_GetsItsAudience()
+    {
+        await using var db = await SeedAsync();
+        await SyncAsync(BuildController(db), ShiftToFuture(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        var session = await db.Sessions.SingleAsync(s => s.Name == "Algo. prog. Objet MM");
+        var expected = await AttendeesAsync(db, session.Id);
+        expected.Should().NotBeEmpty();
+
+        // État de la séance 611 en production : groupes visés corrects, étudiants affectés,
+        // mais aucune ligne d'émargement (créée quand son public était encore vide).
+        db.Attendances.RemoveRange(db.Attendances.Where(a => a.SessionId == session.Id));
+        await db.SaveChangesAsync();
+
+        // Ré-import identique : les groupes ne changent pas. Avant correctif, la séance
+        // n'était pas recalculée et arrivait à son jour avec une feuille vide.
+        await SyncAsync(BuildController(db), ShiftToFuture(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        (await AttendeesAsync(db, session.Id)).Should().Equal(expected);
+    }
+
+    [Fact]
+    public async Task Reimport_WhenUidIsReboundFromAFinishedDate_SessionGetsItsAudience()
+    {
+        await using var db = await SeedAsync();
+        await SyncAsync(BuildController(db), ShiftToFuture(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        var session = await db.Sessions.SingleAsync(s => s.Name == "Algo. prog. Objet MM");
+        var sessionId = session.Id;
+        var expected = await AttendeesAsync(db, sessionId);
+
+        // L'UID ADE est positionnel : une ligne créée pour une ancienne occurrence (vide,
+        // datée dans le passé) est ré-attribuée par ADE à une occurrence à venir.
+        session.Date = DateTime.Today.AddDays(-20);
+        session.StartTime = session.Date + session.StartTime.TimeOfDay;
+        session.EndTime = session.Date + session.EndTime.TimeOfDay;
+        db.Attendances.RemoveRange(db.Attendances.Where(a => a.SessionId == sessionId));
+        await db.SaveChangesAsync();
+
+        await SyncAsync(BuildController(db), ShiftToFuture(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        var after = await db.Sessions.SingleAsync(s => s.Id == sessionId);
+        after.Date.Should().BeOnOrAfter(DateTime.Today);
+        (await AttendeesAsync(db, sessionId)).Should().Equal(expected);
+    }
+
+    [Fact]
+    public async Task Reimport_FinishedSessionWithEmptySheet_IsNotBackfilled()
+    {
+        await using var db = await SeedAsync();
+        await SyncAsync(BuildController(db), ShiftToPast(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        var session = await db.Sessions.SingleAsync(s => s.Name == "Algo. prog. Objet MM");
+        db.Attendances.RemoveRange(db.Attendances.Where(a => a.SessionId == session.Id));
+        await db.SaveChangesAsync();
+
+        await SyncAsync(BuildController(db), ShiftToPast(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        (await AttendeesAsync(db, session.Id)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Reimport_WhenTargetGroupsChangeOnAFinishedSession_SheetIsLeftUntouched()
+    {
+        await using var db = await SeedAsync();
+        await SyncAsync(BuildController(db), ShiftToPast(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        var tpG1 = await db.Sessions.SingleAsync(s => s.Name == "Informatique 1" && s.Room.Contains("123"));
+        var before = await AttendeesAsync(db, tpG1.Id);
+        before.Should().Contain(Alice).And.NotContain(Bob);
+
+        // Même bascule de groupes que pour une séance à venir, mais sur une feuille
+        // terminée : personne ne doit y être inscrit après coup, ni en être retiré.
+        var changed = ShiftToPast(LoadFixture("edt_info3a.ics", "3A"));
+        changed.Single(s => s.Name == "Informatique 1" && s.Room.Contains("123")).GroupLabels =
+            new List<string> { "INFO 2-A", "INFO 2-B", "INFO 2-C", "INFO 2-D" };
+
+        await SyncAsync(BuildController(db), changed, "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        (await AttendeesAsync(db, tpG1.Id)).Should().Equal(before);
+    }
+
+    [Fact]
+    public async Task Import_NewSessionInThePast_StillGetsItsAudience()
+    {
+        await using var db = await SeedAsync();
+
+        // Premier import en cours d'année : les séances déjà passées sont créées à ce
+        // moment-là, leur feuille naît avec son public (personne n'a encore émargé).
+        await SyncAsync(BuildController(db), ShiftToPast(LoadFixture("edt_info3a.ics", "3A")),
+            "3A", InfoSpecId, GroupType.Sub, InfoPromoLabel);
+
+        var session = await db.Sessions.SingleAsync(s => s.Name == "Algo. prog. Objet MM");
+        session.Date.Should().BeBefore(DateTime.Today);
+        (await AttendeesAsync(db, session.Id)).Should().NotBeEmpty();
     }
 }
