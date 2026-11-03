@@ -425,7 +425,7 @@ public class SessionControllerTests
     }
 
     [Fact]
-    public async Task ValidateSession_ShouldReturnConflict_WhenAlreadyPresent()
+    public async Task ValidateSession_ShouldReturnConflict_WhenCancelledByProfessor()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
@@ -442,7 +442,7 @@ public class SessionControllerTests
             ValidationCode = "OK",
             SpecializationId = 1
         });
-        db.Attendances.Add(new Attendance { SessionId = 31, StudentId = 1, Status = AttendanceStatus.Present });
+        db.Attendances.Add(new Attendance { SessionId = 31, StudentId = 1, Status = AttendanceStatus.Late });
         await db.SaveChangesAsync();
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
@@ -456,6 +456,42 @@ public class SessionControllerTests
         var result = await controller.ValidateSession(31, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
 
         result.Should().BeOfType<ConflictObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Late);
+    }
+
+    [Fact]
+    public async Task ValidateSession_ShouldReturnOk_WhenAlreadyPresent()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Sessions.Add(new Session
+        {
+            Id = 33,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-30),
+            EndTime = DateTime.Now.AddMinutes(30),
+            ValidationCode = "OK",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 33, StudentId = 1, Status = AttendanceStatus.Present });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("studentNumber", "S1"),
+            new Claim("role", "User"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        var result = await controller.ValidateSession(33, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
+
+        result.Should().BeOfType<OkObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Present);
     }
 
     [Fact]

@@ -1012,9 +1012,11 @@ namespace backend.Controllers
                 return NotFound(new { error = true, message = "Aucune présence trouvée pour cette session et cet étudiant." });
             }
 
-            if (attendance.Status == AttendanceStatus.Present)
+            // Le statut 2 (Late) est affiché « Annulé » : le professeur a annulé cette présence,
+            // l'étudiant ne peut pas se remettre présent lui-même.
+            if (attendance.Status == AttendanceStatus.Late)
             {
-                return Conflict(new { error = true, message = "La présence a déjà été validée pour cette session." });
+                return Conflict(new { error = true, message = "Votre présence a été annulée par le professeur." });
             }
 
             // Mise à jour du statut de présence
