@@ -9,6 +9,11 @@ namespace backend.Data
     {
         public ApplicationDbContext CreateDbContext(string[] args)
         {
+            // Même switch que Program.cs : sans lui, `dotnet ef` voit les DateTime en
+            // "timestamp with time zone" et génère des migrations parasites qui
+            // convertiraient toutes les colonnes de dates.
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             var config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json")
