@@ -21,7 +21,8 @@ namespace backend.Data
         public DbSet<OutboxEmail> OutboxEmails { get; set; } = null!;
         public DbSet<Group> Groups { get; set; } = null!;
         public DbSet<SessionGroup> SessionGroups { get; set; } = null!;
-
+        public DbSet<AbsenceReason> AbsenceReasons { get; set; } = null!;
+        public DbSet<AbsencePeriod> AbsencePeriods { get; set; } = null!;
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -167,6 +168,51 @@ namespace backend.Data
                 .IsUnique()
                 .HasFilter("\"Email\" <> ''");
 
+            // ---------- Absences : motifs et justification ----------
+
+            // SetNull : désactiver un motif suffit en pratique, mais si l'un d'eux est un jour
+            // supprimé en base, les absences gardent leur justification et perdent seulement le motif.
+            modelBuilder.Entity<Attendance>()
+                .HasOne(a => a.Reason)
+                .WithMany()
+                .HasForeignKey(a => a.ReasonId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Attendance>()
+                .HasOne(a => a.AbsencePeriod)
+                .WithMany()
+                .HasForeignKey(a => a.AbsencePeriodId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AbsencePeriod>()
+                .HasOne(p => p.Student)
+                .WithMany()
+                .HasForeignKey(p => p.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AbsencePeriod>()
+                .HasOne(p => p.Reason)
+                .WithMany()
+                .HasForeignKey(p => p.ReasonId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AbsencePeriod>()
+                .HasIndex(p => new { p.StudentId, p.From, p.To });
+
+            // Liste initiale fournie par la scolarité (cahier des charges, octobre 2026).
+            modelBuilder.Entity<AbsenceReason>().HasData(
+                new AbsenceReason { Id = 1, Label = "Certificat médical", SortOrder = 1 },
+                new AbsenceReason { Id = 2, Label = "Rendez-vous médical", SortOrder = 2 },
+                new AbsenceReason { Id = 3, Label = "Hospitalisation", SortOrder = 3 },
+                new AbsenceReason { Id = 4, Label = "Grève TCL", SortOrder = 4 },
+                new AbsenceReason { Id = 5, Label = "Grève SNCF", SortOrder = 5 },
+                new AbsenceReason { Id = 6, Label = "Convocation administrative officielle", SortOrder = 6 },
+                new AbsenceReason { Id = 7, Label = "Convocation JCD", SortOrder = 7 },
+                new AbsenceReason { Id = 8, Label = "Permis de conduire", SortOrder = 8 },
+                new AbsenceReason { Id = 9, Label = "Convocation concours", SortOrder = 9 },
+                new AbsenceReason { Id = 10, Label = "Compétition sportif haut niveau", SortOrder = 10 },
+                new AbsenceReason { Id = 11, Label = "Décès d'un proche", SortOrder = 11 },
+                new AbsenceReason { Id = 12, Label = "Congé menstruel", SortOrder = 12 });
         }
     }
 }

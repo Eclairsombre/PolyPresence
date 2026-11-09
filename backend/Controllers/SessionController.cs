@@ -582,6 +582,9 @@ namespace backend.Controllers
                 session.ProfSignature2 = signatureData.Signature;
             }
 
+            // Feuille signée : les absents couverts par une absence anticipée ou une dispense
+            // (saisie avant leur inscription à la séance) passent en ABJ.
+            await AbsencePeriods.ApplyToSessionAsync(_context, session);
             await _context.SaveChangesAsync();
             return Ok(new { message = "Signature enregistrée avec succès." });
         }

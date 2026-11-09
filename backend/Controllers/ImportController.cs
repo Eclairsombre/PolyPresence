@@ -632,7 +632,9 @@ namespace backend.Controllers
                 toRemove.AddRange(current.Where(a =>
                     !audience.Contains(a.StudentId) &&
                     a.Status == AttendanceStatus.Absent &&
-                    string.IsNullOrEmpty(a.Comment)));
+                    string.IsNullOrEmpty(a.Comment) &&
+                    a.ReasonId == null &&
+                    !a.IsJustified));
             }
 
             if (toRemove.Any()) _context.Attendances.RemoveRange(toRemove);

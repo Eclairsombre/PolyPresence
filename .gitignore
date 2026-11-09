@@ -16,3 +16,5 @@ backend_data/
 backend.Tests/bin
 backend.Tests/obj
 backend.Tests/TestResults
+
+load-tests/*

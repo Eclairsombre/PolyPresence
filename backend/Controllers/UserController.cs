@@ -1488,7 +1488,9 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
             var toRemove = current
                 .Where(a => !wanted.Contains(a.SessionId)
                             && a.Status == AttendanceStatus.Absent
-                            && string.IsNullOrEmpty(a.Comment))
+                            && string.IsNullOrEmpty(a.Comment)
+                            && a.ReasonId == null
+                            && !a.IsJustified)
                 .ToList();
 
             var toAdd = wanted

@@ -23,7 +23,7 @@ namespace backend.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("backend.Models.Attendance", b =>
+            modelBuilder.Entity("backend.Models.AbsencePeriod", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -32,7 +32,172 @@ namespace backend.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Comment")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("CourseName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("From")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsDispense")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ReasonId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("To")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReasonId");
+
+                    b.HasIndex("StudentId", "From", "To");
+
+                    b.ToTable("AbsencePeriods");
+                });
+
+            modelBuilder.Entity("backend.Models.AbsenceReason", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AbsenceReasons");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            IsActive = true,
+                            Label = "Certificat médical",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            IsActive = true,
+                            Label = "Rendez-vous médical",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            IsActive = true,
+                            Label = "Hospitalisation",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 4,
+                            IsActive = true,
+                            Label = "Grève TCL",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 5,
+                            IsActive = true,
+                            Label = "Grève SNCF",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = 6,
+                            IsActive = true,
+                            Label = "Convocation administrative officielle",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = 7,
+                            IsActive = true,
+                            Label = "Convocation JCD",
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            Id = 8,
+                            IsActive = true,
+                            Label = "Permis de conduire",
+                            SortOrder = 8
+                        },
+                        new
+                        {
+                            Id = 9,
+                            IsActive = true,
+                            Label = "Convocation concours",
+                            SortOrder = 9
+                        },
+                        new
+                        {
+                            Id = 10,
+                            IsActive = true,
+                            Label = "Compétition sportif haut niveau",
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = 11,
+                            IsActive = true,
+                            Label = "Décès d'un proche",
+                            SortOrder = 11
+                        },
+                        new
+                        {
+                            Id = 12,
+                            IsActive = true,
+                            Label = "Congé menstruel",
+                            SortOrder = 12
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.Attendance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AbsencePeriodId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comment")
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsJustified")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ReasonId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("SessionId")
                         .HasColumnType("integer");
@@ -44,6 +209,10 @@ namespace backend.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AbsencePeriodId");
+
+                    b.HasIndex("ReasonId");
 
                     b.HasIndex("StudentId");
 
@@ -472,8 +641,36 @@ namespace backend.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("backend.Models.AbsencePeriod", b =>
+                {
+                    b.HasOne("backend.Models.AbsenceReason", "Reason")
+                        .WithMany()
+                        .HasForeignKey("ReasonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.User", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Reason");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("backend.Models.Attendance", b =>
                 {
+                    b.HasOne("backend.Models.AbsencePeriod", "AbsencePeriod")
+                        .WithMany()
+                        .HasForeignKey("AbsencePeriodId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.AbsenceReason", "Reason")
+                        .WithMany()
+                        .HasForeignKey("ReasonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("backend.Models.Session", "Session")
                         .WithMany("Attendances")
                         .HasForeignKey("SessionId")
@@ -485,6 +682,10 @@ namespace backend.Migrations
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AbsencePeriod");
+
+                    b.Navigation("Reason");
 
                     b.Navigation("Session");
 

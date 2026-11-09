@@ -85,6 +85,7 @@ builder.Services.AddCors(options =>
 // Enregistrement des services
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
+builder.Services.AddScoped<AbsenceService>();
 builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
 builder.Services.AddSingleton<TimerService>();
 builder.Services.AddSingleton<AdminTokenService>();

@@ -136,3 +136,34 @@ Methodes non endpoint couvertes aussi: GenerateAndSendZip, GetPromoYears
 | Endpoint | Methode controleur | Etat | Tests |
 |---|---|---|---|
 | GET /api/Status | GetStatus | Couvre | StatusControllerTests |
+
+## AbsenceController
+
+| Endpoint | Methode controleur | Etat | Tests |
+|---|---|---|---|
+| GET /api/Absence/filters | GetFilters | Couvre | AbsenceControllerTests |
+| GET /api/Absence | GetAbsences | Couvre | AbsenceControllerTests |
+| GET /api/Absence/students | GetStudents | Couvre | AbsenceControllerTests |
+| GET /api/Absence/students/search | SearchStudents | Couvre | AbsenceControllerTests |
+| GET /api/Absence/students/{id} | GetStudent | Couvre | AbsenceControllerTests |
+| POST /api/Absence/justification | SetJustification | Couvre | AbsenceControllerTests |
+| POST /api/Absence/justification/period | SetJustificationForPeriod | Couvre | AbsenceControllerTests |
+| POST /api/Absence/annotation | SetAnnotation | Couvre | AbsenceControllerTests |
+| GET /api/Absence/my-sessions | GetMySessions | Couvre | AbsenceControllerTests |
+
+## AbsenceReasonController
+
+| Endpoint | Methode controleur | Etat | Tests |
+|---|---|---|---|
+| GET /api/AbsenceReason | GetAll | Couvre | AbsenceReasonControllerTests |
+| POST /api/AbsenceReason | Create | Couvre | AbsenceReasonControllerTests |
+| PUT /api/AbsenceReason/{id} | Update | Couvre | AbsenceReasonControllerTests |
+
+## AbsencePeriodController
+
+| Endpoint | Methode controleur | Etat | Tests |
+|---|---|---|---|
+| GET /api/AbsencePeriod | GetAll | Couvre | AbsencePeriodControllerTests |
+| POST /api/AbsencePeriod | Create | Couvre | AbsencePeriodControllerTests |
+| PUT /api/AbsencePeriod/{id} | Update | Couvre | AbsencePeriodControllerTests |
+| DELETE /api/AbsencePeriod/{id} | Delete | Couvre | AbsencePeriodControllerTests |
