@@ -39,16 +39,22 @@ namespace backend.Services
             var now = DateTime.UtcNow;
             var windowStart = now.Subtract(timeWindow);
 
-            _requests.AddOrUpdate(key,
-                new List<DateTime> { now },
-                (k, requests) =>
+            int currentCount;
+            while (true)
+            {
+                var requests = _requests.GetOrAdd(key, _ => new List<DateTime>());
+                lock (requests)
                 {
+                    if (!_requests.TryGetValue(key, out var current) || !ReferenceEquals(current, requests))
+                        continue;
+
                     requests.RemoveAll(r => r < windowStart);
                     requests.Add(now);
-                    return requests;
-                });
+                    currentCount = requests.Count;
+                }
+                break;
+            }
 
-            var currentCount = _requests[key].Count;
             var isAllowed = currentCount <= maxRequests;
 
             if (!isAllowed)
@@ -94,17 +100,15 @@ namespace backend.Services
 
             foreach (var kvp in _requests)
             {
-                kvp.Value.RemoveAll(r => r < now.AddHours(-24));
-
-                if (kvp.Value.Count == 0)
+                lock (kvp.Value)
                 {
-                    keysToRemove.Add(kvp.Key);
-                }
-            }
+                    kvp.Value.RemoveAll(r => r < now.AddHours(-24));
 
-            foreach (var key in keysToRemove)
-            {
-                _requests.TryRemove(key, out _);
+                    if (kvp.Value.Count == 0 && _requests.TryRemove(kvp))
+                    {
+                        keysToRemove.Add(kvp.Key);
+                    }
+                }
             }
 
             if (keysToRemove.Count > 0)

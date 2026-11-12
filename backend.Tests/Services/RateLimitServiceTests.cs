@@ -78,6 +78,24 @@ public class RateLimitServiceTests
     }
 
     [Fact]
+    public void IsAllowed_ShouldNeverExceedLimit_UnderParallelBurst()
+    {
+        for (var run = 0; run < 20; run++)
+        {
+            var service = new RateLimitService(NullLogger<RateLimitService>.Instance);
+            var allowed = 0;
+
+            Parallel.For(0, 300, new ParallelOptions { MaxDegreeOfParallelism = 64 }, _ =>
+            {
+                if (service.IsValidationAttemptAllowed("burst"))
+                    Interlocked.Increment(ref allowed);
+            });
+
+            allowed.Should().Be(3);
+        }
+    }
+
+    [Fact]
     public void ResetLoginAttempts_ShouldResetCounter()
     {
         var service = new RateLimitService(NullLogger<RateLimitService>.Instance);
