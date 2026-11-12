@@ -14,6 +14,8 @@ namespace backend.Tests.Controllers;
 
 public class SessionControllerTests
 {
+    private const string ValidSignature = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
     private static SessionController BuildController(
         backend.Data.ApplicationDbContext db,
         ClaimsPrincipal? principal = null)
@@ -21,7 +23,8 @@ public class SessionControllerTests
         var controller = new SessionController(
             db,
             NullLogger<SessionController>.Instance,
-            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            new backend.Services.RateLimitService(NullLogger<backend.Services.RateLimitService>.Instance));
 
         controller.ControllerContext = new ControllerContext
         {
@@ -32,6 +35,16 @@ public class SessionControllerTests
         };
 
         return controller;
+    }
+
+    private static SessionController BuildAdminController(backend.Data.ApplicationDbContext db)
+    {
+        if (!db.Users.Any(u => u.Id == 9000))
+        {
+            db.Users.Add(new User { Id = 9000, StudentNumber = "ADM9000", Name = "Ad", Firstname = "Min", Email = "adm9000@x.fr", Year = "ADMIN", IsAdmin = true });
+            db.SaveChanges();
+        }
+        return BuildController(db, PrincipalWithIdAndRole(9000, role: "Admin"));
     }
 
     private static ClaimsPrincipal PrincipalWithIdAndRole(int id, string role = "User", string isDelegate = "false")
@@ -290,7 +303,7 @@ public class SessionControllerTests
     public async Task AddStudentsToSession_ShouldReturnNotFound_WhenSessionMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(777, "S1");
 
@@ -316,7 +329,7 @@ public class SessionControllerTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(20, "UNKNOWN");
 
@@ -344,7 +357,7 @@ public class SessionControllerTests
         db.Attendances.Add(new Attendance { SessionId = 21, StudentId = 1, Status = AttendanceStatus.Absent });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(21, "S1");
 
@@ -371,7 +384,7 @@ public class SessionControllerTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(22, "S2");
 
@@ -425,11 +438,167 @@ public class SessionControllerTests
     }
 
     [Fact]
-    public async Task ValidateSession_ShouldReturnConflict_WhenCancelledByProfessor()
+    public async Task ValidateSession_ShouldReturn429_AfterThreeAttemptsPerMinute()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
         db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Sessions.Add(new Session
+        {
+            Id = 34,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-30),
+            EndTime = DateTime.Now.AddMinutes(30),
+            ValidationCode = "RIGHT",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 34, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "1"),
+            new Claim("studentNumber", "S1"),
+            new Claim("role", "User"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        for (var i = 0; i < 3; i++)
+        {
+            var wrong = await controller.ValidateSession(34, "S1", new SessionController.ValidateSessionModel { ValidationCode = "WRONG" });
+            wrong.Should().BeOfType<BadRequestObjectResult>();
+        }
+
+        var blocked = await controller.ValidateSession(34, "S1", new SessionController.ValidateSessionModel { ValidationCode = "RIGHT" });
+
+        blocked.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status429TooManyRequests);
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Absent);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("data:image/png;base64,")]
+    [InlineData("data:image/png;base64,!!!not-base64!!!")]
+    [InlineData("data:text/plain;base64,aGVsbG8=")]
+    [InlineData("aGVsbG8=")]
+    public async Task ValidateSession_ShouldReturnBadRequest_WhenSignatureMissingOrInvalid(string signature)
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = signature });
+        db.Sessions.Add(new Session
+        {
+            Id = 35,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-30),
+            EndTime = DateTime.Now.AddMinutes(30),
+            ValidationCode = "OK",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 35, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("studentNumber", "S1"),
+            new Claim("role", "User"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        var result = await controller.ValidateSession(35, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Absent);
+    }
+
+    [Fact]
+    public async Task ValidateSession_ShouldNotRequireSignature_WhenAdminValidatesAnotherStudent()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = "" });
+        db.Sessions.Add(new Session
+        {
+            Id = 36,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-30),
+            EndTime = DateTime.Now.AddMinutes(30),
+            ValidationCode = "OK",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 36, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("studentNumber", "ADMIN1"),
+            new Claim("role", "Admin"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        var result = await controller.ValidateSession(36, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
+
+        result.Should().BeOfType<OkObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Present);
+    }
+
+    [Theory]
+    [InlineData(-120, -60)]
+    [InlineData(60, 120)]
+    public async Task ValidateSession_ShouldReturnBadRequest_OutsideCourseHours(int startOffsetMinutes, int endOffsetMinutes)
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
+        var now = DateTime.Now;
+        db.Sessions.Add(new Session
+        {
+            Id = 37,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = now.Date,
+            StartTime = now.AddMinutes(startOffsetMinutes),
+            EndTime = now.AddMinutes(endOffsetMinutes),
+            ValidationCode = "OK",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 37, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("studentNumber", "S1"),
+            new Claim("role", "User"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        var result = await controller.ValidateSession(37, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Absent);
+    }
+
+    [Fact]
+    public async Task ValidateSession_ShouldReturnConflict_WhenCancelledByProfessor()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
         db.Sessions.Add(new Session
         {
             Id = 31,
@@ -464,7 +633,7 @@ public class SessionControllerTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
-        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
         db.Sessions.Add(new Session
         {
             Id = 33,
@@ -499,7 +668,7 @@ public class SessionControllerTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
-        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
         db.Sessions.Add(new Session
         {
             Id = 32,
@@ -569,40 +738,54 @@ public class SessionControllerTests
     }
 
     [Fact]
-    public void GetAutoImportStatus_ShouldReturnCurrentFlag()
+    public async Task GetAutoImportStatus_ShouldReturnCurrentFlag()
     {
         TimerService.EnableAutoImport(NullLogger.Instance);
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = BuildAdminController(db);
 
-        var result = controller.GetAutoImportStatus();
+        var result = await controller.GetAutoImportStatus();
 
         result.Should().BeOfType<OkObjectResult>();
     }
 
     [Fact]
-    public void SetAutoImportStatus_ShouldToggleFlag()
+    public async Task SetAutoImportStatus_ShouldToggleFlag()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = BuildAdminController(db);
 
-        var disable = controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = false });
+        var disable = await controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = false });
         disable.Should().BeOfType<OkObjectResult>();
         TimerService.IsAutoImportEnabled.Should().BeFalse();
 
-        var enable = controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = true });
+        var enable = await controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = true });
         enable.Should().BeOfType<OkObjectResult>();
         TimerService.IsAutoImportEnabled.Should().BeTrue();
     }
 
     [Fact]
-    public void GetTimers_ShouldReturnOkPayload()
+    public async Task GetTimers_ShouldReturnOkPayload()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = BuildAdminController(db);
 
-        var result = controller.GetTimers();
+        var result = await controller.GetTimers();
 
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task AdminOnlyEndpoints_ShouldForbidStudent()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "s1@x.fr", Year = "3A" });
+        await db.SaveChangesAsync();
+        var controller = BuildController(db, PrincipalWithIdAndRole(1));
+
+        (await controller.AddStudentsToSession(1, "S1")).Should().BeOfType<ForbidResult>();
+        (await controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = false })).Should().BeOfType<ForbidResult>();
+        (await controller.GetTimers()).Should().BeOfType<ForbidResult>();
+        (await controller.GetAutoImportStatus()).Should().BeOfType<ForbidResult>();
     }
 }

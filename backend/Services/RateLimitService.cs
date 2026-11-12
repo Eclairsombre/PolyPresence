@@ -8,6 +8,7 @@ namespace backend.Services
         bool IsLoginAttemptAllowed(string identifier);
         bool IsPasswordResetAllowed(string identifier);
         bool IsApiCallAllowed(string userId);
+        bool IsValidationAttemptAllowed(string userId);
         void ResetLoginAttempts(string identifier);
     }
 
@@ -21,6 +22,9 @@ namespace backend.Services
 
         private const int MaxPasswordResetAttempts = 2;
         private static readonly TimeSpan PasswordResetWindow = TimeSpan.FromHours(1);
+
+        private const int MaxValidationAttempts = 3;
+        private static readonly TimeSpan ValidationWindow = TimeSpan.FromMinutes(1);
 
         private const int MaxApiCalls = 500;
         private static readonly TimeSpan ApiCallWindow = TimeSpan.FromMinutes(1);
@@ -69,6 +73,11 @@ namespace backend.Services
         public bool IsApiCallAllowed(string userId)
         {
             return IsAllowed($"api:{userId}", MaxApiCalls, ApiCallWindow);
+        }
+
+        public bool IsValidationAttemptAllowed(string userId)
+        {
+            return IsAllowed($"validate:{userId}", MaxValidationAttempts, ValidationWindow);
         }
 
         public void ResetLoginAttempts(string identifier)

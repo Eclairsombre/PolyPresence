@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using backend.Controllers;
 using backend.Models;
 using backend.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +11,42 @@ namespace backend.Tests.Controllers;
 
 public class ProfessorControllerTests
 {
+    private const int AdminId = 9000;
+    private const int StudentId = 9001;
+
+    private static ProfessorController Build(backend.Data.ApplicationDbContext db, int? userId, IDictionary<string, string>? headers = null)
+    {
+        var identity = userId.HasValue
+            ? new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString()) }, "test")
+            : new ClaimsIdentity();
+        var http = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
+        if (headers != null)
+            foreach (var (k, v) in headers) http.Request.Headers[k] = v;
+        return new ProfessorController(db) { ControllerContext = new ControllerContext { HttpContext = http } };
+    }
+
+    private static void EnsureUser(backend.Data.ApplicationDbContext db, int id, bool isAdmin, bool isDelegate = false)
+    {
+        if (db.Users.Any(u => u.Id == id)) return;
+        db.Users.Add(new User { Id = id, StudentNumber = $"U{id}", Name = "U", Firstname = "U", Email = $"u{id}@etu.fr", Year = "3A", IsAdmin = isAdmin, IsDelegate = isDelegate });
+        db.SaveChanges();
+    }
+
+    private static ProfessorController AsAdmin(backend.Data.ApplicationDbContext db)
+    {
+        EnsureUser(db, AdminId, isAdmin: true);
+        return Build(db, AdminId);
+    }
+
+    private static ProfessorController AsStudent(backend.Data.ApplicationDbContext db)
+    {
+        EnsureUser(db, StudentId, isAdmin: false);
+        return Build(db, StudentId);
+    }
+
+    private static IDictionary<string, object?> Props(IActionResult result) =>
+        ((OkObjectResult)result).Value!.GetType().GetProperties().ToDictionary(p => p.Name, p => p.GetValue(((OkObjectResult)result).Value));
+
     private static User Prof(string name, string firstname, string email, int id = 0) => new User
     {
         Id = id,
@@ -20,49 +58,50 @@ public class ProfessorControllerTests
     };
 
     [Fact]
-    public void GetProfessors_ShouldReturnOkList()
+    public async Task GetProfessors_ShouldReturnOkList_ForAdmin()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(Prof("Dupont", "Jean", "a@b.fr"));
         db.SaveChanges();
 
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
-        var result = controller.GetProfessors();
+        var result = await controller.GetProfessors();
 
         result.Should().BeOfType<OkObjectResult>();
     }
 
     [Fact]
-    public void GetProfessorById_ShouldReturnNotFound_WhenMissing()
+    public async Task GetProfessorById_ShouldReturnNotFound_WhenMissing()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = new ProfessorController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = Build(db, null);
 
-        var result = controller.GetProfessorById(42);
+        var result = await controller.GetProfessorById(42);
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
-    public void GetProfessorById_ShouldReturnOk_WhenFound()
+    public async Task GetProfessorById_ShouldReturnOk_WithoutEmail_WhenAnonymous()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(Prof("Found", "Prof", "found@prof.fr", id: 33));
         db.SaveChanges();
 
-        var controller = new ProfessorController(db);
+        var controller = Build(db, null);
 
-        var result = controller.GetProfessorById(33);
+        var result = await controller.GetProfessorById(33);
 
         result.Should().BeOfType<OkObjectResult>();
+        Props(result).Should().NotContainKey("email");
     }
 
     [Fact]
     public async Task CreateProfessor_ShouldReturnBadRequest_WhenInvalidPayload()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var result = await controller.CreateProfessor(new ProfessorController.CreateProfessorModel());
 
@@ -76,7 +115,7 @@ public class ProfessorControllerTests
         db.Users.Add(Prof("Dupont", "Jean", "a@b.fr"));
         await db.SaveChangesAsync();
 
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var result = await controller.CreateProfessor(new ProfessorController.CreateProfessorModel
         {
@@ -92,7 +131,7 @@ public class ProfessorControllerTests
     public async Task CreateProfessor_ShouldCreateAndReturnCreatedAt()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var result = await controller.CreateProfessor(new ProfessorController.CreateProfessorModel
         {
@@ -109,7 +148,7 @@ public class ProfessorControllerTests
     public async Task UpdateProfessorEmail_ShouldValidateInput()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var missing = await controller.UpdateProfessorEmail(1, new ProfessorController.UpdateEmailModel { Email = "" });
         missing.Should().BeOfType<NotFoundObjectResult>();
@@ -129,7 +168,7 @@ public class ProfessorControllerTests
     public async Task FindOrCreateProfessor_ShouldReturnBadRequest_WhenNameMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var result = await controller.FindOrCreateProfessor(new ProfessorController.CreateProfessorModel());
 
@@ -143,7 +182,7 @@ public class ProfessorControllerTests
         db.Users.Add(Prof("Same", "Prof", "s@p.fr", id: 7));
         await db.SaveChangesAsync();
 
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var existing = await controller.FindOrCreateProfessor(new ProfessorController.CreateProfessorModel { Name = "Same", Firstname = "Prof" });
         existing.Should().BeOfType<OkObjectResult>();
@@ -175,7 +214,7 @@ public class ProfessorControllerTests
         });
         await db.SaveChangesAsync();
 
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var result = await controller.DeleteProfessor(3);
 
@@ -190,10 +229,58 @@ public class ProfessorControllerTests
     public async Task DeleteProfessor_ShouldReturnNotFound_WhenMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = new ProfessorController(db);
+        var controller = AsAdmin(db);
 
         var result = await controller.DeleteProfessor(999);
 
         result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task WriteEndpoints_ShouldForbidNonAdmin()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(Prof("Cible", "Prof", "", id: 5));
+        await db.SaveChangesAsync();
+        var controller = AsStudent(db);
+
+        (await controller.GetProfessors()).Should().BeOfType<ForbidResult>();
+        (await controller.UpdateProfessorEmail(5, new ProfessorController.UpdateEmailModel { Email = "pirate@etu.fr" })).Should().BeOfType<ForbidResult>();
+        (await controller.CreateProfessor(new ProfessorController.CreateProfessorModel { Name = "N", Firstname = "F" })).Should().BeOfType<ForbidResult>();
+        (await controller.FindOrCreateProfessor(new ProfessorController.CreateProfessorModel { Name = "N", Firstname = "F" })).Should().BeOfType<ForbidResult>();
+        (await controller.DeleteProfessor(5)).Should().BeOfType<ForbidResult>();
+
+        (await db.Users.FindAsync(5))!.Email.Should().BeEmpty();
+        db.Users.Count(u => u.IsProfessor).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetProfessorById_ShouldHideEmail_FromStudent_AndShowItToDelegate()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(Prof("P", "Q", "prof@poly.fr", id: 6));
+        await db.SaveChangesAsync();
+
+        Props(await AsStudent(db).GetProfessorById(6)).Should().NotContainKey("email");
+
+        EnsureUser(db, 9002, isAdmin: false, isDelegate: true);
+        Props(await Build(db, 9002).GetProfessorById(6))["email"].Should().Be("prof@poly.fr");
+    }
+
+    [Fact]
+    public async Task GetProfessorById_ShouldShowEmail_WithSignatureTokenOfAssignedSessionOnly()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(Prof("P", "Q", "prof@poly.fr", id: 6));
+        db.Sessions.Add(new Session { Id = 1, Name = "C", Year = "3A", Room = "A", Date = DateTime.Today, StartTime = DateTime.Now, EndTime = DateTime.Now.AddHours(1), ValidationCode = "1", ProfId = "6", ProfSignatureToken = "tok-6", SpecializationId = 1 });
+        db.Sessions.Add(new Session { Id = 2, Name = "C", Year = "3A", Room = "A", Date = DateTime.Today, StartTime = DateTime.Now, EndTime = DateTime.Now.AddHours(1), ValidationCode = "1", ProfId = "7", ProfSignatureToken = "tok-other", SpecializationId = 1 });
+        await db.SaveChangesAsync();
+
+        var withOwnToken = Build(db, null, new Dictionary<string, string> { ["Prof-Signature-Token"] = "tok-6" });
+        Props(await withOwnToken.GetProfessorById(6))["email"].Should().Be("prof@poly.fr");
+
+        var withOtherToken = Build(db, null, new Dictionary<string, string> { ["Prof-Signature-Token"] = "tok-other" });
+        Props(await withOtherToken.GetProfessorById(6)).Should().NotContainKey("email");
     }
 }

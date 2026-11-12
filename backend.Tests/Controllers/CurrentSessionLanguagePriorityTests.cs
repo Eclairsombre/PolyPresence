@@ -28,14 +28,12 @@ public class CurrentSessionLanguagePriorityTests
         var controller = new SessionController(
             db,
             NullLogger<SessionController>.Instance,
-            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            new backend.Services.RateLimitService(NullLogger<backend.Services.RateLimitService>.Instance));
 
-        // Le claim "isDelegate" fait renvoyer l'entité Session complète plutôt que la
-        // projection anonyme : plus simple à vérifier, et sans effet sur le choix de séance.
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim("isDelegate", "true")
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString())
         }, "test"));
 
         controller.ControllerContext = new ControllerContext
@@ -107,8 +105,7 @@ public class CurrentSessionLanguagePriorityTests
 
         var result = await BuildController(db, Student).GetCurrentSession("3A");
 
-        result.Value.Should().BeOfType<Session>()
-            .Which.Id.Should().Be(100);
+        result.Value!.GetType().GetProperty("Id")!.GetValue(result.Value).Should().Be(100);
     }
 
     [Fact]
@@ -118,8 +115,7 @@ public class CurrentSessionLanguagePriorityTests
 
         var result = await BuildController(db, Student).GetCurrentSession("3A");
 
-        result.Value.Should().BeOfType<Session>()
-            .Which.Id.Should().Be(200);
+        result.Value!.GetType().GetProperty("Id")!.GetValue(result.Value).Should().Be(200);
     }
 
     [Fact]

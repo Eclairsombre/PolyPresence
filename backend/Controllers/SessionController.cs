@@ -25,12 +25,14 @@ namespace backend.Controllers
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SessionController> _logger;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IRateLimitService _rateLimitService;
 
-        public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
+        public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory, IRateLimitService rateLimitService)
         {
             _context = context;
             _logger = logger;
             _scopeFactory = serviceScopeFactory;
+            _rateLimitService = rateLimitService;
         }
 
         // Intervalle de polling des flux SSE (1 requête DB par flux par intervalle).
@@ -229,8 +231,10 @@ namespace backend.Controllers
                 ? new
                 {
                     s.Id, s.Date, s.StartTime, s.EndTime, s.Year, s.Name, s.Room,
-                    s.ValidationCode, s.ProfId, s.ProfSignature, s.ProfSignatureToken,
-                    s.ProfId2, s.ProfSignature2, s.ProfSignatureToken2,
+                    s.ValidationCode, s.ProfId, s.ProfSignature,
+                    ProfSignatureToken = isAdmin ? s.ProfSignatureToken : null,
+                    s.ProfId2, s.ProfSignature2,
+                    ProfSignatureToken2 = isAdmin ? s.ProfSignatureToken2 : null,
                     s.IsSent, s.IsMailSent, s.IsMailSent2, s.IsMerged, s.SpecializationId,
                     SpecializationName = s.Specialization?.Name,
                     SpecializationCode = s.Specialization?.Code
@@ -348,10 +352,10 @@ namespace backend.Controllers
                 session.ValidationCode,
                 session.ProfId,
                 session.ProfSignature,
-                session.ProfSignatureToken,
+                ProfSignatureToken = isAdmin ? session.ProfSignatureToken : null,
                 session.ProfId2,
                 session.ProfSignature2,
-                session.ProfSignatureToken2,
+                ProfSignatureToken2 = isAdmin ? session.ProfSignatureToken2 : null,
                 session.IsSent,
                 session.IsMailSent,
                 session.IsMailSent2,
@@ -435,10 +439,10 @@ namespace backend.Controllers
                 s.ValidationCode,
                 s.ProfId,
                 s.ProfSignature,
-                s.ProfSignatureToken,
+                ProfSignatureToken = isAdmin ? s.ProfSignatureToken : null,
                 s.ProfId2,
                 s.ProfSignature2,
-                s.ProfSignatureToken2,
+                ProfSignatureToken2 = isAdmin ? s.ProfSignatureToken2 : null,
                 s.IsSent,
                 s.IsMailSent,
                 s.IsMailSent2,
@@ -549,14 +553,35 @@ namespace backend.Controllers
          * This method retrieves a session by its professor signature token from the database.
          */
         [HttpGet("prof-signature/{token}")]
-        public async Task<ActionResult<Session>> GetSessionByProfSignatureToken(string token)
+        public async Task<ActionResult<object>> GetSessionByProfSignatureToken(string token)
         {
             var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token || s.ProfSignatureToken2 == token);
             if (session == null)
             {
                 return NotFound(new { error = true, message = "Session non trouvée pour ce lien." });
             }
-            return session;
+            var isSlot1 = session.ProfSignatureToken == token;
+            return new ActionResult<object>(new
+            {
+                session.Id,
+                session.Date,
+                session.StartTime,
+                session.EndTime,
+                session.Year,
+                session.Name,
+                session.Room,
+                session.ValidationCode,
+                session.SpecializationId,
+                session.ProfId,
+                session.ProfSignature,
+                ProfSignatureToken = isSlot1 ? session.ProfSignatureToken : null,
+                session.ProfId2,
+                session.ProfSignature2,
+                ProfSignatureToken2 = isSlot1 ? null : session.ProfSignatureToken2,
+                session.IsMailSent,
+                session.IsMailSent2,
+                session.IsMerged
+            });
         }
 
         /**
@@ -753,14 +778,9 @@ namespace backend.Controllers
                 return NotFound(new { message = "Aucune session en cours pour l'utilisateur." });
             }
 
-            var isAdmin = false;
-            var isDelegate = false;
-
-            if (User.Identity?.IsAuthenticated == true)
-            {
-                isAdmin = User.FindFirstValue("role") == "Admin";
-                isDelegate = User.FindFirstValue("isDelegate") == "true";
-            }
+            var currentUser = await GetAuthenticatedUserAsync();
+            var isAdmin = currentUser?.IsAdmin == true;
+            var isDelegate = currentUser?.IsDelegate == true;
 
             if (!isAdmin && !isDelegate)
             {
@@ -780,7 +800,31 @@ namespace backend.Controllers
                 });
             }
 
-            return new ActionResult<object>(currentSession);
+            return new ActionResult<object>(new
+            {
+                currentSession.Id,
+                currentSession.Date,
+                currentSession.StartTime,
+                currentSession.EndTime,
+                currentSession.Year,
+                currentSession.Name,
+                currentSession.Room,
+                currentSession.ValidationCode,
+                currentSession.IcsUid,
+                currentSession.IcsKind,
+                currentSession.SpecializationId,
+                currentSession.ProfId,
+                currentSession.ProfSignature,
+                ProfSignatureToken = isAdmin ? currentSession.ProfSignatureToken : null,
+                currentSession.ProfId2,
+                currentSession.ProfSignature2,
+                ProfSignatureToken2 = isAdmin ? currentSession.ProfSignatureToken2 : null,
+                currentSession.IsSent,
+                currentSession.IsMailSent,
+                currentSession.IsMailSent2,
+                currentSession.IsMerged,
+                SpecializationName = currentSession.Specialization?.Name
+            });
         }
 
         /**
@@ -909,6 +953,10 @@ namespace backend.Controllers
         [HttpPost("{sessionId}/student/{studentNumber}")]
         public async Task<IActionResult> AddStudentsToSession(int sessionId, string studentNumber)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null || (!currentUser.IsAdmin && !currentUser.IsDelegate))
+                return Forbid();
+
             _logger.LogDebug($"Tentative d'ajout de l'étudiant {studentNumber} à la session {sessionId}");
 
             var session = await _context.Sessions.FindAsync(sessionId);
@@ -959,6 +1007,13 @@ namespace backend.Controllers
         [Authorize]
         public async Task<IActionResult> ValidateSession(int sessionId, string studentNumber, [FromBody] ValidateSessionModel model)
         {
+            var rateLimitKey = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("studentNumber");
+            if (string.IsNullOrEmpty(rateLimitKey) || !_rateLimitService.IsValidationAttemptAllowed(rateLimitKey))
+            {
+                _logger.LogWarning("Limite de tentatives de validation dépassée pour {User} (session {SessionId})", rateLimitKey, sessionId);
+                return StatusCode(StatusCodes.Status429TooManyRequests, new { error = true, message = "Trop de tentatives de validation. Réessayez dans une minute." });
+            }
+
             // Vérification de session existante
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)
@@ -979,9 +1034,10 @@ namespace backend.Controllers
             }
 
             // Comparer avec l'heure locale (CET) car les dates sont stockées en heure locale
-            if (session.Date.Date != DateTime.Now.Date)
+            var now = DateTime.Now;
+            if (session.Date.Date != now.Date || now < session.StartTime || now > session.EndTime)
             {
-                return BadRequest(new { error = true, message = "La validation de présence n'est autorisée que le jour de la session." });
+                return BadRequest(new { error = true, message = "La validation de présence n'est possible que pendant le cours." });
             }
 
             // Récupération de l'utilisateur cible (celui dont on valide la présence)
@@ -1002,6 +1058,11 @@ namespace backend.Controllers
             {
                 _logger.LogWarning($"Tentative non autorisée: L'utilisateur {authenticatedUserNumber} essaie de valider la présence de {studentNumber}");
                 return Forbid();
+            }
+
+            if (authenticatedUserNumber == studentNumber && !IsValidSignature(targetUser.Signature))
+            {
+                return BadRequest(new { error = true, message = "Vous devez d'abord définir votre signature (menu « Ma signature »)." });
             }
 
             // Recherche de l'enregistrement de présence
@@ -1025,6 +1086,23 @@ namespace backend.Controllers
 
             _logger.LogInformation($"Présence validée avec succès pour l'étudiant {studentNumber} à la session {sessionId}");
             return Ok(new { message = "Présence validée avec succès." });
+        }
+
+        internal static bool IsValidSignature(string? signature)
+        {
+            if (string.IsNullOrWhiteSpace(signature) || !signature.StartsWith("data:image/", StringComparison.Ordinal))
+                return false;
+
+            var commaIndex = signature.IndexOf(',');
+            if (commaIndex < 0 || !signature.AsSpan(0, commaIndex).EndsWith(";base64", StringComparison.Ordinal))
+                return false;
+
+            var payload = signature.AsSpan(commaIndex + 1);
+            if (payload.IsEmpty)
+                return false;
+
+            var buffer = new byte[payload.Length * 3 / 4 + 3];
+            return Convert.TryFromBase64Chars(payload, buffer, out var written) && written > 0;
         }
 
         /**
@@ -1079,12 +1157,12 @@ namespace backend.Controllers
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
             {
                 profTokenValue = headerToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             else if (Request.Query.TryGetValue("token", out var queryToken))
             {
                 profTokenValue = queryToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'URL)");
             }
             else
             {
@@ -1097,7 +1175,7 @@ namespace backend.Controllers
                         if (segments[i] == "prof-signature" && i + 1 < segments.Length)
                         {
                             profTokenValue = segments[i + 1];
-                            _logger.LogInformation($"Token trouvé dans le chemin: {profTokenValue}");
+                            _logger.LogInformation("Token de signature prof fourni (le chemin)");
                             break;
                         }
                     }
@@ -1389,66 +1467,6 @@ namespace backend.Controllers
                 return Forbid();
 
             return Ok(new { signature = student.Signature });
-        }
-
-        /**
-         * GetNotSendSessions
-         *
-         * This method retrieves all sessions that have not been sent.
-         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
-         */
-        [HttpGet("not-send")]
-        public async Task<IActionResult> GetNotSendSessions()
-        {
-            var sessions = await _context.Sessions
-                .Where(s => !s.IsSent)
-                .ToListAsync();
-
-            if (sessions == null || sessions.Count == 0)
-            {
-                return NotFound(new { message = "Aucune session trouvée." });
-            }
-
-            var isAdmin = false;
-            var isDelegate = false;
-
-            if (User.Identity?.IsAuthenticated == true &&
-                int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
-            {
-                var currentUser = await _context.Users.FindAsync(userId);
-                if (currentUser != null)
-                {
-                    isAdmin = currentUser.IsAdmin;
-                    isDelegate = currentUser.IsDelegate;
-                }
-            }
-
-            if (!isAdmin && !isDelegate)
-            {
-                var sessionsWithoutCode = sessions.Select(s => new
-                {
-                    s.Id,
-                    s.Date,
-                    s.StartTime,
-                    s.EndTime,
-                    s.Year,
-                    s.Name,
-                    s.Room,
-                    s.ProfId,
-                    s.ProfSignature,
-                    s.ProfSignatureToken,
-                    s.ProfId2,
-                    s.ProfSignature2,
-                    s.ProfSignatureToken2,
-                    s.IsSent,
-                    s.IsMailSent,
-                    s.IsMailSent2
-                }).ToList();
-
-                return Ok(sessionsWithoutCode);
-            }
-
-            return Ok(sessions);
         }
 
         /**
@@ -1749,15 +1767,9 @@ Cordialement";
             _logger.LogInformation($"==== DÉBUT TRAITEMENT REQUÊTE CHANGEMENT STATUT ====");
             _logger.LogInformation($"Requête reçue pour modifier le statut de présence: Session={sessionId}, Étudiant={studentNumber}");
 
-            _logger.LogInformation("TOUS LES EN-TÊTES:");
-            foreach (var header in Request.Headers)
-            {
-                _logger.LogInformation($"  {header.Key}: {header.Value}");
-            }
-
             if (model != null)
             {
-                _logger.LogInformation($"Modèle reçu: Status={model.Status}, ProfSignatureToken={model.ProfSignatureToken ?? "null"}");
+                _logger.LogInformation($"Modèle reçu: Status={model.Status}, ProfSignatureToken fourni={!string.IsNullOrEmpty(model.ProfSignatureToken)}");
             }
             else
             {
@@ -1768,7 +1780,7 @@ Cordialement";
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerTokenValue))
             {
                 profHeaderToken = headerTokenValue.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profHeaderToken}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             else
             {
@@ -1796,12 +1808,12 @@ Cordialement";
                 if (Request.Query.TryGetValue("token", out var queryToken))
                 {
                     profTokenValue = queryToken.ToString();
-                    _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+                    _logger.LogInformation("Token de signature prof fourni (l'URL)");
                 }
                 else if (model != null && !string.IsNullOrEmpty(model.ProfSignatureToken))
                 {
                     profTokenValue = model.ProfSignatureToken;
-                    _logger.LogInformation($"Token trouvé dans le body: {profTokenValue}");
+                    _logger.LogInformation("Token de signature prof fourni (le body)");
                 }
             }
 
@@ -1848,7 +1860,6 @@ Cordialement";
             {
                 _logger.LogWarning($"Tentative d'accès non autorisé pour modifier le statut de présence de {studentNumber}");
                 _logger.LogInformation($"Résumé de l'autorisation: Utilisateur authentifié: {User.Identity?.IsAuthenticated}, ProfToken dans l'en-tête: {!string.IsNullOrEmpty(profHeaderToken)}, ProfToken dans le body: {model?.ProfSignatureToken != null}");
-                _logger.LogInformation($"Token attendu pour la session {sessionId}: {session.ProfSignatureToken}");
                 return Forbid();
             }
 
@@ -1887,8 +1898,11 @@ Cordialement";
          * This method retrieves the next execution times for the import and mail timers.
          */
         [HttpGet("timers")]
-        public IActionResult GetTimers()
+        public async Task<IActionResult> GetTimers()
         {
+            if ((await GetAuthenticatedUserAsync())?.IsAdmin != true)
+                return Forbid();
+
             var importTime = backend.Services.TimerService.StaticNextSessionExecutionTime;
             var mailTime = backend.Services.TimerService.StaticNextMailExecutionTime;
             var now = DateTime.Now;
@@ -1908,8 +1922,11 @@ Cordialement";
          * This method retrieves the status of automatic EDT import.
          */
         [HttpGet("auto-import-status")]
-        public IActionResult GetAutoImportStatus()
+        public async Task<IActionResult> GetAutoImportStatus()
         {
+            if ((await GetAuthenticatedUserAsync())?.IsAdmin != true)
+                return Forbid();
+
             return Ok(new
             {
                 enabled = backend.Services.TimerService.IsAutoImportEnabled
@@ -1922,8 +1939,11 @@ Cordialement";
          * This method enables or disables automatic EDT import.
          */
         [HttpPost("auto-import-status")]
-        public IActionResult SetAutoImportStatus([FromBody] AutoImportStatusModel model)
+        public async Task<IActionResult> SetAutoImportStatus([FromBody] AutoImportStatusModel model)
         {
+            if ((await GetAuthenticatedUserAsync())?.IsAdmin != true)
+                return Forbid();
+
             if (model.Enabled)
             {
                 backend.Services.TimerService.EnableAutoImport(_logger);
@@ -1963,7 +1983,7 @@ Cordialement";
             // Log des détails de la requête pour aider au débogage
             if (model != null)
             {
-                _logger.LogInformation($"Modèle reçu: Comment={model.Comment}, ProfSignatureToken={model.ProfSignatureToken ?? "null"}");
+                _logger.LogInformation($"Modèle reçu: Comment={model.Comment}, ProfSignatureToken fourni={!string.IsNullOrEmpty(model.ProfSignatureToken)}");
             }
             else
             {
@@ -1974,7 +1994,7 @@ Cordialement";
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerTokenValue))
             {
                 profHeaderToken = headerTokenValue.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profHeaderToken}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             var sessionNormal = await _context.Sessions.FindAsync(sessionId);
             if (sessionNormal == null)
@@ -1996,22 +2016,22 @@ Cordialement";
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
             {
                 profTokenValue = headerToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             else if (Request.Query.TryGetValue("token", out var queryToken))
             {
                 profTokenValue = queryToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'URL)");
             }
             else if (model != null && !string.IsNullOrEmpty(model.ProfSignatureToken))
             {
                 profTokenValue = model.ProfSignatureToken;
-                _logger.LogInformation($"Token trouvé dans le body: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (le body)");
             }
             else if (Request.Headers.TryGetValue("Referer", out var referer))
             {
                 string refererStr = referer.ToString();
-                _logger.LogInformation($"Recherche du token dans le Referer: {refererStr}");
+                _logger.LogInformation("Recherche du token dans le Referer");
 
                 if (!string.IsNullOrEmpty(refererStr) && refererStr.Contains("/prof-signature/"))
                 {
@@ -2024,7 +2044,7 @@ Cordialement";
                             if (segments[i] == "prof-signature" && i + 1 < segments.Length)
                             {
                                 profTokenValue = segments[i + 1];
-                                _logger.LogInformation($"Token trouvé dans le Referer: {profTokenValue}");
+                                _logger.LogInformation("Token de signature prof fourni (le Referer)");
                                 break;
                             }
                         }

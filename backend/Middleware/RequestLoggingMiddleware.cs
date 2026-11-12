@@ -13,6 +13,12 @@ namespace backend.Middleware
         private static readonly Regex SensitiveQueryParams =
             new("(?i)((?:access_token|token)=)[^&]*", RegexOptions.Compiled);
 
+        private static readonly Regex SensitivePathSegments =
+            new("(?i)(/prof-signature/)[^/]+", RegexOptions.Compiled);
+
+        private static string RedactPath(string? path) =>
+            string.IsNullOrEmpty(path) ? "" : SensitivePathSegments.Replace(path, "$1***");
+
         public RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger)
         {
             _next = next;
@@ -25,7 +31,7 @@ namespace backend.Middleware
         public async Task InvokeAsync(HttpContext context)
         {
             var sw = Stopwatch.StartNew();
-            _logger.LogInformation($"REQ: {context.Request.Method} {context.Request.Path}{RedactQuery(context.Request.QueryString.Value)}");
+            _logger.LogInformation($"REQ: {context.Request.Method} {RedactPath(context.Request.Path.Value)}{RedactQuery(context.Request.QueryString.Value)}");
 
             try
             {
@@ -35,7 +41,7 @@ namespace backend.Middleware
             {
                 sw.Stop();
                 var statusCode = context.Response.StatusCode;
-                _logger.LogInformation($"RES: {statusCode} {context.Request.Method} {context.Request.Path} ({sw.ElapsedMilliseconds}ms)");
+                _logger.LogInformation($"RES: {statusCode} {context.Request.Method} {RedactPath(context.Request.Path.Value)} ({sw.ElapsedMilliseconds}ms)");
             }
         }
     }

@@ -3,6 +3,7 @@ using backend.Models;
 
 using backend.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace backend.Controllers
 {
@@ -22,6 +23,16 @@ namespace backend.Controllers
             _context = context;
         }
 
+        private async Task<User?> GetAuthenticatedUserAsync()
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+                return null;
+            var user = await _context.Users.FindAsync(userId);
+            return (user == null || user.IsDeleted) ? null : user;
+        }
+
+        private async Task<bool> IsAdminAsync() => (await GetAuthenticatedUserAsync())?.IsAdmin == true;
+
         /*
          * GetAll
          *
@@ -30,6 +41,9 @@ namespace backend.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<object>>> GetAll()
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             var links = await _context.IcsLinks
                 .Include(l => l.Specialization)
                 .ToListAsync();
@@ -55,6 +69,9 @@ namespace backend.Controllers
         [HttpPost]
         public async Task<ActionResult<IcsLink>> Create(IcsLink link)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             if (link.SpecializationId == 0)
             {
                 var defaultSpec = await _context.Specializations.FirstOrDefaultAsync(s => s.Code == "INFO");
@@ -76,6 +93,9 @@ namespace backend.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, IcsLink link)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             if (id != link.Id) return BadRequest();
 
             var existing = await _context.IcsLinks.FindAsync(id);
@@ -100,6 +120,9 @@ namespace backend.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             var link = await _context.IcsLinks.FindAsync(id);
             if (link == null) return NotFound();
             _context.IcsLinks.Remove(link);

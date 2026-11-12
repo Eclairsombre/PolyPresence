@@ -95,6 +95,28 @@ public class JwtServiceTests
     }
 
     [Fact]
+    public async Task RevokeTokenAsync_ShouldInvalidateToken_ForOtherServiceInstances()
+    {
+        var access = await CreateService().GenerateAccessTokenOnlyAsync(CreateUser());
+
+        await CreateService().RevokeTokenAsync(access);
+
+        (await CreateService().ValidateTokenAsync(access)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_ShouldRejectReuseOfConsumedToken()
+    {
+        var tokens = await CreateService().GenerateTokensAsync(CreateUser());
+
+        var first = await CreateService().RefreshTokenAsync(tokens.RefreshToken);
+        var reused = await CreateService().RefreshTokenAsync(tokens.RefreshToken);
+
+        first.Should().NotBeNull();
+        reused.Should().BeNull();
+    }
+
+    [Fact]
     public async Task RefreshTokenAsync_ShouldReturnNewRefreshToken()
     {
         var service = CreateService();
