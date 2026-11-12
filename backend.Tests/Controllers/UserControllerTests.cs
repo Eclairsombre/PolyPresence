@@ -162,15 +162,15 @@ public class UserControllerTests
     }
 
     [Fact]
-    public void IsUserAdmin_ShouldReturnTrueForActiveAdmin()
+    public async Task IsUserAdmin_ShouldReturnTrueForActiveAdmin()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User { Id = 70, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "a@b.c", Year = "ADMIN", IsAdmin = true });
         db.SaveChanges();
 
         var controller = BuildController(db, principal: PrincipalWithUserId(70));
 
-        var result = controller.IsUserAdmin("ADM").GetAwaiter().GetResult();
+        var result = await controller.IsUserAdmin("ADM");
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -1149,14 +1149,14 @@ public class UserControllerTests
     }
 
     [Fact]
-    public void IsUserAdmin_ShouldReturnFalse_WhenUserMissingOrNotAdmin()
+    public async Task IsUserAdmin_ShouldReturnFalse_WhenUserMissingOrNotAdmin()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User { Id = 50, StudentNumber = "S50", Name = "U", Firstname = "X", Email = "u@x.fr", Year = "3A", IsAdmin = false, IsDeleted = false });
         db.SaveChanges();
 
         var controller = BuildController(db, principal: PrincipalWithUserId(50));
-        var result = controller.IsUserAdmin("S50").GetAwaiter().GetResult() as OkObjectResult;
+        var result = await controller.IsUserAdmin("S50") as OkObjectResult;
 
         result.Should().NotBeNull();
         result!.Value.Should().NotBeNull();
