@@ -1013,6 +1013,11 @@ namespace backend.Controllers
                 return Forbid();
             }
 
+            if (authenticatedUserNumber == studentNumber && !IsValidSignature(targetUser.Signature))
+            {
+                return BadRequest(new { error = true, message = "Vous devez d'abord définir votre signature (menu « Ma signature »)." });
+            }
+
             // Recherche de l'enregistrement de présence
             var attendance = await _context.Attendances
                 .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.StudentId == targetUser.Id);
@@ -1034,6 +1039,23 @@ namespace backend.Controllers
 
             _logger.LogInformation($"Présence validée avec succès pour l'étudiant {studentNumber} à la session {sessionId}");
             return Ok(new { message = "Présence validée avec succès." });
+        }
+
+        internal static bool IsValidSignature(string? signature)
+        {
+            if (string.IsNullOrWhiteSpace(signature) || !signature.StartsWith("data:image/", StringComparison.Ordinal))
+                return false;
+
+            var commaIndex = signature.IndexOf(',');
+            if (commaIndex < 0 || !signature.AsSpan(0, commaIndex).EndsWith(";base64", StringComparison.Ordinal))
+                return false;
+
+            var payload = signature.AsSpan(commaIndex + 1);
+            if (payload.IsEmpty)
+                return false;
+
+            var buffer = new byte[payload.Length * 3 / 4 + 3];
+            return Convert.TryFromBase64Chars(payload, buffer, out var written) && written > 0;
         }
 
         /**

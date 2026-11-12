@@ -14,6 +14,8 @@ namespace backend.Tests.Controllers;
 
 public class SessionControllerTests
 {
+    private const string ValidSignature = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
     private static SessionController BuildController(
         backend.Data.ApplicationDbContext db,
         ClaimsPrincipal? principal = null)
@@ -467,12 +469,88 @@ public class SessionControllerTests
         (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Absent);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("data:image/png;base64,")]
+    [InlineData("data:image/png;base64,!!!not-base64!!!")]
+    [InlineData("data:text/plain;base64,aGVsbG8=")]
+    [InlineData("aGVsbG8=")]
+    public async Task ValidateSession_ShouldReturnBadRequest_WhenSignatureMissingOrInvalid(string signature)
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = signature });
+        db.Sessions.Add(new Session
+        {
+            Id = 35,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-30),
+            EndTime = DateTime.Now.AddMinutes(30),
+            ValidationCode = "OK",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 35, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("studentNumber", "S1"),
+            new Claim("role", "User"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        var result = await controller.ValidateSession(35, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Absent);
+    }
+
+    [Fact]
+    public async Task ValidateSession_ShouldNotRequireSignature_WhenAdminValidatesAnotherStudent()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = "" });
+        db.Sessions.Add(new Session
+        {
+            Id = 36,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-30),
+            EndTime = DateTime.Now.AddMinutes(30),
+            ValidationCode = "OK",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 36, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("studentNumber", "ADMIN1"),
+            new Claim("role", "Admin"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        var result = await controller.ValidateSession(36, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
+
+        result.Should().BeOfType<OkObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Present);
+    }
+
     [Fact]
     public async Task ValidateSession_ShouldReturnConflict_WhenCancelledByProfessor()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
-        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
         db.Sessions.Add(new Session
         {
             Id = 31,
@@ -507,7 +585,7 @@ public class SessionControllerTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
-        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
         db.Sessions.Add(new Session
         {
             Id = 33,
@@ -542,7 +620,7 @@ public class SessionControllerTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
-        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
         db.Sessions.Add(new Session
         {
             Id = 32,
