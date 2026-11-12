@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -23,10 +24,8 @@ namespace backend.Services
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<JwtService> _logger;
-        private readonly HashSet<string> _revokedTokens = new HashSet<string>();
-        // Les refresh tokens sont stockés en mémoire, ce qui signifie qu'ils seront perdus lors du redémarrage de l'application
-        // Pour une solution de production, ils devraient être stockés dans une base de données persistante
-        private static readonly Dictionary<string, (int UserId, DateTime Expiry)> _refreshTokens = new Dictionary<string, (int, DateTime)>();
+        private static readonly ConcurrentDictionary<string, DateTime> _revokedTokens = new();
+        private static readonly ConcurrentDictionary<string, (int UserId, DateTime Expiry)> _refreshTokens = new();
 
         private readonly string _secretKey;
         private readonly string _issuer;
@@ -125,9 +124,6 @@ namespace backend.Services
         {
             try
             {
-                _logger.LogInformation("Attempting to refresh token: {TokenStart}...",
-                    refreshToken.Length > 10 ? refreshToken.Substring(0, 10) + "..." : refreshToken);
-
                 if (string.IsNullOrWhiteSpace(refreshToken))
                 {
                     _logger.LogWarning("RefreshTokenAsync: Refresh token is null or empty");
@@ -143,7 +139,7 @@ namespace backend.Services
 
                 if (tokenInfo.Expiry <= DateTime.UtcNow)
                 {
-                    _refreshTokens.Remove(refreshToken);
+                    _refreshTokens.TryRemove(refreshToken, out _);
                     _logger.LogInformation("Expired refresh token removed");
                     return Task.FromResult<TokenResponse?>(null);
                 }
@@ -155,8 +151,12 @@ namespace backend.Services
                 var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenExpiryDays);
 
                 // 2. Mettre à jour la collection de refresh tokens
+                if (!_refreshTokens.TryRemove(refreshToken, out _))
+                {
+                    _logger.LogWarning("Refresh token already used");
+                    return Task.FromResult<TokenResponse?>(null);
+                }
                 _refreshTokens[newRefreshToken] = (tokenInfo.UserId, refreshTokenExpiry);
-                _refreshTokens.Remove(refreshToken);
 
                 // 3. Retourner le userId via une autre méthode
                 // Le contrôleur devra appeler GetUserIdFromRefreshToken après avoir reçu ce token
@@ -186,7 +186,10 @@ namespace backend.Services
 
                 if (!string.IsNullOrEmpty(jti))
                 {
-                    _revokedTokens.Add(jti);
+                    var now = DateTime.UtcNow;
+                    foreach (var expired in _revokedTokens.Where(t => t.Value <= now).Select(t => t.Key).ToList())
+                        _revokedTokens.TryRemove(expired, out _);
+                    _revokedTokens[jti] = jsonToken.ValidTo > now ? jsonToken.ValidTo : now.AddMinutes(_accessTokenExpiryMinutes);
                     _logger.LogInformation("Token revoked with JTI: {Jti}", jti);
                 }
             }
@@ -203,7 +206,7 @@ namespace backend.Services
 
             foreach (var token in tokensToRemove)
             {
-                _refreshTokens.Remove(token);
+                _refreshTokens.TryRemove(token, out _);
             }
 
             _logger.LogInformation("Revoked all tokens for user {UserId}", userId);
@@ -218,7 +221,7 @@ namespace backend.Services
                 var jsonToken = tokenHandler.ReadJwtToken(token);
                 var jti = jsonToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Jti)?.Value;
 
-                return !string.IsNullOrEmpty(jti) && _revokedTokens.Contains(jti);
+                return !string.IsNullOrEmpty(jti) && _revokedTokens.ContainsKey(jti);
             }
             catch
             {
@@ -277,7 +280,7 @@ namespace backend.Services
                 }
                 else
                 {
-                    _refreshTokens.Remove(refreshToken);
+                    _refreshTokens.TryRemove(refreshToken, out _);
                 }
             }
             return null;

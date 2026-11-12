@@ -818,8 +818,7 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            _logger.LogInformation("RefreshToken endpoint called with payload: {RequestData}",
-                System.Text.Json.JsonSerializer.Serialize(request));
+            _logger.LogInformation("RefreshToken endpoint called");
 
             if (request == null)
             {
