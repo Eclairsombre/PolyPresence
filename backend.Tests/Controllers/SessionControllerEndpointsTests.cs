@@ -549,7 +549,38 @@ public class SessionControllerEndpointsTests
         var result = await controller.GetSessionByProfSignatureToken("tok-201");
 
         result.Value.Should().NotBeNull();
-        result.Value!.Id.Should().Be(201);
+        result.Value!.GetType().GetProperty("Id")!.GetValue(result.Value).Should().Be(201);
+    }
+
+    [Fact]
+    public async Task GetSessionByProfSignatureToken_ShouldNotExposeTheOtherProfessorToken()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Sessions.Add(new Session
+        {
+            Id = 202,
+            Year = "3A",
+            Name = "Cours",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now,
+            EndTime = DateTime.Now.AddHours(1),
+            ValidationCode = "A",
+            ProfSignatureToken = "tok-1",
+            ProfSignatureToken2 = "tok-2"
+        });
+        await db.SaveChangesAsync();
+        var controller = BuildController(db);
+
+        object? Prop(object o, string name) => o.GetType().GetProperty(name)!.GetValue(o);
+
+        var asProf2 = (await controller.GetSessionByProfSignatureToken("tok-2")).Value!;
+        Prop(asProf2, "ProfSignatureToken").Should().BeNull();
+        Prop(asProf2, "ProfSignatureToken2").Should().Be("tok-2");
+
+        var asProf1 = (await controller.GetSessionByProfSignatureToken("tok-1")).Value!;
+        Prop(asProf1, "ProfSignatureToken").Should().Be("tok-1");
+        Prop(asProf1, "ProfSignatureToken2").Should().BeNull();
     }
 
     [Fact]

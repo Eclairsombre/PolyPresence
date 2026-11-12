@@ -553,14 +553,35 @@ namespace backend.Controllers
          * This method retrieves a session by its professor signature token from the database.
          */
         [HttpGet("prof-signature/{token}")]
-        public async Task<ActionResult<Session>> GetSessionByProfSignatureToken(string token)
+        public async Task<ActionResult<object>> GetSessionByProfSignatureToken(string token)
         {
             var session = await _context.Sessions.FirstOrDefaultAsync(s => s.ProfSignatureToken == token || s.ProfSignatureToken2 == token);
             if (session == null)
             {
                 return NotFound(new { error = true, message = "Session non trouvée pour ce lien." });
             }
-            return session;
+            var isSlot1 = session.ProfSignatureToken == token;
+            return new ActionResult<object>(new
+            {
+                session.Id,
+                session.Date,
+                session.StartTime,
+                session.EndTime,
+                session.Year,
+                session.Name,
+                session.Room,
+                session.ValidationCode,
+                session.SpecializationId,
+                session.ProfId,
+                session.ProfSignature,
+                ProfSignatureToken = isSlot1 ? session.ProfSignatureToken : null,
+                session.ProfId2,
+                session.ProfSignature2,
+                ProfSignatureToken2 = isSlot1 ? null : session.ProfSignatureToken2,
+                session.IsMailSent,
+                session.IsMailSent2,
+                session.IsMerged
+            });
         }
 
         /**
