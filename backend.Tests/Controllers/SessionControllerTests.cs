@@ -555,6 +555,44 @@ public class SessionControllerTests
         (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Present);
     }
 
+    [Theory]
+    [InlineData(-120, -60)]
+    [InlineData(60, 120)]
+    public async Task ValidateSession_ShouldReturnBadRequest_OutsideCourseHours(int startOffsetMinutes, int endOffsetMinutes)
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", Signature = ValidSignature });
+        var now = DateTime.Now;
+        db.Sessions.Add(new Session
+        {
+            Id = 37,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = now.Date,
+            StartTime = now.AddMinutes(startOffsetMinutes),
+            EndTime = now.AddMinutes(endOffsetMinutes),
+            ValidationCode = "OK",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 37, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("studentNumber", "S1"),
+            new Claim("role", "User"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        var result = await controller.ValidateSession(37, "S1", new SessionController.ValidateSessionModel { ValidationCode = "OK" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Absent);
+    }
+
     [Fact]
     public async Task ValidateSession_ShouldReturnConflict_WhenCancelledByProfessor()
     {

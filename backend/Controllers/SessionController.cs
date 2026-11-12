@@ -1013,9 +1013,10 @@ namespace backend.Controllers
             }
 
             // Comparer avec l'heure locale (CET) car les dates sont stockées en heure locale
-            if (session.Date.Date != DateTime.Now.Date)
+            var now = DateTime.Now;
+            if (session.Date.Date != now.Date || now < session.StartTime || now > session.EndTime)
             {
-                return BadRequest(new { error = true, message = "La validation de présence n'est autorisée que le jour de la session." });
+                return BadRequest(new { error = true, message = "La validation de présence n'est possible que pendant le cours." });
             }
 
             // Récupération de l'utilisateur cible (celui dont on valide la présence)
