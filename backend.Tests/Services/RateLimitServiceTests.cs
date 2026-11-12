@@ -29,6 +29,19 @@ public class RateLimitServiceTests
     }
 
     [Fact]
+    public void IsValidationAttemptAllowed_ShouldAllowThreeThenBlock()
+    {
+        var service = new RateLimitService(NullLogger<RateLimitService>.Instance);
+
+        service.IsValidationAttemptAllowed("u1").Should().BeTrue();
+        service.IsValidationAttemptAllowed("u1").Should().BeTrue();
+        service.IsValidationAttemptAllowed("u1").Should().BeTrue();
+        service.IsValidationAttemptAllowed("u1").Should().BeFalse();
+
+        service.IsValidationAttemptAllowed("u2").Should().BeTrue();
+    }
+
+    [Fact]
     public void IsLoginAttemptAllowed_ShouldBlockAfterThreshold()
     {
         var service = new RateLimitService(NullLogger<RateLimitService>.Instance);

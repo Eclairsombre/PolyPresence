@@ -25,12 +25,14 @@ namespace backend.Controllers
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SessionController> _logger;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IRateLimitService _rateLimitService;
 
-        public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory)
+        public SessionController(ApplicationDbContext context, ILogger<SessionController> logger, IServiceScopeFactory serviceScopeFactory, IRateLimitService rateLimitService)
         {
             _context = context;
             _logger = logger;
             _scopeFactory = serviceScopeFactory;
+            _rateLimitService = rateLimitService;
         }
 
         // Intervalle de polling des flux SSE (1 requête DB par flux par intervalle).
@@ -959,6 +961,13 @@ namespace backend.Controllers
         [Authorize]
         public async Task<IActionResult> ValidateSession(int sessionId, string studentNumber, [FromBody] ValidateSessionModel model)
         {
+            var rateLimitKey = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("studentNumber");
+            if (string.IsNullOrEmpty(rateLimitKey) || !_rateLimitService.IsValidationAttemptAllowed(rateLimitKey))
+            {
+                _logger.LogWarning("Limite de tentatives de validation dépassée pour {User} (session {SessionId})", rateLimitKey, sessionId);
+                return StatusCode(StatusCodes.Status429TooManyRequests, new { error = true, message = "Trop de tentatives de validation. Réessayez dans une minute." });
+            }
+
             // Vérification de session existante
             var session = await _context.Sessions.FindAsync(sessionId);
             if (session == null)

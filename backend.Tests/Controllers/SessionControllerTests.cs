@@ -21,7 +21,8 @@ public class SessionControllerTests
         var controller = new SessionController(
             db,
             NullLogger<SessionController>.Instance,
-            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            new backend.Services.RateLimitService(NullLogger<backend.Services.RateLimitService>.Instance));
 
         controller.ControllerContext = new ControllerContext
         {
@@ -422,6 +423,48 @@ public class SessionControllerTests
         var result = await controller.ValidateSession(30, "S1", new SessionController.ValidateSessionModel { ValidationCode = "WRONG" });
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task ValidateSession_ShouldReturn429_AfterThreeAttemptsPerMinute()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Specializations.Add(new Specialization { Id = 1, Name = "Info", Code = "INFO" });
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A" });
+        db.Sessions.Add(new Session
+        {
+            Id = 34,
+            Name = "Cours",
+            Year = "3A",
+            Room = "A1",
+            Date = DateTime.Today,
+            StartTime = DateTime.Now.AddMinutes(-30),
+            EndTime = DateTime.Now.AddMinutes(30),
+            ValidationCode = "RIGHT",
+            SpecializationId = 1
+        });
+        db.Attendances.Add(new Attendance { SessionId = 34, StudentId = 1, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "1"),
+            new Claim("studentNumber", "S1"),
+            new Claim("role", "User"),
+            new Claim("isDelegate", "false")
+        }, "test"));
+        var controller = BuildController(db, principal);
+
+        for (var i = 0; i < 3; i++)
+        {
+            var wrong = await controller.ValidateSession(34, "S1", new SessionController.ValidateSessionModel { ValidationCode = "WRONG" });
+            wrong.Should().BeOfType<BadRequestObjectResult>();
+        }
+
+        var blocked = await controller.ValidateSession(34, "S1", new SessionController.ValidateSessionModel { ValidationCode = "RIGHT" });
+
+        blocked.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status429TooManyRequests);
+        (await db.Attendances.FindAsync(1))!.Status.Should().Be(AttendanceStatus.Absent);
     }
 
     [Fact]

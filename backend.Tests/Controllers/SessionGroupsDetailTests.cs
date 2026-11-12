@@ -23,7 +23,8 @@ public class SessionGroupsDetailTests
         var controller = new SessionController(
             db,
             NullLogger<SessionController>.Instance,
-            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            new backend.Services.RateLimitService(NullLogger<backend.Services.RateLimitService>.Instance));
 
         var principal = userId.HasValue
             ? new ClaimsPrincipal(new ClaimsIdentity(

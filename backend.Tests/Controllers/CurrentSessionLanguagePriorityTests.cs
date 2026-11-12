@@ -28,7 +28,8 @@ public class CurrentSessionLanguagePriorityTests
         var controller = new SessionController(
             db,
             NullLogger<SessionController>.Instance,
-            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            new backend.Services.RateLimitService(NullLogger<backend.Services.RateLimitService>.Instance));
 
         // Le claim "isDelegate" fait renvoyer l'entité Session complète plutôt que la
         // projection anonyme : plus simple à vérifier, et sans effet sur le choix de séance.

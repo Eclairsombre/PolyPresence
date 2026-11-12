@@ -20,7 +20,8 @@ public class SessionControllerEndpointsTests
         var controller = new SessionController(
             db,
             NullLogger<SessionController>.Instance,
-            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            new backend.Services.RateLimitService(NullLogger<backend.Services.RateLimitService>.Instance));
 
         controller.ControllerContext = new ControllerContext
         {

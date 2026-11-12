@@ -174,7 +174,7 @@ namespace backend.Services
             {
                 var scopedContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<SessionController>>();
-                var controller = new SessionController(scopedContext, logger, _serviceScopeFactory);
+                var controller = new SessionController(scopedContext, logger, _serviceScopeFactory, scope.ServiceProvider.GetRequiredService<IRateLimitService>());
                 await controller.CheckAndSendSessionMails();
             }
         }
