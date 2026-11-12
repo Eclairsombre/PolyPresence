@@ -249,13 +249,38 @@ public class UserControllerTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsLoginAttemptAllowed("S1")).Returns(false);
+        rateMock.Setup(r => r.IsLoginAttemptAllowed("s1")).Returns(false);
 
         var controller = BuildController(db, rateLimitMock: rateMock);
 
         var result = await controller.Login(new UserController.LoginRequest { StudentNumber = "S1", Password = "x" });
 
         result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(429);
+    }
+
+    [Theory]
+    [InlineData("S1", " S1", "S1 ", "\tS1", "  S1  ", " S1")]
+    [InlineData("prof@univ.fr", "PROF@UNIV.FR", " Prof@Univ.fr ", "prof@UNIV.fr", "PROF@univ.FR ", "Prof@univ.fr")]
+    public async Task Login_ShouldShareRateLimit_AcrossWhitespaceAndCaseVariants(params string[] identifiers)
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "prof@univ.fr", Year = "3A", PasswordHash = "hash" });
+        await db.SaveChangesAsync();
+
+        var realLimiter = new RateLimitService(NullLogger<RateLimitService>.Instance);
+        var rateMock = new Mock<IRateLimitService>();
+        rateMock.Setup(r => r.IsLoginAttemptAllowed(It.IsAny<string>())).Returns((string key) => realLimiter.IsLoginAttemptAllowed(key));
+        var controller = BuildController(db, rateLimitMock: rateMock);
+
+        foreach (var identifier in identifiers.Take(5))
+        {
+            var attempt = await controller.Login(new UserController.LoginRequest { StudentNumber = identifier, Password = "wrong" });
+            attempt.Should().BeOfType<UnauthorizedObjectResult>();
+        }
+
+        var blocked = await controller.Login(new UserController.LoginRequest { StudentNumber = identifiers[5], Password = "wrong" });
+
+        blocked.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(429);
     }
 
     [Fact]
@@ -275,7 +300,7 @@ public class UserControllerTests
         await db.SaveChangesAsync();
 
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsLoginAttemptAllowed("S1")).Returns(true);
+        rateMock.Setup(r => r.IsLoginAttemptAllowed("s1")).Returns(true);
 
         var pwdMock = new Mock<IPasswordService>();
         pwdMock.Setup(p => p.VerifyPassword("bad", "hash")).Returns(false);
@@ -305,7 +330,7 @@ public class UserControllerTests
         await db.SaveChangesAsync();
 
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsLoginAttemptAllowed("S1")).Returns(true);
+        rateMock.Setup(r => r.IsLoginAttemptAllowed("s1")).Returns(true);
 
         var pwdMock = new Mock<IPasswordService>();
         pwdMock.Setup(p => p.VerifyPassword("good", "hash")).Returns(true);
@@ -333,7 +358,7 @@ public class UserControllerTests
 
         result.Should().BeOfType<OkObjectResult>();
         controller.Response.Headers.SetCookie.ToString().Should().Contain("user_info=");
-        rateMock.Verify(r => r.ResetLoginAttempts("S1"), Times.Once);
+        rateMock.Verify(r => r.ResetLoginAttempts("s1"), Times.Once);
     }
 
     [Fact]
@@ -890,7 +915,7 @@ public class UserControllerTests
         await db.SaveChangesAsync();
 
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsLoginAttemptAllowed("S40")).Returns(true);
+        rateMock.Setup(r => r.IsLoginAttemptAllowed("s40")).Returns(true);
         var controller = BuildController(db, rateLimitMock: rateMock);
 
         var result = await controller.Login(new UserController.LoginRequest { StudentNumber = "S40", Password = "good" });
@@ -969,7 +994,7 @@ public class UserControllerTests
         await db.SaveChangesAsync();
 
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsPasswordResetAllowed("S60")).Returns(true);
+        rateMock.Setup(r => r.IsPasswordResetAllowed("s60")).Returns(true);
         var controller = BuildController(db, rateLimitMock: rateMock);
 
         // L'envoi est désormais asynchrone (file outbox) : la requête met l'email

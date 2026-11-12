@@ -714,7 +714,8 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                 });
             }
 
-            if (!_rateLimitService.IsLoginAttemptAllowed(request.StudentNumber))
+            var rateLimitKey = request.StudentNumber.Trim().ToLowerInvariant();
+            if (!_rateLimitService.IsLoginAttemptAllowed(rateLimitKey))
             {
                 _logger.LogWarning("Rate limit exceeded for login attempt: {StudentNumber}", request.StudentNumber);
                 return StatusCode(429, new LoginResponse
@@ -756,7 +757,7 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
                     });
                 }
 
-                _rateLimitService.ResetLoginAttempts(request.StudentNumber);
+                _rateLimitService.ResetLoginAttempts(rateLimitKey);
 
                 var tokenResponse = await _jwtService.GenerateTokensAsync(user);
 
@@ -1069,7 +1070,7 @@ Cordialement,<br>L'équipe PolyPresence</body></html>";
             }
 
             // Rate limiting pour les demandes de reset
-            if (!_rateLimitService.IsPasswordResetAllowed(request.StudentNumber))
+            if (!_rateLimitService.IsPasswordResetAllowed(request.StudentNumber.Trim().ToLowerInvariant()))
             {
                 _logger.LogWarning("Rate limit exceeded for password reset: {StudentNumber}", request.StudentNumber);
                 return StatusCode(429, new { Success = false, Message = "Trop de demandes de réinitialisation. Veuillez patienter avant de réessayer." });

@@ -261,7 +261,7 @@ public class UserControllerEndpointsTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsPasswordResetAllowed("S1")).Returns(false);
+        rateMock.Setup(r => r.IsPasswordResetAllowed("s1")).Returns(false);
         var controller = BuildController(db, rateLimitMock: rateMock);
 
         var result = await controller.ForgotPassword(new ForgotPasswordRequest { StudentNumber = "S1" });
@@ -274,7 +274,7 @@ public class UserControllerEndpointsTests
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsPasswordResetAllowed("S404")).Returns(true);
+        rateMock.Setup(r => r.IsPasswordResetAllowed("s404")).Returns(true);
         var controller = BuildController(db, rateLimitMock: rateMock);
 
         var result = await controller.ForgotPassword(new ForgotPasswordRequest { StudentNumber = "S404" });
@@ -425,7 +425,7 @@ public class UserControllerEndpointsTests
         await db.SaveChangesAsync();
 
         var rateMock = new Mock<IRateLimitService>();
-        rateMock.Setup(r => r.IsPasswordResetAllowed("S14")).Returns(true);
+        rateMock.Setup(r => r.IsPasswordResetAllowed("s14")).Returns(true);
         var controller = BuildController(db, rateLimitMock: rateMock);
 
         var result = await controller.ForgotPassword(new ForgotPasswordRequest { StudentNumber = "S14" });
