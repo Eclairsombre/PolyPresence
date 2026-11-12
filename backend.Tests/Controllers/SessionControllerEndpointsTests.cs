@@ -217,17 +217,6 @@ public class SessionControllerEndpointsTests
     }
 
     [Fact]
-    public async Task GetNotSendSessions_ShouldReturnNotFound_WhenNone()
-    {
-        await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
-
-        var result = await controller.GetNotSendSessions();
-
-        result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Fact]
     public async Task ResendProfMail_ShouldUseOverrideEmail_WithoutTouchingProfessorRecord()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();

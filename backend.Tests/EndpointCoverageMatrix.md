@@ -36,7 +36,6 @@ Tests backend.Tests: 250 passed, 0 failed
 | GET /api/Session/{sessionId}/attendances | GetSessionAttendances | Couvre | SessionControllerEndpointsTests |
 | POST /api/Session/signature/{studentNumber} | SaveSignature | Couvre | SessionControllerEndpointsTests |
 | GET /api/Session/signature/{studentNumber} | GetSignature | Couvre | SessionControllerEndpointsTests |
-| GET /api/Session/not-send | GetNotSendSessions | Couvre | SessionControllerEndpointsTests |
 | POST /api/Session/{sessionId}/set-prof-email | SetProfEmail | Couvre | SessionControllerEndpointsTests |
 | POST /api/Session/{sessionId}/set-prof2-email | SetProf2Email | Couvre | SessionControllerEndpointsTests |
 | POST /api/Session/{sessionId}/set-professor/{slot} | SetSessionProfessor | Couvre | SessionControllerTests, SessionControllerEndpointsTests |

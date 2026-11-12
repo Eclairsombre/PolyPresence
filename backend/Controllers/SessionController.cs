@@ -1423,66 +1423,6 @@ namespace backend.Controllers
         }
 
         /**
-         * GetNotSendSessions
-         *
-         * This method retrieves all sessions that have not been sent.
-         * Le code de validation n'est inclus que si l'utilisateur est un délégué ou un administrateur.
-         */
-        [HttpGet("not-send")]
-        public async Task<IActionResult> GetNotSendSessions()
-        {
-            var sessions = await _context.Sessions
-                .Where(s => !s.IsSent)
-                .ToListAsync();
-
-            if (sessions == null || sessions.Count == 0)
-            {
-                return NotFound(new { message = "Aucune session trouvée." });
-            }
-
-            var isAdmin = false;
-            var isDelegate = false;
-
-            if (User.Identity?.IsAuthenticated == true &&
-                int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int userId))
-            {
-                var currentUser = await _context.Users.FindAsync(userId);
-                if (currentUser != null)
-                {
-                    isAdmin = currentUser.IsAdmin;
-                    isDelegate = currentUser.IsDelegate;
-                }
-            }
-
-            if (!isAdmin && !isDelegate)
-            {
-                var sessionsWithoutCode = sessions.Select(s => new
-                {
-                    s.Id,
-                    s.Date,
-                    s.StartTime,
-                    s.EndTime,
-                    s.Year,
-                    s.Name,
-                    s.Room,
-                    s.ProfId,
-                    s.ProfSignature,
-                    s.ProfSignatureToken,
-                    s.ProfId2,
-                    s.ProfSignature2,
-                    s.ProfSignatureToken2,
-                    s.IsSent,
-                    s.IsMailSent,
-                    s.IsMailSent2
-                }).ToList();
-
-                return Ok(sessionsWithoutCode);
-            }
-
-            return Ok(sessions);
-        }
-
-        /**
          * SetSessionProfessor
          *
          * This method assigns or removes a professor on a given session slot (1 or 2).
