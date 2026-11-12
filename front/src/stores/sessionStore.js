@@ -773,7 +773,9 @@ export const useSessionStore = defineStore("session", {
         return true;
       } catch (error) {
         this.error =
-          error.message || "Erreur lors du changement de statut de présence.";
+          error.response?.data?.message ||
+          error.message ||
+          "Erreur lors du changement de statut de présence.";
         console.debug(
           "Erreur lors du changement de statut de présence:",
           error,
@@ -810,7 +812,9 @@ export const useSessionStore = defineStore("session", {
         return true;
       } catch (error) {
         this.error =
-          error.message || "Erreur lors de la mise à jour du commentaire.";
+          error.response?.data?.message ||
+          error.message ||
+          "Erreur lors de la mise à jour du commentaire.";
         console.debug("Erreur lors de la mise à jour du commentaire:", error);
         return false;
       }

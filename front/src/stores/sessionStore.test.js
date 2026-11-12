@@ -500,4 +500,34 @@ describe("sessionStore", () => {
     const ok = await store.updateAttendanceComment(8, "S1", "RAS");
     expect(ok).toBe(false);
   });
+
+  it("changeAttendanceStatus expose le message renvoyé par l'API", async () => {
+    apiClient.post.mockRejectedValue({
+      message: "Request failed with status code 403",
+      response: {
+        status: 403,
+        data: { message: "Ce lien professeur a expiré." },
+      },
+    });
+    const store = useSessionStore();
+
+    const ok = await store.changeAttendanceStatus(8, "S1", 0);
+    expect(ok).toBe(false);
+    expect(store.error).toBe("Ce lien professeur a expiré.");
+  });
+
+  it("updateAttendanceComment expose le message renvoyé par l'API", async () => {
+    apiClient.post.mockRejectedValue({
+      message: "Request failed with status code 403",
+      response: {
+        status: 403,
+        data: { message: "Ce lien professeur a expiré." },
+      },
+    });
+    const store = useSessionStore();
+
+    const ok = await store.updateAttendanceComment(8, "S1", "RAS");
+    expect(ok).toBe(false);
+    expect(store.error).toBe("Ce lien professeur a expiré.");
+  });
 });

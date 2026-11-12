@@ -718,6 +718,12 @@ const saveComment = async (studentNumber) => {
         attendances.value[idx].item1.comment = editingComment.value;
       cancelCommentEdit();
       showToast("Commentaire enregistré.");
+    } else {
+      showToast(
+        "Erreur : " +
+          (sessionStore.error || "le commentaire n'a pas été enregistré."),
+        "toast-error",
+      );
     }
   } catch (e) {
     showToast(
@@ -745,7 +751,7 @@ const toggleSelectAll = async () => {
   toUpdate.forEach((a) => (a.item2 = targetStatus));
   bulkLoading.value = true;
   try {
-    await Promise.all(
+    const results = await Promise.all(
       toUpdate.map((a) =>
         sessionStore.changeAttendanceStatus(
           session.value.id,
@@ -755,11 +761,32 @@ const toggleSelectAll = async () => {
         ),
       ),
     );
-    const label =
-      targetStatus === 0
-        ? toUpdate.length + " étudiant(s) marqué(s) présent"
-        : toUpdate.length + " présence(s) annulée(s)";
-    showToast(label);
+    snapshot.forEach(({ sn, prev }, i) => {
+      if (results[i]) return;
+      const idx = attendances.value.findIndex(
+        (a) => a.item1.studentNumber === sn,
+      );
+      if (idx !== -1) attendances.value[idx].item2 = prev;
+    });
+    const succeeded = results.filter(Boolean).length;
+    const failed = results.length - succeeded;
+    if (failed > 0) {
+      showToast(
+        "Erreur : " +
+          (sessionStore.error ||
+            "certaines présences n'ont pas été modifiées.") +
+          (succeeded > 0
+            ? ` (${succeeded} modifiée(s), ${failed} en échec)`
+            : ""),
+        "toast-error",
+      );
+    } else {
+      const label =
+        targetStatus === 0
+          ? succeeded + " étudiant(s) marqué(s) présent"
+          : succeeded + " présence(s) annulée(s)";
+      showToast(label);
+    }
   } catch (e) {
     // Rollback
     snapshot.forEach(({ sn, prev }) => {
@@ -789,12 +816,20 @@ const togglePresence = async (studentNumber, currentStatus) => {
   if (idx !== -1) attendances.value[idx].item2 = newStatus;
   pendingStudents.value = new Set([...pendingStudents.value, studentNumber]);
   try {
-    await sessionStore.changeAttendanceStatus(
+    const ok = await sessionStore.changeAttendanceStatus(
       session.value.id,
       studentNumber,
       newStatus,
       headers,
     );
+    if (!ok) {
+      if (idx !== -1) attendances.value[idx].item2 = currentStatus;
+      showToast(
+        "Erreur : " +
+          (sessionStore.error || "la présence n'a pas été modifiée."),
+        "toast-error",
+      );
+    }
   } catch (e) {
     // Rollback
     if (idx !== -1) attendances.value[idx].item2 = currentStatus;
