@@ -1748,6 +1748,10 @@ Cordialement";
          *
          * This method checks if a session exists in the database.
          */
+        private const string ExpiredProfTokenMessage = "Ce lien professeur a expiré : les présences ne sont modifiables que pendant une semaine après le cours.";
+
+        private static bool IsProfTokenActive(Session session) => DateTime.Now.Date <= session.Date.Date.AddDays(7);
+
         private bool SessionExists(int id)
         {
             return _context.Sessions.Any(e => e.Id == id);
@@ -1800,6 +1804,7 @@ Cordialement";
             }
 
             bool isAuthorized = false;
+            bool profTokenExpired = false;
 
             string? profTokenValue = profHeaderToken;
 
@@ -1834,8 +1839,16 @@ Cordialement";
 
                 if (profTokenValue == session.ProfSignatureToken || profTokenValue == session.ProfSignatureToken2)
                 {
-                    isAuthorized = true;
-                    _logger.LogInformation($"Accès autorisé par token professeur (1 ou 2) pour modifier le statut de présence de {studentNumber} dans la session {sessionId}");
+                    if (IsProfTokenActive(session))
+                    {
+                        isAuthorized = true;
+                        _logger.LogInformation($"Accès autorisé par token professeur (1 ou 2) pour modifier le statut de présence de {studentNumber} dans la session {sessionId}");
+                    }
+                    else
+                    {
+                        profTokenExpired = true;
+                        _logger.LogWarning($"Token professeur expiré pour la session {sessionId}");
+                    }
                 }
             }
 
@@ -1860,6 +1873,8 @@ Cordialement";
             {
                 _logger.LogWarning($"Tentative d'accès non autorisé pour modifier le statut de présence de {studentNumber}");
                 _logger.LogInformation($"Résumé de l'autorisation: Utilisateur authentifié: {User.Identity?.IsAuthenticated}, ProfToken dans l'en-tête: {!string.IsNullOrEmpty(profHeaderToken)}, ProfToken dans le body: {model?.ProfSignatureToken != null}");
+                if (profTokenExpired)
+                    return StatusCode(StatusCodes.Status403Forbidden, new { error = true, message = ExpiredProfTokenMessage });
                 return Forbid();
             }
 
@@ -2075,7 +2090,9 @@ Cordialement";
                 }
             }
 
-            if (!string.IsNullOrEmpty(profTokenValue) && (profTokenValue == sessionNormal.ProfSignatureToken || profTokenValue == sessionNormal.ProfSignatureToken2))
+            var profTokenMatches = !string.IsNullOrEmpty(profTokenValue) && (profTokenValue == sessionNormal.ProfSignatureToken || profTokenValue == sessionNormal.ProfSignatureToken2);
+            var profTokenExpired = profTokenMatches && !IsProfTokenActive(sessionNormal);
+            if (profTokenMatches && !profTokenExpired)
             {
                 isAuthorized = true;
                 accessType = "prof-token";
@@ -2102,6 +2119,8 @@ Cordialement";
             if (!isAuthorized)
             {
                 _logger.LogWarning($"Tentative d'accès non autorisé pour modifier le commentaire de présence de {studentNumber}");
+                if (profTokenExpired)
+                    return StatusCode(StatusCodes.Status403Forbidden, new { error = true, message = ExpiredProfTokenMessage });
                 return Forbid();
             }
 

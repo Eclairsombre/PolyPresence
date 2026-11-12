@@ -1152,4 +1152,60 @@ public class SessionControllerEndpointsTests
         result.Should().BeOfType<OkObjectResult>();
         db.Attendances.Single(a => a.Id == 6020).Comment.Should().Be("ok");
     }
+
+    [Fact]
+    public async Task ChangeAttendanceStatus_ShouldRejectProfToken_MoreThanAWeekAfterSession()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 503, StudentNumber = "S503", Name = "N", Firstname = "F", Email = "n@f.fr", Year = "3A" });
+        var eightDaysAgo = DateTime.Today.AddDays(-8);
+        db.Sessions.Add(new Session { Id = 5030, Year = "3A", Name = "Cours", Room = "A1", Date = eightDaysAgo, StartTime = eightDaysAgo.AddHours(8), EndTime = eightDaysAgo.AddHours(10), ValidationCode = "X", ProfSignatureToken = "oldtok" });
+        db.Attendances.Add(new Attendance { Id = 5030, SessionId = 5030, StudentId = 503, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+        controller.ControllerContext.HttpContext.Request.Headers["Prof-Signature-Token"] = "oldtok";
+
+        var result = await controller.ChangeAttendanceStatus(5030, "S503", new SessionController.ChangeAttendanceStatusModel { Status = (int)AttendanceStatus.Present });
+
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        db.Attendances.Single(a => a.Id == 5030).Status.Should().Be(AttendanceStatus.Absent);
+    }
+
+    [Fact]
+    public async Task ChangeAttendanceStatus_ShouldStillAllowProfToken_SevenDaysAfterSession()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 504, StudentNumber = "S504", Name = "N", Firstname = "F", Email = "n@f.fr", Year = "3A" });
+        var sevenDaysAgo = DateTime.Today.AddDays(-7);
+        db.Sessions.Add(new Session { Id = 5040, Year = "3A", Name = "Cours", Room = "A1", Date = sevenDaysAgo, StartTime = sevenDaysAgo.AddHours(8), EndTime = sevenDaysAgo.AddHours(10), ValidationCode = "X", ProfSignatureToken = "daytok" });
+        db.Attendances.Add(new Attendance { Id = 5040, SessionId = 5040, StudentId = 504, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+        controller.ControllerContext.HttpContext.Request.Headers["Prof-Signature-Token"] = "daytok";
+
+        var result = await controller.ChangeAttendanceStatus(5040, "S504", new SessionController.ChangeAttendanceStatusModel { Status = (int)AttendanceStatus.Present });
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateAttendanceComment_ShouldRejectProfToken_MoreThanAWeekAfterSession()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 603, StudentNumber = "S603", Name = "N", Firstname = "F", Email = "n@f.fr", Year = "3A" });
+        var eightDaysAgo = DateTime.Today.AddDays(-8);
+        db.Sessions.Add(new Session { Id = 6030, Year = "3A", Name = "Cours", Room = "A1", Date = eightDaysAgo, StartTime = eightDaysAgo.AddHours(8), EndTime = eightDaysAgo.AddHours(10), ValidationCode = "X", ProfSignatureToken = "oldtok2" });
+        db.Attendances.Add(new Attendance { Id = 6030, SessionId = 6030, StudentId = 603, Status = AttendanceStatus.Absent });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+        controller.ControllerContext.HttpContext.Request.Headers["Prof-Signature-Token"] = "oldtok2";
+
+        var result = await controller.UpdateAttendanceComment(6030, "S603", new SessionController.CommentUpdateModel { Comment = "x" });
+
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        db.Attendances.Single(a => a.Id == 6030).Comment.Should().BeNull();
+    }
 }
