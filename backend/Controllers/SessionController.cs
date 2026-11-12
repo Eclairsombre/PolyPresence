@@ -231,8 +231,10 @@ namespace backend.Controllers
                 ? new
                 {
                     s.Id, s.Date, s.StartTime, s.EndTime, s.Year, s.Name, s.Room,
-                    s.ValidationCode, s.ProfId, s.ProfSignature, s.ProfSignatureToken,
-                    s.ProfId2, s.ProfSignature2, s.ProfSignatureToken2,
+                    s.ValidationCode, s.ProfId, s.ProfSignature,
+                    ProfSignatureToken = isAdmin ? s.ProfSignatureToken : null,
+                    s.ProfId2, s.ProfSignature2,
+                    ProfSignatureToken2 = isAdmin ? s.ProfSignatureToken2 : null,
                     s.IsSent, s.IsMailSent, s.IsMailSent2, s.IsMerged, s.SpecializationId,
                     SpecializationName = s.Specialization?.Name,
                     SpecializationCode = s.Specialization?.Code
@@ -350,10 +352,10 @@ namespace backend.Controllers
                 session.ValidationCode,
                 session.ProfId,
                 session.ProfSignature,
-                session.ProfSignatureToken,
+                ProfSignatureToken = isAdmin ? session.ProfSignatureToken : null,
                 session.ProfId2,
                 session.ProfSignature2,
-                session.ProfSignatureToken2,
+                ProfSignatureToken2 = isAdmin ? session.ProfSignatureToken2 : null,
                 session.IsSent,
                 session.IsMailSent,
                 session.IsMailSent2,
@@ -437,10 +439,10 @@ namespace backend.Controllers
                 s.ValidationCode,
                 s.ProfId,
                 s.ProfSignature,
-                s.ProfSignatureToken,
+                ProfSignatureToken = isAdmin ? s.ProfSignatureToken : null,
                 s.ProfId2,
                 s.ProfSignature2,
-                s.ProfSignatureToken2,
+                ProfSignatureToken2 = isAdmin ? s.ProfSignatureToken2 : null,
                 s.IsSent,
                 s.IsMailSent,
                 s.IsMailSent2,
@@ -755,14 +757,9 @@ namespace backend.Controllers
                 return NotFound(new { message = "Aucune session en cours pour l'utilisateur." });
             }
 
-            var isAdmin = false;
-            var isDelegate = false;
-
-            if (User.Identity?.IsAuthenticated == true)
-            {
-                isAdmin = User.FindFirstValue("role") == "Admin";
-                isDelegate = User.FindFirstValue("isDelegate") == "true";
-            }
+            var currentUser = await GetAuthenticatedUserAsync();
+            var isAdmin = currentUser?.IsAdmin == true;
+            var isDelegate = currentUser?.IsDelegate == true;
 
             if (!isAdmin && !isDelegate)
             {
@@ -782,7 +779,31 @@ namespace backend.Controllers
                 });
             }
 
-            return new ActionResult<object>(currentSession);
+            return new ActionResult<object>(new
+            {
+                currentSession.Id,
+                currentSession.Date,
+                currentSession.StartTime,
+                currentSession.EndTime,
+                currentSession.Year,
+                currentSession.Name,
+                currentSession.Room,
+                currentSession.ValidationCode,
+                currentSession.IcsUid,
+                currentSession.IcsKind,
+                currentSession.SpecializationId,
+                currentSession.ProfId,
+                currentSession.ProfSignature,
+                ProfSignatureToken = isAdmin ? currentSession.ProfSignatureToken : null,
+                currentSession.ProfId2,
+                currentSession.ProfSignature2,
+                ProfSignatureToken2 = isAdmin ? currentSession.ProfSignatureToken2 : null,
+                currentSession.IsSent,
+                currentSession.IsMailSent,
+                currentSession.IsMailSent2,
+                currentSession.IsMerged,
+                SpecializationName = currentSession.Specialization?.Name
+            });
         }
 
         /**
@@ -911,6 +932,10 @@ namespace backend.Controllers
         [HttpPost("{sessionId}/student/{studentNumber}")]
         public async Task<IActionResult> AddStudentsToSession(int sessionId, string studentNumber)
         {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null || (!currentUser.IsAdmin && !currentUser.IsDelegate))
+                return Forbid();
+
             _logger.LogDebug($"Tentative d'ajout de l'étudiant {studentNumber} à la session {sessionId}");
 
             var session = await _context.Sessions.FindAsync(sessionId);
@@ -1851,8 +1876,11 @@ Cordialement";
          * This method retrieves the next execution times for the import and mail timers.
          */
         [HttpGet("timers")]
-        public IActionResult GetTimers()
+        public async Task<IActionResult> GetTimers()
         {
+            if ((await GetAuthenticatedUserAsync())?.IsAdmin != true)
+                return Forbid();
+
             var importTime = backend.Services.TimerService.StaticNextSessionExecutionTime;
             var mailTime = backend.Services.TimerService.StaticNextMailExecutionTime;
             var now = DateTime.Now;
@@ -1872,8 +1900,11 @@ Cordialement";
          * This method retrieves the status of automatic EDT import.
          */
         [HttpGet("auto-import-status")]
-        public IActionResult GetAutoImportStatus()
+        public async Task<IActionResult> GetAutoImportStatus()
         {
+            if ((await GetAuthenticatedUserAsync())?.IsAdmin != true)
+                return Forbid();
+
             return Ok(new
             {
                 enabled = backend.Services.TimerService.IsAutoImportEnabled
@@ -1886,8 +1917,11 @@ Cordialement";
          * This method enables or disables automatic EDT import.
          */
         [HttpPost("auto-import-status")]
-        public IActionResult SetAutoImportStatus([FromBody] AutoImportStatusModel model)
+        public async Task<IActionResult> SetAutoImportStatus([FromBody] AutoImportStatusModel model)
         {
+            if ((await GetAuthenticatedUserAsync())?.IsAdmin != true)
+                return Forbid();
+
             if (model.Enabled)
             {
                 backend.Services.TimerService.EnableAutoImport(_logger);

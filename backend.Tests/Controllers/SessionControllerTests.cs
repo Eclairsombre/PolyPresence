@@ -37,6 +37,16 @@ public class SessionControllerTests
         return controller;
     }
 
+    private static SessionController BuildAdminController(backend.Data.ApplicationDbContext db)
+    {
+        if (!db.Users.Any(u => u.Id == 9000))
+        {
+            db.Users.Add(new User { Id = 9000, StudentNumber = "ADM9000", Name = "Ad", Firstname = "Min", Email = "adm9000@x.fr", Year = "ADMIN", IsAdmin = true });
+            db.SaveChanges();
+        }
+        return BuildController(db, PrincipalWithIdAndRole(9000, role: "Admin"));
+    }
+
     private static ClaimsPrincipal PrincipalWithIdAndRole(int id, string role = "User", string isDelegate = "false")
     {
         return new ClaimsPrincipal(new ClaimsIdentity(new[]
@@ -293,7 +303,7 @@ public class SessionControllerTests
     public async Task AddStudentsToSession_ShouldReturnNotFound_WhenSessionMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(777, "S1");
 
@@ -319,7 +329,7 @@ public class SessionControllerTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(20, "UNKNOWN");
 
@@ -347,7 +357,7 @@ public class SessionControllerTests
         db.Attendances.Add(new Attendance { SessionId = 21, StudentId = 1, Status = AttendanceStatus.Absent });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(21, "S1");
 
@@ -374,7 +384,7 @@ public class SessionControllerTests
         });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildAdminController(db);
 
         var result = await controller.AddStudentsToSession(22, "S2");
 
@@ -690,40 +700,54 @@ public class SessionControllerTests
     }
 
     [Fact]
-    public void GetAutoImportStatus_ShouldReturnCurrentFlag()
+    public async Task GetAutoImportStatus_ShouldReturnCurrentFlag()
     {
         TimerService.EnableAutoImport(NullLogger.Instance);
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = BuildAdminController(db);
 
-        var result = controller.GetAutoImportStatus();
+        var result = await controller.GetAutoImportStatus();
 
         result.Should().BeOfType<OkObjectResult>();
     }
 
     [Fact]
-    public void SetAutoImportStatus_ShouldToggleFlag()
+    public async Task SetAutoImportStatus_ShouldToggleFlag()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = BuildAdminController(db);
 
-        var disable = controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = false });
+        var disable = await controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = false });
         disable.Should().BeOfType<OkObjectResult>();
         TimerService.IsAutoImportEnabled.Should().BeFalse();
 
-        var enable = controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = true });
+        var enable = await controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = true });
         enable.Should().BeOfType<OkObjectResult>();
         TimerService.IsAutoImportEnabled.Should().BeTrue();
     }
 
     [Fact]
-    public void GetTimers_ShouldReturnOkPayload()
+    public async Task GetTimers_ShouldReturnOkPayload()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = BuildAdminController(db);
 
-        var result = controller.GetTimers();
+        var result = await controller.GetTimers();
 
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task AdminOnlyEndpoints_ShouldForbidStudent()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "s1@x.fr", Year = "3A" });
+        await db.SaveChangesAsync();
+        var controller = BuildController(db, PrincipalWithIdAndRole(1));
+
+        (await controller.AddStudentsToSession(1, "S1")).Should().BeOfType<ForbidResult>();
+        (await controller.SetAutoImportStatus(new SessionController.AutoImportStatusModel { Enabled = false })).Should().BeOfType<ForbidResult>();
+        (await controller.GetTimers()).Should().BeOfType<ForbidResult>();
+        (await controller.GetAutoImportStatus()).Should().BeOfType<ForbidResult>();
     }
 }

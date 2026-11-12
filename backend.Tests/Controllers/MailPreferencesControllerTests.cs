@@ -61,7 +61,7 @@ public class MailPreferencesControllerTests
     public async Task GetPdf_ShouldReturnNotFound_WhenSessionMissing()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.GetPdf(404);
 
@@ -69,20 +69,20 @@ public class MailPreferencesControllerTests
     }
 
     [Fact]
-    public void GetPreferences_ShouldReturnNotFound_WhenUserMissing()
+    public async Task GetPreferences_ShouldReturnNotFound_WhenUserMissing()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = await BuildAdminControllerAsync(db);
 
-        var result = controller.GetPreferences("UNKNOWN");
+        var result = await controller.GetPreferences("UNKNOWN");
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
-    public void GetPreferences_ShouldCreateDefaultPreferences_WhenNoneExists()
+    public async Task GetPreferences_ShouldCreateDefaultPreferences_WhenNoneExists()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User
         {
             Id = 1,
@@ -94,9 +94,9 @@ public class MailPreferencesControllerTests
         });
         db.SaveChanges();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
-        var result = controller.GetPreferences("S1");
+        var result = await controller.GetPreferences("S1");
 
         result.Should().BeOfType<OkObjectResult>();
         db.MailPreferences.Should().ContainSingle();
@@ -104,12 +104,12 @@ public class MailPreferencesControllerTests
     }
 
     [Fact]
-    public void UpdatePreferences_ShouldReturnNotFound_WhenUserMissing()
+    public async Task UpdatePreferences_ShouldReturnNotFound_WhenUserMissing()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var controller = await BuildAdminControllerAsync(db);
 
-        var result = controller.UpdatePreferences("UNKNOWN", new MailPreferences
+        var result = await controller.UpdatePreferences("UNKNOWN", new MailPreferences
         {
             EmailTo = "mail@test.fr",
             Days = new List<string> { "Lundi" },
@@ -120,9 +120,9 @@ public class MailPreferencesControllerTests
     }
 
     [Fact]
-    public void UpdatePreferences_ShouldCreatePreferences_WhenUserHasNone()
+    public async Task UpdatePreferences_ShouldCreatePreferences_WhenUserHasNone()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.Add(new User
         {
             Id = 2,
@@ -134,9 +134,9 @@ public class MailPreferencesControllerTests
         });
         db.SaveChanges();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
-        var result = controller.UpdatePreferences("S2", new MailPreferences
+        var result = await controller.UpdatePreferences("S2", new MailPreferences
         {
             EmailTo = "prefs@test.fr",
             Days = new List<string> { "Mardi", "Jeudi" },
@@ -148,9 +148,9 @@ public class MailPreferencesControllerTests
     }
 
     [Fact]
-    public void UpdatePreferences_ShouldUpdateExistingPreferences()
+    public async Task UpdatePreferences_ShouldUpdateExistingPreferences()
     {
-        using var db = DbContextHelper.CreateInMemoryDbContext();
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
         var prefs = new MailPreferences { Id = 10, EmailTo = "old@test.fr", Days = new List<string> { "Lundi" }, Active = false };
         db.MailPreferences.Add(prefs);
         db.Users.Add(new User
@@ -165,9 +165,9 @@ public class MailPreferencesControllerTests
         });
         db.SaveChanges();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
-        var result = controller.UpdatePreferences("S3", new MailPreferences
+        var result = await controller.UpdatePreferences("S3", new MailPreferences
         {
             EmailTo = "new@test.fr",
             Days = new List<string> { "Vendredi" },
@@ -271,7 +271,7 @@ public class MailPreferencesControllerTests
 
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = await BuildAdminControllerAsync(db);
 
         var result = await controller.GetPdf(session.Id);
 
@@ -318,5 +318,20 @@ public class MailPreferencesControllerTests
         var act = async () => await controller.GenerateAndSendZip();
 
         await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task AdminEndpoints_ShouldForbidStudent()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 1, StudentNumber = "S1", Name = "A", Firstname = "B", Email = "s1@x.fr", Year = "3A" });
+        db.Users.Add(new User { Id = 2, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "adm@x.fr", Year = "ADMIN", IsAdmin = true });
+        await db.SaveChangesAsync();
+        var controller = BuildController(db, PrincipalWithId(1));
+
+        (await controller.GetPdf(1)).Should().BeOfType<ForbidResult>();
+        (await controller.GetPreferences("ADM")).Should().BeOfType<ForbidResult>();
+        (await controller.UpdatePreferences("ADM", new MailPreferences { EmailTo = "pirate@x.fr", Days = new List<string>(), Active = true })).Should().BeOfType<ForbidResult>();
+        db.MailPreferences.Should().BeEmpty();
     }
 }

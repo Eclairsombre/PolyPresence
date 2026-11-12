@@ -225,8 +225,16 @@ namespace backend.Controllers
          * This method checks if a user is an admin.
          */
         [HttpGet("IsUserAdmin/{username}")]
-        public IActionResult IsUserAdmin(string username)
+        public async Task<IActionResult> IsUserAdmin(string username)
         {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var currentUserId))
+                return Unauthorized(new { message = "Authentification requise." });
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null || currentUser.IsDeleted)
+                return Unauthorized(new { message = "Authentification requise." });
+            if (!currentUser.IsAdmin && currentUser.StudentNumber != username)
+                return Forbid();
+
             var isAdmin = _context.Users.Any(u => u.StudentNumber == username && u.IsAdmin && !u.IsDeleted);
             return Ok(new { IsAdmin = isAdmin });
         }
@@ -440,6 +448,12 @@ namespace backend.Controllers
             [FromQuery] int? pageSize = null,
             [FromQuery] string? search = null)
         {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var currentUserId))
+                return Unauthorized(new { message = "Authentification requise." });
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null || currentUser.IsDeleted || !currentUser.IsAdmin)
+                return Forbid();
+
             var query = _context.Users.Where(s => s.Year == year && !s.IsDeleted);
 
             if (specializationId.HasValue && !string.Equals(year, "ADMIN", StringComparison.OrdinalIgnoreCase))

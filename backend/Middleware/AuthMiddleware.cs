@@ -50,7 +50,6 @@ namespace backend.Middleware
                 "/api/Status",
                 "/api/User/refresh-token",
                 "/api/User/search",
-                "/api/User/year",
                 "/api/User/have-password",
                 "/api/User/send-register-link",
                 "/api/User/set-password",

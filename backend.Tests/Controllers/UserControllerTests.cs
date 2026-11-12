@@ -165,12 +165,12 @@ public class UserControllerTests
     public void IsUserAdmin_ShouldReturnTrueForActiveAdmin()
     {
         using var db = DbContextHelper.CreateInMemoryDbContext();
-        db.Users.Add(new User { StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "a@b.c", Year = "ADMIN", IsAdmin = true });
+        db.Users.Add(new User { Id = 70, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "a@b.c", Year = "ADMIN", IsAdmin = true });
         db.SaveChanges();
 
-        var controller = BuildController(db);
+        var controller = BuildController(db, principal: PrincipalWithUserId(70));
 
-        var result = controller.IsUserAdmin("ADM");
+        var result = controller.IsUserAdmin("ADM").GetAwaiter().GetResult();
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -179,7 +179,9 @@ public class UserControllerTests
     public async Task GetUserByYear_ShouldReturnNotFound_WhenNoUsers()
     {
         await using var db = DbContextHelper.CreateInMemoryDbContext();
-        var controller = BuildController(db);
+        db.Users.Add(new User { Id = 70, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "adm@b.c", Year = "ADMIN", IsAdmin = true });
+        await db.SaveChangesAsync();
+        var controller = BuildController(db, principal: PrincipalWithUserId(70));
 
         var result = await controller.GetUserByYear("3A", null);
 
@@ -192,10 +194,11 @@ public class UserControllerTests
         await using var db = DbContextHelper.CreateInMemoryDbContext();
         db.Users.AddRange(
             new User { StudentNumber = "S1", Name = "A", Firstname = "B", Email = "a@b.c", Year = "3A", SpecializationId = 1 },
-            new User { StudentNumber = "S2", Name = "C", Firstname = "D", Email = "c@d.e", Year = "3A", SpecializationId = 2 });
+            new User { StudentNumber = "S2", Name = "C", Firstname = "D", Email = "c@d.e", Year = "3A", SpecializationId = 2 },
+            new User { Id = 70, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "adm@b.c", Year = "ADMIN", IsAdmin = true });
         await db.SaveChangesAsync();
 
-        var controller = BuildController(db);
+        var controller = BuildController(db, principal: PrincipalWithUserId(70));
 
         var result = await controller.GetUserByYear("3A", 1);
 
@@ -1149,14 +1152,40 @@ public class UserControllerTests
     public void IsUserAdmin_ShouldReturnFalse_WhenUserMissingOrNotAdmin()
     {
         using var db = DbContextHelper.CreateInMemoryDbContext();
-        db.Users.Add(new User { StudentNumber = "S50", Name = "U", Firstname = "X", Email = "u@x.fr", Year = "3A", IsAdmin = false, IsDeleted = false });
+        db.Users.Add(new User { Id = 50, StudentNumber = "S50", Name = "U", Firstname = "X", Email = "u@x.fr", Year = "3A", IsAdmin = false, IsDeleted = false });
         db.SaveChanges();
 
-        var controller = BuildController(db);
-        var result = controller.IsUserAdmin("S50") as OkObjectResult;
+        var controller = BuildController(db, principal: PrincipalWithUserId(50));
+        var result = controller.IsUserAdmin("S50").GetAwaiter().GetResult() as OkObjectResult;
 
         result.Should().NotBeNull();
         result!.Value.Should().NotBeNull();
         result.Value!.GetType().GetProperty("IsAdmin")!.GetValue(result.Value)!.Should().Be(false);
+    }
+
+    [Fact]
+    public async Task IsUserAdmin_ShouldForbid_WhenAskingAboutAnotherUser()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.AddRange(
+            new User { Id = 50, StudentNumber = "S50", Name = "U", Firstname = "X", Email = "u@x.fr", Year = "3A" },
+            new User { Id = 70, StudentNumber = "ADM", Name = "A", Firstname = "B", Email = "adm@b.c", Year = "ADMIN", IsAdmin = true });
+        await db.SaveChangesAsync();
+
+        var result = await BuildController(db, principal: PrincipalWithUserId(50)).IsUserAdmin("ADM");
+
+        result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task GetUserByYear_ShouldForbid_NonAdmin()
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        db.Users.Add(new User { Id = 50, StudentNumber = "S50", Name = "U", Firstname = "X", Email = "u@x.fr", Year = "3A" });
+        await db.SaveChangesAsync();
+
+        var result = await BuildController(db, principal: PrincipalWithUserId(50)).GetUserByYear("3A", null);
+
+        result.Result.Should().BeOfType<ForbidResult>();
     }
 }

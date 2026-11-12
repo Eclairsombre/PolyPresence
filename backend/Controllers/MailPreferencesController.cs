@@ -39,6 +39,16 @@ namespace backend.Controllers
             _env = env;
         }
 
+        private async Task<User?> GetAuthenticatedUserAsync()
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+                return null;
+            var user = await _context.Users.FindAsync(userId);
+            return (user == null || user.IsDeleted) ? null : user;
+        }
+
+        private async Task<bool> IsAdminAsync() => (await GetAuthenticatedUserAsync())?.IsAdmin == true;
+
         /*
         * GetPdf
         *
@@ -47,6 +57,9 @@ namespace backend.Controllers
         [HttpGet("pdf/{sessionId}")]
         public async Task<IActionResult> GetPdf(int sessionId)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             var session = _context.Sessions
                 .Include(s => s.Attendances)
                 .ThenInclude(a => a.User)
@@ -468,8 +481,11 @@ namespace backend.Controllers
         * This method retrieves the mail preferences for a specific user.
         */
         [HttpGet("{userId}")]
-        public IActionResult GetPreferences(string userId)
+        public async Task<IActionResult> GetPreferences(string userId)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             var user = _context.Users.FirstOrDefault(u => u.StudentNumber == userId);
             if (user == null) return NotFound("Utilisateur non trouvé.");
 
@@ -505,8 +521,11 @@ namespace backend.Controllers
         * This method updates the mail preferences for a specific user.
         */
         [HttpPut("{userId}")]
-        public IActionResult UpdatePreferences(string userId, [FromBody] MailPreferences preferences)
+        public async Task<IActionResult> UpdatePreferences(string userId, [FromBody] MailPreferences preferences)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             var user = _context.Users.FirstOrDefault(u => u.StudentNumber == userId);
             if (user == null) return NotFound("Utilisateur non trouvé.");
             _logger.LogInformation($"Récupération des préférences de mail pour l'utilisateur {userId}");
