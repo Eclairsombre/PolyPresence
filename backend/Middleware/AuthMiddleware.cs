@@ -31,6 +31,9 @@ namespace backend.Middleware
             @"^/api/session/current/[^/]+/stream$",          // SSE "cours en cours" étudiant (valide access_token)
         }.Select(p => new Regex(p, RegexOptions.Compiled)).ToArray();
 
+        private static readonly Regex PublicProfessorDetailRoute =
+            new(@"^/api/professor/\d+$", RegexOptions.Compiled);
+
         public AuthMiddleware(RequestDelegate next, ILogger<AuthMiddleware> logger)
         {
             _next = next;
@@ -66,7 +69,7 @@ namespace backend.Middleware
                 return;
             }
 
-            if (requestPath != null && requestPath.StartsWith("/api/professor") && context.Request.Method == "GET")
+            if (requestPath != null && PublicProfessorDetailRoute.IsMatch(requestPath) && context.Request.Method == "GET")
             {
                 await _next(context);
                 return;

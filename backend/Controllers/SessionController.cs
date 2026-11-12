@@ -1110,12 +1110,12 @@ namespace backend.Controllers
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
             {
                 profTokenValue = headerToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             else if (Request.Query.TryGetValue("token", out var queryToken))
             {
                 profTokenValue = queryToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'URL)");
             }
             else
             {
@@ -1128,7 +1128,7 @@ namespace backend.Controllers
                         if (segments[i] == "prof-signature" && i + 1 < segments.Length)
                         {
                             profTokenValue = segments[i + 1];
-                            _logger.LogInformation($"Token trouvé dans le chemin: {profTokenValue}");
+                            _logger.LogInformation("Token de signature prof fourni (le chemin)");
                             break;
                         }
                     }
@@ -1720,15 +1720,9 @@ Cordialement";
             _logger.LogInformation($"==== DÉBUT TRAITEMENT REQUÊTE CHANGEMENT STATUT ====");
             _logger.LogInformation($"Requête reçue pour modifier le statut de présence: Session={sessionId}, Étudiant={studentNumber}");
 
-            _logger.LogInformation("TOUS LES EN-TÊTES:");
-            foreach (var header in Request.Headers)
-            {
-                _logger.LogInformation($"  {header.Key}: {header.Value}");
-            }
-
             if (model != null)
             {
-                _logger.LogInformation($"Modèle reçu: Status={model.Status}, ProfSignatureToken={model.ProfSignatureToken ?? "null"}");
+                _logger.LogInformation($"Modèle reçu: Status={model.Status}, ProfSignatureToken fourni={!string.IsNullOrEmpty(model.ProfSignatureToken)}");
             }
             else
             {
@@ -1739,7 +1733,7 @@ Cordialement";
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerTokenValue))
             {
                 profHeaderToken = headerTokenValue.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profHeaderToken}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             else
             {
@@ -1767,12 +1761,12 @@ Cordialement";
                 if (Request.Query.TryGetValue("token", out var queryToken))
                 {
                     profTokenValue = queryToken.ToString();
-                    _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+                    _logger.LogInformation("Token de signature prof fourni (l'URL)");
                 }
                 else if (model != null && !string.IsNullOrEmpty(model.ProfSignatureToken))
                 {
                     profTokenValue = model.ProfSignatureToken;
-                    _logger.LogInformation($"Token trouvé dans le body: {profTokenValue}");
+                    _logger.LogInformation("Token de signature prof fourni (le body)");
                 }
             }
 
@@ -1819,7 +1813,6 @@ Cordialement";
             {
                 _logger.LogWarning($"Tentative d'accès non autorisé pour modifier le statut de présence de {studentNumber}");
                 _logger.LogInformation($"Résumé de l'autorisation: Utilisateur authentifié: {User.Identity?.IsAuthenticated}, ProfToken dans l'en-tête: {!string.IsNullOrEmpty(profHeaderToken)}, ProfToken dans le body: {model?.ProfSignatureToken != null}");
-                _logger.LogInformation($"Token attendu pour la session {sessionId}: {session.ProfSignatureToken}");
                 return Forbid();
             }
 
@@ -1934,7 +1927,7 @@ Cordialement";
             // Log des détails de la requête pour aider au débogage
             if (model != null)
             {
-                _logger.LogInformation($"Modèle reçu: Comment={model.Comment}, ProfSignatureToken={model.ProfSignatureToken ?? "null"}");
+                _logger.LogInformation($"Modèle reçu: Comment={model.Comment}, ProfSignatureToken fourni={!string.IsNullOrEmpty(model.ProfSignatureToken)}");
             }
             else
             {
@@ -1945,7 +1938,7 @@ Cordialement";
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerTokenValue))
             {
                 profHeaderToken = headerTokenValue.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profHeaderToken}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             var sessionNormal = await _context.Sessions.FindAsync(sessionId);
             if (sessionNormal == null)
@@ -1967,22 +1960,22 @@ Cordialement";
             if (Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
             {
                 profTokenValue = headerToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'en-tête HTTP: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'en-tête HTTP)");
             }
             else if (Request.Query.TryGetValue("token", out var queryToken))
             {
                 profTokenValue = queryToken.ToString();
-                _logger.LogInformation($"Token trouvé dans l'URL: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (l'URL)");
             }
             else if (model != null && !string.IsNullOrEmpty(model.ProfSignatureToken))
             {
                 profTokenValue = model.ProfSignatureToken;
-                _logger.LogInformation($"Token trouvé dans le body: {profTokenValue}");
+                _logger.LogInformation("Token de signature prof fourni (le body)");
             }
             else if (Request.Headers.TryGetValue("Referer", out var referer))
             {
                 string refererStr = referer.ToString();
-                _logger.LogInformation($"Recherche du token dans le Referer: {refererStr}");
+                _logger.LogInformation("Recherche du token dans le Referer");
 
                 if (!string.IsNullOrEmpty(refererStr) && refererStr.Contains("/prof-signature/"))
                 {
@@ -1995,7 +1988,7 @@ Cordialement";
                             if (segments[i] == "prof-signature" && i + 1 < segments.Length)
                             {
                                 profTokenValue = segments[i + 1];
-                                _logger.LogInformation($"Token trouvé dans le Referer: {profTokenValue}");
+                                _logger.LogInformation("Token de signature prof fourni (le Referer)");
                                 break;
                             }
                         }

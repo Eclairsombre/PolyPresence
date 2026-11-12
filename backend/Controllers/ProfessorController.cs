@@ -2,6 +2,7 @@ using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace backend.Controllers
 {
@@ -21,7 +22,16 @@ namespace backend.Controllers
             _context = context;
         }
 
-        // Projection exposée au frontend (mêmes champs qu'avant : id, name, firstname, email).
+        private async Task<User?> GetAuthenticatedUserAsync()
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+                return null;
+            var user = await _context.Users.FindAsync(userId);
+            return (user == null || user.IsDeleted) ? null : user;
+        }
+
+        private async Task<bool> IsAdminAsync() => (await GetAuthenticatedUserAsync())?.IsAdmin == true;
+
         private static object ToDto(User u) => new
         {
             id = u.Id,
@@ -32,31 +42,66 @@ namespace backend.Controllers
             hasAccount = !string.IsNullOrEmpty(u.PasswordHash)
         };
 
-        [HttpGet]
-        public IActionResult GetProfessors()
+        private static object ToPublicDto(User u) => new
         {
-            var professors = _context.Users
+            id = u.Id,
+            name = u.Name,
+            firstname = u.Firstname
+        };
+
+        [HttpGet]
+        public async Task<IActionResult> GetProfessors()
+        {
+            if (!await IsAdminAsync())
+                return Forbid();
+
+            var professors = (await _context.Users
                 .Where(u => u.IsProfessor && !u.IsDeleted)
-                .ToList()
+                .ToListAsync())
                 .Select(ToDto)
                 .ToList();
             return Ok(professors);
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetProfessorById(int id)
+        public async Task<IActionResult> GetProfessorById(int id)
         {
-            var professor = _context.Users.FirstOrDefault(u => u.Id == id && u.IsProfessor && !u.IsDeleted);
+            var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsProfessor && !u.IsDeleted);
             if (professor == null)
             {
                 return NotFound(new { error = true, message = "Professeur non trouvé." });
             }
-            return Ok(ToDto(professor));
+
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser != null && (currentUser.IsAdmin || currentUser.IsDelegate))
+                return Ok(ToDto(professor));
+
+            if (await HasProfTokenForProfessorAsync(id))
+                return Ok(ToDto(professor));
+
+            return Ok(ToPublicDto(professor));
+        }
+
+        private async Task<bool> HasProfTokenForProfessorAsync(int professorId)
+        {
+            if (!Request.Headers.TryGetValue("Prof-Signature-Token", out var headerToken))
+                return false;
+            var token = headerToken.ToString();
+            if (string.IsNullOrEmpty(token))
+                return false;
+
+            var profId = professorId.ToString();
+            return await _context.Sessions.AnyAsync(s =>
+                (s.ProfSignatureToken == token && s.ProfId == profId) ||
+                (s.ProfSignatureToken2 == token && s.ProfId2 == profId));
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProfessor(int id)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsProfessor);
             if (professor == null)
             {
@@ -90,6 +135,9 @@ namespace backend.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateProfessor([FromBody] CreateProfessorModel model)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             if (string.IsNullOrWhiteSpace(model?.Name) || string.IsNullOrWhiteSpace(model.Firstname))
             {
                 return BadRequest(new { error = true, message = "Nom et prénom requis." });
@@ -126,6 +174,9 @@ namespace backend.Controllers
         [HttpPut("{id}/email")]
         public async Task<IActionResult> UpdateProfessorEmail(int id, [FromBody] UpdateEmailModel model)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             var professor = await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.IsProfessor);
             if (professor == null)
             {
@@ -143,6 +194,9 @@ namespace backend.Controllers
         [HttpPost("find-or-create")]
         public async Task<IActionResult> FindOrCreateProfessor([FromBody] CreateProfessorModel input)
         {
+            if (!await IsAdminAsync())
+                return Forbid();
+
             if (string.IsNullOrWhiteSpace(input?.Name) || string.IsNullOrWhiteSpace(input.Firstname))
                 return BadRequest("Nom et prénom requis");
 

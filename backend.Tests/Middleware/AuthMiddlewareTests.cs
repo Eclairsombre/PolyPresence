@@ -50,6 +50,29 @@ public class AuthMiddlewareTests
         nextCalled.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("/api/professor", false)]
+    [InlineData("/api/Professor", false)]
+    [InlineData("/api/professor/12", true)]
+    [InlineData("/api/professor/12/email", false)]
+    public async Task InvokeAsync_ProfessorGet_OnlyDetailIsPublic(string path, bool expectPublic)
+    {
+        await using var db = DbContextHelper.CreateInMemoryDbContext();
+        var rate = new RateLimitService(NullLogger<RateLimitService>.Instance);
+        var nextCalled = false;
+        var middleware = new AuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, NullLogger<AuthMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Request.Path = path;
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context, db, new FakeJwtService(), rate);
+
+        nextCalled.Should().Be(expectPublic);
+        if (!expectPublic) context.Response.StatusCode.Should().Be(401);
+    }
+
     [Fact]
     public async Task InvokeAsync_MissingToken_ShouldReturn401()
     {
