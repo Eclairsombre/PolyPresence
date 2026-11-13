@@ -1,15 +1,86 @@
-MIT License
+LICENCE PROPRIÉTAIRE — TOUS DROITS RÉSERVÉS
 
-Copyright (c) 2025 Eclairsombre
+Copyright (c) 2025-2026 Eclairsombre (https://github.com/Eclairsombre)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Le logiciel PolyPresence, comprenant son code source, son code compilé, sa
+documentation, ses éléments graphiques et tout fichier de ce dépôt (ci-après
+« le Logiciel »), est la propriété exclusive de son auteur et est protégé par
+le Code de la propriété intellectuelle et les conventions internationales sur
+le droit d'auteur.
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+1. CONSULTATION
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   La publication du code source dans un dépôt public a pour seul but de
+   permettre sa consultation. Elle ne vaut ni licence, ni cession, ni
+   autorisation d'utilisation d'aucune sorte.
 
----
+2. INTERDICTIONS
 
-**Additional restriction:**
+   Sauf autorisation écrite, préalable et expresse de l'auteur, il est
+   interdit, en tout ou partie et par quelque moyen que ce soit :
 
-The use, distribution, or modification of this application is strictly prohibited without the explicit consent of the author, including by Polytech Lyon. Any external, internal, commercial, or unauthorized use is forbidden without prior written authorization.
+   a) d'utiliser, d'exécuter ou de déployer le Logiciel, que ce soit à des
+      fins personnelles, internes, pédagogiques, administratives ou
+      commerciales ;
+   b) de copier ou de reproduire le Logiciel, au-delà de la copie technique
+      nécessaire à sa consultation sur la plateforme d'hébergement ;
+   c) de modifier, d'adapter, de traduire le Logiciel ou d'en créer des
+      œuvres dérivées ;
+   d) de distribuer, de publier, de sous-licencier, de louer, de vendre ou de
+      mettre à disposition le Logiciel ou une œuvre dérivée, y compris sous
+      forme de service en ligne (SaaS) ;
+   e) d'utiliser le nom « PolyPresence » pour désigner une copie ou une œuvre
+      dérivée du Logiciel.
+
+   Ces interdictions s'appliquent à toute personne physique ou morale, y
+   compris Polytech Lyon, l'Université Claude Bernard Lyon 1 et tout autre
+   établissement, sauf autorisation écrite de l'auteur.
+
+3. AUTORISATIONS
+
+   Toute demande d'autorisation doit être adressée à l'auteur via son profil
+   GitHub : https://github.com/Eclairsombre. Une autorisation n'est valable
+   que si elle est donnée par écrit, et uniquement dans les limites qu'elle
+   précise (personnes concernées, usage, durée). Elle est personnelle et ne
+   peut être transférée.
+
+4. CONTRIBUTIONS
+
+   Toute contribution soumise à ce dépôt (pull request, correctif, etc.) est
+   faite sous réserve de l'accord de son auteur pour qu'elle soit intégrée au
+   Logiciel et diffusée selon les termes de la présente licence.
+
+5. ABSENCE DE GARANTIE
+
+   LE LOGICIEL EST FOURNI « EN L'ÉTAT », SANS AUCUNE GARANTIE, EXPRESSE OU
+   IMPLICITE. EN AUCUN CAS L'AUTEUR NE POURRA ÊTRE TENU RESPONSABLE D'UN
+   DOMMAGE, DIRECT OU INDIRECT, RÉSULTANT DE L'UTILISATION DU LOGICIEL OU DE
+   L'IMPOSSIBILITÉ DE L'UTILISER.
+
+6. SANCTIONS
+
+   Toute utilisation non autorisée constitue une contrefaçon au sens des
+   articles L.335-2 et suivants du Code de la propriété intellectuelle et
+   expose son auteur à des poursuites.
+
+7. DROIT APPLICABLE
+
+   La présente licence est régie par le droit français. Les versions
+   antérieures du Logiciel diffusées sous une autre licence restent régies
+   par celle-ci.
+
+--------------------------------------------------------------------------------
+
+PROPRIETARY LICENSE — ALL RIGHTS RESERVED (English summary)
+
+Copyright (c) 2025-2026 Eclairsombre (https://github.com/Eclairsombre)
+
+The source code is published for viewing purposes only. No license is granted.
+Without the author's prior written permission, you may not use, run, deploy,
+copy, modify, create derivative works from, distribute, sublicense, sell, or
+offer the Software as a service, in whole or in part, for any purpose. This
+applies to everyone, including Polytech Lyon and Université Claude Bernard
+Lyon 1. Requests for permission: https://github.com/Eclairsombre.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. In case of
+discrepancy, the French version above prevails.
